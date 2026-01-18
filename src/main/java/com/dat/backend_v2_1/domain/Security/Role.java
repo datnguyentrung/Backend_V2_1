@@ -1,28 +1,67 @@
 package com.dat.backend_v2_1.domain.Security;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.*;
+import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.type.SqlTypes;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.util.Objects;
+import java.util.UUID;
 
 @Getter
 @Setter
-@Entity
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "Role", schema = "security")
+@Entity
+@EntityListeners(AuditingEntityListener.class)
+@Table(name = "role", schema = "security")
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class Role {
+
     @Id
+    @GeneratedValue(generator = "uuid-hibernate-generator")
+    @UuidGenerator // Chuẩn mới của Hibernate 6, thay thế cho GenericGenerator cũ
+    @JdbcTypeCode(SqlTypes.UUID) // Bắt buộc nếu dùng PostgreSQL để map sang kiểu 'uuid' native thay vì bytea
     @Column(name = "role_id", updatable = false, nullable = false)
-    private String roleId;
+    UUID roleId; // Dùng Integer vì hệ thống thường chỉ có < 100 role. Tiết kiệm bộ nhớ hơn String/UUID.
 
-    @Column(name = "role_code", unique = true, nullable = false)
-    private String roleCode;
+    @NotBlank(message = "Mã quyền không được để trống")
+    @Size(max = 50, message = "Mã quyền không quá 50 ký tự")
+    // Convention của Spring Security thường bắt đầu bằng ROLE_ (VD: ROLE_ADMIN)
+    @Pattern(regexp = "^ROLE_[A-Z0-9_]+$", message = "Mã quyền phải bắt đầu bằng 'ROLE_' và viết hoa (VD: ROLE_ADMIN)")
+    @Column(name = "role_code", unique = true, nullable = false, length = 50)
+    String code; // Tên biến trong Java là 'code', DB là 'role_code'
 
+    @NotBlank(message = "Tên hiển thị không được để trống")
+    @Size(max = 100)
+    @Column(name = "role_name", unique = true, nullable = false, length = 100)
+    String name; // Tên hiển thị (VD: Quản trị viên, Học viên) - Java dùng 'name' cho chuẩn
+
+    @Size(max = 255)
     @Column(name = "description")
-    private String description;
+    String description;
 
-    @Column(name = "role_name", unique = true, nullable = false)
-    private String role_name;
+    // --- Override equals/hashCode ---
+    // Giúp so sánh 2 Role dựa trên code (nghiệp vụ) thay vì vị trí bộ nhớ
+    // Rất hữu ích khi dùng trong Set<Role> hoặc SecurityContext
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Role role = (Role) o;
+        return Objects.equals(code, role.code);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(code);
+    }
 }

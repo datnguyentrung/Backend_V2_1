@@ -1,6 +1,6 @@
 package com.dat.backend_v2_1.config;
 
-import com.dat.backend_v2_0.dto.RestResponse;
+import com.dat.backend_v2_1.dto.RestResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

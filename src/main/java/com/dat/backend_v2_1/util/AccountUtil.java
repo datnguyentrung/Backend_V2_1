@@ -1,12 +1,12 @@
 package com.dat.backend_v2_1.util;
 
-import com.dat.backend_v2_0.domain.authz.Roles;
+import com.dat.backend_v2_1.domain.Security.Role;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
 public class AccountUtil {
-    public static String generateIdAccount(Roles role, Integer number) {
+    public static String generateIdAccount(Role role, Integer number) {
         // Thế hệ
         String gen = String.valueOf(getGenCurrent());
 
@@ -27,13 +27,16 @@ public class AccountUtil {
         return String.format("%02d", years);
     }
 
-    public static String getRoleKey(Roles role) {
-        return switch (role.getIdRole()) {
-            case "STUDENT" -> "S";
-            case "COACH" -> "C";
-            case "ASSISTANT" -> "A";
-            case "ADMIN" -> "D";
-            default -> "N";
+    public static String getRoleKey(Role role) {
+        String roleId = String.valueOf(role.getRoleId());
+
+        // Cần Java 21 (hoặc Java 17-20 bật chế độ preview)
+        return switch (roleId) {
+            case String s when s.contains("STUDENT") -> "S";
+            case String s when s.contains("COACH") -> "C";
+            case String s when s.contains("ASSISTANT") -> "A";
+            case String s when s.contains("ADMIN") -> "D";
+            case null, default -> "N"; // Xử lý null và trường hợp còn lại
         };
     }
 }

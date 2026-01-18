@@ -1,6 +1,6 @@
 package com.dat.backend_v2_1.config;
 
-import com.dat.backend_v2_0.util.SecurityUtil;
+import com.dat.backend_v2_1.util.SecurityUtil;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.util.Base64;
 import org.springframework.beans.factory.annotation.Value;

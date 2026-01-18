@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/version_3}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/version_4}
     username: ${SPRING_DATASOURCE_USERNAME:root}
     password: ${SPRING_DATASOURCE_PASSWORD:31102005}
 
@@ -89,16 +89,16 @@ logging:
 
     #    root: INFO
     #
-    #    # 1. T?T log SQL t?ng dòng (Th? ph?m gây hi?u l?m)
+    #    # 1. T?T log SQL t?ng dï¿½ng (Th? ph?m gï¿½y hi?u l?m)
     #    org.hibernate.SQL: OFF
     #    org.hibernate.type.descriptor.sql.BasicBinder: OFF
     #
-    #    # 2. C? g?ng b?t th?ng kê (N?u Hibernate 7 h? tr? class này)
+    #    # 2. C? g?ng b?t th?ng kï¿½ (N?u Hibernate 7 h? tr? class nï¿½y)
     #    org.hibernate.stat: DEBUG
     #    org.hibernate.engine.internal.StatisticalLoggingSessionEventListener: INFO
 
-    # 3. Các log h? th?ng khác
-#    org.springframework.web: INFO # Gi?m xu?ng INFO cho ?? rác
+    # 3. Cï¿½c log h? th?ng khï¿½c
+#    org.springframework.web: INFO # Gi?m xu?ng INFO cho ?? rï¿½c
 #    org.postgresql: WARN
 
 jwt:

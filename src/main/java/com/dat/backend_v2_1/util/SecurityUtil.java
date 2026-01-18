@@ -1,7 +1,7 @@
 package com.dat.backend_v2_1.util;
 
 
-import com.dat.backend_v2_0.dto.authentication.LoginRes;
+import com.dat.backend_v2_1.dto.Security.LoginRes;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.util.Base64;
 import org.springframework.beans.factory.annotation.Value;

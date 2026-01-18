@@ -1,6 +1,6 @@
 package com.dat.backend_v2_1.util;
 
-import com.dat.backend_v2_0.dto.RestResponse;
+import com.dat.backend_v2_1.dto.RestResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;

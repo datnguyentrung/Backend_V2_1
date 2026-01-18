@@ -1,6 +1,6 @@
 package com.dat.backend_v2_1.util.error;
 
-import com.dat.backend_v2_0.dto.RestResponse;
+import com.dat.backend_v2_1.dto.RestResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;

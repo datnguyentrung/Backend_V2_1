@@ -43,7 +43,7 @@ public class Student extends User {
     @NotNull(message = "Ngày bắt đầu tập không được để trống")
     @PastOrPresent(message = "Ngày bắt đầu không được ở tương lai")
     @Column(name = "start_date", nullable = false)
-    LocalDate startDate;
+    LocalDate startDate = LocalDate.now();
 
     // Đổi tên biến status -> studentStatus để tránh trùng với User.status
     // User.status: Active/Locked (Trạng thái tài khoản hệ thống)

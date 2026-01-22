@@ -31,11 +31,4 @@ public class LoginRes {
             return "UserLogin{id= " + idAccount + ", status= " + status + "}";
         }
     }
-
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class UserGetAccount {
-        private UserLogin userLogin;
-    }
 }

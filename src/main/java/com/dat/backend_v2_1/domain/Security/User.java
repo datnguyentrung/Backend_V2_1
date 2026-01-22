@@ -11,10 +11,12 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -52,6 +54,10 @@ public class User {
     @Column(name = "created_at", nullable = false, updatable = false)
     Instant createdAt;
 
+    @LastModifiedDate // Tự động cập nhật thời gian khi bản ghi bị thay đổi
+    @Column(name = "updated_at")
+    Instant updatedAt;
+
     @Column(name = "last_login_at")
     Instant lastLoginAt;
 
@@ -74,5 +80,5 @@ public class User {
     @NotNull(message = "Đai không được để trống")
     @Enumerated(EnumType.STRING)
     @Column(name = "belt", length = 20)
-    Belt belt;
+    Belt belt = Belt.C10;
 }

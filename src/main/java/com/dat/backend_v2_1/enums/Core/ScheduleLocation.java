@@ -1,5 +1,8 @@
 package com.dat.backend_v2_1.enums.Core;
 
+import lombok.Getter;
+
+@Getter
 public enum ScheduleLocation {
     INDOOR("Trong Nhà"),
     OUTDOOR("Ngoài Trời"),
@@ -11,7 +14,4 @@ public enum ScheduleLocation {
         this.displayName = displayName;
     }
 
-    public String getDisplayName() {
-        return displayName;
-    }
 }

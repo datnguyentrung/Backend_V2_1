@@ -71,21 +71,14 @@ public class StudentResDTO {
     /**
      * DTO trả về thông tin tóm tắt Student cho danh sách
      */
+
     @Data
     @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class StudentSummary {
         private UUID userId;
-        private String studentCode;
         private String fullName;
-        private String phoneNumber;
-        private Belt belt;
-        private StudentStatus studentStatus;
-        private String branchName;
-
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
-        private LocalDate startDate;
+        private String email;
+        private String code; // Mã sinh viên
     }
 }
 

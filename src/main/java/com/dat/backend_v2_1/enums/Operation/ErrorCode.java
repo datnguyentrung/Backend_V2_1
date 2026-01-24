@@ -10,7 +10,9 @@ public enum ErrorCode {
     STUDENT_NOT_FOUND(404, "Không tìm thấy thông tin học viên"),
     CLASS_NOT_FOUND(404, "Lớp học không tồn tại"),
     UNCATEGORIZED_EXCEPTION(500, "Lỗi hệ thống không xác định"),
-    ENROLLMENT_NOT_FOUND(404, "Không tìm thấy thông tin đăng ký học viên");
+    ENROLLMENT_NOT_FOUND(404, "Không tìm thấy thông tin đăng ký học viên"),
+    COACH_ASSIGNMENT_NOT_FOUND(404, "Không tìm thấy thông tin phân công huấn luyện viên"),
+    COACH_ALREADY_ASSIGNED(409, "Huấn luyện viên đã được phân công cho lớp học này");
 
     private final int statusCode;
     private final String message;

@@ -144,8 +144,6 @@ public class StudentService {
         return getStudentDetail(updatedStudent.getUserId());
     }
 
-
-
     @Transactional(rollbackFor = Exception.class)
     public String createStudent(StudentReqDTO.StudentCreate createDTO){
         // BƯỚC 1: Validate Business (Check trùng lặp)

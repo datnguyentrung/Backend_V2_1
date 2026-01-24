@@ -1,8 +1,8 @@
 package com.dat.backend_v2_1.mapper.Core;
 
 import com.dat.backend_v2_1.domain.Core.Coach;
-import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.domain.Security.Role;
+import com.dat.backend_v2_1.dto.Core.CoachResDTO;
 import com.dat.backend_v2_1.dto.Security.UserRes;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
 import org.mapstruct.Mapper;
@@ -44,5 +44,31 @@ public interface CoachMapper {
     default String getRoleName(Role role) {
         if (role == null) return null;
         return role.getCode(); // Đảm bảo class Role có hàm getCode()
+    }
+
+    default CoachResDTO.CoachDetail toCoachDetail(Coach coach) {
+        if (coach == null) {
+            return null;
+        }
+
+        Role role = coach.getRole();
+
+        return CoachResDTO.CoachDetail.builder()
+                // === Thông tin từ User (Parent) ===
+                .userId(coach.getUserId())
+                .birthDate(coach.getBirthDate())
+                .phoneNumber(coach.getPhoneNumber())
+                .belt(coach.getBelt())
+                .status(coach.getStatus())
+                .createdAt(coach.getCreatedAt())
+                .updatedAt(coach.getUpdatedAt())
+                .lastLoginAt(coach.getLastLoginAt())
+                .roleName(role != null ? role.getCode() : null)
+                // === Thông tin từ Coach (Child) ===
+                .staffCode(coach.getStaffCode())
+                .fullName(coach.getFullName())
+                .position(coach.getPosition())
+                .coachStatus(coach.getCoachStatus())
+                .build();
     }
 }

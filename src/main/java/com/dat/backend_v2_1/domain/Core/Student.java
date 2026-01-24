@@ -30,11 +30,6 @@ public class Student extends User {
     @Column(name = "student_code", nullable = false, unique = true, length = 50)
     String studentCode;
 
-//    @NotBlank(message = "CCCD/CMND không được để trống")
-    @Size(max = 50, message = "CCCD/CMND tối đa 12 ký tự")
-    @Column(name = "national_code", nullable = true, unique = true, length = 50)
-    String nationalCode;
-
     @NotBlank(message = "Họ tên không được để trống")
     @Size(max = 100, message = "Họ tên tối đa 100 ký tự")
     @Column(name = "full_name", nullable = false, length = 100)

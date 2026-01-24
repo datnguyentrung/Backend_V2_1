@@ -40,6 +40,10 @@ public class User {
     @Column(name = "user_id", updatable = false, nullable = false)
     UUID userId;
 
+    @Size(max = 50, message = "CCCD/CMND tối đa 12 ký tự")
+    @Column(name = "national_code", nullable = true, unique = true, length = 50)
+    String nationalCode;
+
     @NotNull
     @Column(name = "password_hash", nullable = false)
     String passwordHash;

@@ -43,7 +43,6 @@ public interface CoachAssignmentMapper {
                 .userId(coach.getUserId())
                 .fullName(coach.getFullName())
                 .staffCode(coach.getStaffCode())
-                .position(coach.getPosition())
                 .build();
     }
 
@@ -56,6 +55,9 @@ public interface CoachAssignmentMapper {
         return ClassScheduleResDTO.ClassScheduleSummary.builder()
                 .scheduleId(classSchedule.getScheduleId())
                 .branchName(classSchedule.getBranch() != null ? classSchedule.getBranch().getBranchName() : null)
+                .scheduleLocation(classSchedule.getLocation())
+                .scheduleLevel(classSchedule.getLevel())
+                .scheduleShift(classSchedule.getShift())
                 .startTime(classSchedule.getStartTime())
                 .endTime(classSchedule.getEndTime())
                 .weekday(classSchedule.getWeekday())

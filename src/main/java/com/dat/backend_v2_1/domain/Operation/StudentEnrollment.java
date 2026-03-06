@@ -64,8 +64,8 @@ public class StudentEnrollment {
     @Column(name = "join_date", nullable = false)
     LocalDate joinDate;
 
-    @Column(name = "leave_date")
-    LocalDate leaveDate; // Có thể null nếu đang học
+    @Column(name = "end_date")
+    LocalDate endDate; // Có thể null nếu đang học
 
     @NotNull
     @Enumerated(EnumType.STRING)

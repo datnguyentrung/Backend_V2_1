@@ -55,6 +55,9 @@ public class AuthToken {
     @Column(name = "created_at", nullable = false, updatable = false)
     Instant createdAt;
 
+    @Column(name = "fcm_token", length = 500) // Token Firebase khá dài, nên để 500 cho chắc
+    String fcmToken;
+
     // Tự động set thời gian tạo
     @PrePersist
     protected void onCreate() {

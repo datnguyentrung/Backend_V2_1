@@ -1,9 +1,7 @@
 package com.dat.backend_v2_1.repository.Operation;
 
-import com.dat.backend_v2_1.domain.Core.Coach;
 import com.dat.backend_v2_1.domain.Operation.CoachAssignment;
 import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
-import jakarta.validation.constraints.NotNull;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,7 +13,17 @@ import java.util.UUID;
 @Repository
 public interface CoachAssignmentRepository extends JpaRepository<CoachAssignment, UUID> {
 
-    boolean existsByCoachAndClassSchedule_ScheduleIdAndStatus(@NotNull Coach coach, String classSchedule_scheduleId, @NotNull CoachAssignmentStatus status);
+    @Query("""
+        SELECT ca FROM CoachAssignment ca
+        WHERE ca.coach.userId = :coachId
+        AND ca.classSchedule.scheduleId IN :scheduleIds
+        AND ca.status = :status
+    """)
+    List<CoachAssignment> findByCoachAndScheduleIdsAndStatus(
+            @Param("coachId") UUID coachId,
+            @Param("scheduleIds") List<String> scheduleIds,
+            @Param("status") CoachAssignmentStatus status
+    );
 
     @Query("""
         SELECT ca FROM CoachAssignment ca

@@ -44,6 +44,11 @@ public class User {
     @Column(name = "national_code", nullable = true, unique = true, length = 50)
     String nationalCode;
 
+    @NotBlank(message = "Họ tên không được để trống")
+    @Size(max = 100, message = "Họ tên không quá 100 ký tự")
+    @Column(name = "full_name", nullable = false, length = 100)
+    String fullName;
+
     @NotNull
     @Column(name = "password_hash", nullable = false)
     String passwordHash;
@@ -66,7 +71,7 @@ public class User {
     Instant lastLoginAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "role_id", nullable = false)
+    @JoinColumn(name = "role_code", nullable = false, referencedColumnName = "role_code")
     @ToString.Exclude
     Role role;
 

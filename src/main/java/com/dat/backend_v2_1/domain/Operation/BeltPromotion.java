@@ -1,9 +1,8 @@
 package com.dat.backend_v2_1.domain.Operation;
 
 import com.dat.backend_v2_1.domain.Core.Student;
-import com.dat.backend_v2_1.domain.Security.User;
 import com.dat.backend_v2_1.enums.Core.Belt;
-import com.dat.backend_v2_1.enums.Core.BeltPromotionResult;
+import com.dat.backend_v2_1.enums.Operation.BeltPromotionResult;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;

@@ -5,7 +5,6 @@ import com.dat.backend_v2_1.domain.Security.Role;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.regex.Pattern;
 
 public class AccountUtil {
@@ -43,14 +42,14 @@ public class AccountUtil {
 
         // BƯỚC 6: Ghép chuỗi theo format HV_tenhodem_ngaysinh
         // Kết quả: "HV_" + "dat" + "nt" + "_" + "311005"
-        return "HV_" + firstName + initials + "_" + birthDateStr;
+        return "VQ_" + firstName + initials + "_" + birthDateStr;
     }
 
     public static String getRoleKey(Role role) {
-        String roleId = String.valueOf(role.getRoleId());
+        String roleCode = role.getCode();
 
         // Cần Java 21 (hoặc Java 17-20 bật chế độ preview)
-        return switch (roleId) {
+        return switch (roleCode) {
             case String s when s.contains("STUDENT") -> "S";
             case String s when s.contains("COACH") -> "C";
             case String s when s.contains("ASSISTANT") -> "A";

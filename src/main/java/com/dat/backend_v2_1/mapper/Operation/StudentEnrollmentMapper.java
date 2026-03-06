@@ -5,6 +5,8 @@ import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentReqDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import org.mapstruct.*;
 
+import java.util.List;
+
 @Mapper(
         componentModel = "spring",
         unmappedTargetPolicy = ReportingPolicy.IGNORE
@@ -29,8 +31,10 @@ public interface StudentEnrollmentMapper { // 1. Đổi thành interface
 
     // Mapping cho SimpleResponse
     @Mapping(target = "classScheduleSummary", source = "classSchedule")
+    @Mapping(target = "studentSummary", source = "student")
     @Mapping(target = "joinDate", source = "joinDate")
     @Mapping(target = "status", source = "status")
     StudentEnrollmentResDTO.SimpleResponse toSimpleResponse(StudentEnrollment entity);
 
+    List<StudentEnrollmentResDTO.SimpleResponse> toSimpleResponseList(List<StudentEnrollment> entities);
 }

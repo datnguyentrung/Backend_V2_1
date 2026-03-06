@@ -2,7 +2,7 @@ package com.dat.backend_v2_1.domain.Operation;
 
 import com.dat.backend_v2_1.domain.Core.ClassSchedule;
 import com.dat.backend_v2_1.domain.Core.Coach;
-import com.dat.backend_v2_1.enums.Core.CoachTimesheetStatus;
+import com.dat.backend_v2_1.enums.Operation.CoachTimesheetStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;

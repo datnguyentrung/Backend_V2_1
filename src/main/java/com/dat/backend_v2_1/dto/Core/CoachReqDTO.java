@@ -1,7 +1,6 @@
 package com.dat.backend_v2_1.dto.Core;
 
 import com.dat.backend_v2_1.enums.Core.Belt;
-import com.dat.backend_v2_1.enums.Core.CoachPosition;
 import com.dat.backend_v2_1.enums.Core.CoachStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.*;
@@ -14,8 +13,6 @@ import java.util.UUID;
 public class CoachReqDTO {
     @Data
     public static class CoachCreate{
-        @NotNull(message = "Vị trí không được để trống")
-        private CoachPosition position;
 
         private CoachStatus coachStatus; // Optional, sẽ mặc định là ACTIVE nếu không được cung cấp
 
@@ -32,7 +29,7 @@ public class CoachReqDTO {
         @NotNull(message = "Ngày sinh không được để trống")
         @Past(message = "Ngày sinh phải là ngày trong quá khứ")
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
-            private LocalDate birthDate;
+        private LocalDate birthDate;
 
         @NotNull(message = "Đai (Trình độ) không được để trống")
         private Belt belt;
@@ -58,8 +55,6 @@ public class CoachReqDTO {
 
         @Size(min = 2, max = 100, message = "Họ tên phải từ 2 đến 100 ký tự")
         private String fullName;
-
-        private CoachPosition position;
 
         private CoachStatus coachStatus;
     }

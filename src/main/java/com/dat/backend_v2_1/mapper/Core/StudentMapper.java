@@ -32,13 +32,12 @@ public interface StudentMapper {
         return status == UserStatus.ACTIVE;
     }
 
-    // Logic: Lấy tên Role hoặc ID Role từ Object Role
+    // Logic: Lấy code Role từ Object Role
     @Named("getRoleName")
     default String getRoleName(Role role) {
         if (role == null) return null;
-        // Giả sử class Role của bạn có method getRoleName() hoặc getRoleId()
-        // Nếu Role là Enum thì dùng role.name()
-        return role.getCode(); // Hãy thay bằng role.getName() nếu có
+        // Role.code là khóa chính (VD: ROLE_STUDENT, ROLE_COACH)
+        return role.getCode();
     }
 
     /**

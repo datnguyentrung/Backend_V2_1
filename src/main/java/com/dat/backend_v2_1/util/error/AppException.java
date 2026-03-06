@@ -1,6 +1,6 @@
 package com.dat.backend_v2_1.util.error;
 
-import com.dat.backend_v2_1.enums.Operation.ErrorCode;
+import com.dat.backend_v2_1.enums.ErrorCode;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 

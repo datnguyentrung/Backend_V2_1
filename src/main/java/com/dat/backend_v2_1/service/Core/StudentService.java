@@ -14,6 +14,8 @@ import com.dat.backend_v2_1.util.error.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -245,5 +247,11 @@ public class StudentService {
         studentRepository.delete(student);
 
         log.info("Successfully permanently deleted student with code: {}", student.getStudentCode());
+    }
+
+    public Page<StudentResDTO.StudentDetail> getStudentsByFilter(String search, StudentStatus status, Pageable pageable) {
+        String safeSearch = (search == null) ? "" : search;
+        Page<Student> studentsPage = studentRepository.findStudentsWithFilter(safeSearch, status, pageable);
+        return studentsPage.map(studentMapper::toStudentDetail);
     }
 }

@@ -106,12 +106,12 @@ public class CoachAssignmentController {
      *         404 Not Found - Không tìm thấy huấn luyện viên
      */
     @GetMapping("/coach/{coachId}")
-    public ResponseEntity<List<CoachAssignmentResDTO.SimpleResponse>> getCoachAssignments(
+    public ResponseEntity<List<CoachAssignmentResDTO.Response>> getCoachAssignments(
             @PathVariable UUID coachId) {
         log.info("Request get assignments for coach: {}", coachId);
 
-        List<CoachAssignmentResDTO.SimpleResponse> assignments =
-                coachAssignmentService.findStudentEnrollmentsByCoachId(coachId);
+        List<CoachAssignmentResDTO.Response> assignments =
+                coachAssignmentService.findDetailedCoachAssignmentsByUserId(coachId);
 
         return ResponseEntity.ok(assignments);
     }

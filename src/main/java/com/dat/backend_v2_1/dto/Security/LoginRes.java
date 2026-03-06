@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.UUID;
+
 @Data
 public class LoginRes {
     @JsonProperty("access_token")
@@ -21,14 +23,14 @@ public class LoginRes {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class UserLogin {
-        private String idAccount;
+        private UUID userId;
         private UserStatus status;
         private String role;
         private String startDate;
 
         @Override
         public String toString() {
-            return "UserLogin{id= " + idAccount + ", status= " + status + "}";
+            return "UserLogin{id= " + userId + ", status= " + status + "}";
         }
     }
 }

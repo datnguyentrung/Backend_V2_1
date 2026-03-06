@@ -1,9 +1,6 @@
 package com.dat.backend_v2_1.domain.Core;
 
-import com.dat.backend_v2_1.enums.Core.ScheduleLevel;
-import com.dat.backend_v2_1.enums.Core.ScheduleLocation;
-import com.dat.backend_v2_1.enums.Core.ScheduleShift;
-import com.dat.backend_v2_1.enums.Core.Weekday;
+import com.dat.backend_v2_1.enums.Core.*;
 import com.dat.backend_v2_1.util.converter.WeekdayConverter;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -62,6 +59,11 @@ public class ClassSchedule {
     @Enumerated(EnumType.STRING)
     @Column(name = "location", length = 50)
     ScheduleLocation location; // Ví dụ: ROOM_A, ROOM_B, YOGA_STUDIO_1
+
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "schedule_status", length = 20)
+    ScheduleStatus scheduleStatus;
 
     // --- Validation Logic (Optional) ---
     // Hibernate sẽ gọi hàm này trước khi Insert/Update

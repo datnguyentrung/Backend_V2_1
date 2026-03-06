@@ -1,13 +1,10 @@
 package com.dat.backend_v2_1.domain.Operation;
 
-import com.dat.backend_v2_1.domain.Core.ClassSchedule;
 import com.dat.backend_v2_1.domain.Core.Coach;
-import com.dat.backend_v2_1.domain.Core.Student;
-import com.dat.backend_v2_1.enums.Core.AttendanceStatus;
-import com.dat.backend_v2_1.enums.Core.EvaluationStatus;
+import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
+import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -34,13 +31,13 @@ import java.util.UUID;
         schema = "operation",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_student_schedule_date",
-                        columnNames = {"student_user_id", "schedule_id", "session_date"}
+                        name = "uk_student_enrollment_date",
+                        columnNames = {"student_enrollment_id", "session_date"}
                 )
         },
         // Index giúp tìm kiếm nhanh: Tìm lịch sử đi học của 1 học sinh, hoặc tìm danh sách điểm danh của 1 buổi học
         indexes = {
-                @Index(name = "idx_attendance_student", columnList = "student_user_id"),
+                @Index(name = "idx_student_enrollment", columnList = "student_enrollment_id"),
 //                @Index(name = "idx_attendance_schedule_date", columnList = "schedule_id, session_date")
         }
 )
@@ -56,18 +53,11 @@ public class StudentAttendance {
 
     // --- THÔNG TIN CƠ BẢN ---
 
-    @NotNull(message = "Học viên không được để trống")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_user_id", nullable = false)
-    Student student;
-
-    @NotNull(message = "Lịch học không được để trống")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "schedule_id", nullable = false) // FK trỏ tới bảng ClassSchedule
-    ClassSchedule classSchedule; // Đổi tên biến: scheduleId -> classSchedule (Vì đây là Object)
+    @ManyToOne
+    @JoinColumn(name = "student_enrollment_id", nullable = true)
+    StudentEnrollment studentEnrollment;
 
     @NotNull(message = "Ngày học không được để trống")
-    @PastOrPresent
     @Column(name = "session_date", nullable = false)
     LocalDate sessionDate; // Đổi tên: attendanceDate -> sessionDate (Ngày diễn ra buổi học theo lịch)
 

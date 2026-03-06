@@ -13,9 +13,12 @@ import com.dat.backend_v2_1.util.error.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 
 @Service
@@ -25,6 +28,28 @@ public class CoachService {
     private final CoachRepository coachRepository;
     private final CoachMapper coachMapper;
     private final UserService userService;
+
+    /**
+     * Validates coach exists and is in ACTIVE status.
+     * <p>
+     * Helper method để tránh code duplication trong validation logic.
+     *
+     * @param coachId ID của HLV cần validate
+     * @return Coach entity nếu hợp lệ
+     * @throws AccessDeniedException nếu HLV không ở trạng thái ACTIVE
+     * @throws NoSuchElementException nếu không tìm thấy HLV
+     */
+    public Coach validateCoachAndGetActive(String coachId) {
+        Coach coach = getCoachById(coachId);
+
+        if (coach.getCoachStatus() != CoachStatus.ACTIVE) {
+            log.warn("Security Alert: Coach {} (Status: {}) attempted unauthorized action",
+                    coach.getFullName(), coach.getCoachStatus());
+            throw new AccessDeniedException("Tài khoản của bạn đã bị khóa hoặc không hoạt động.");
+        }
+
+        return coach;
+    }
 
     public Coach getCoachById(String coachId){
         return coachRepository.findById(UUID.fromString(coachId))
@@ -57,7 +82,7 @@ public class CoachService {
      * @return Mã nhân viên của huấn luyện viên mới tạo
      */
     @Transactional(rollbackFor = Exception.class)
-    public String createCoach(CoachReqDTO.CoachCreate createDTO) {
+    public CoachResDTO.CoachDetail createCoach(CoachReqDTO.CoachCreate createDTO) {
         // BƯỚC 1: Validate Business (Check trùng lặp)
         if (coachRepository.existsByPhoneNumber(createDTO.getPhoneNumber())) {
             throw new BusinessException("Số điện thoại này đã được đăng ký!");
@@ -73,12 +98,11 @@ public class CoachService {
         newCoach.setBelt(createDTO.getBelt());
 
         // --- Thông tin chuyên môn ---
-        newCoach.setPosition(createDTO.getPosition());
         newCoach.setCoachStatus(createDTO.getCoachStatus() != null ? createDTO.getCoachStatus() : CoachStatus.ACTIVE);
 
         // BƯỚC 3: Enrich Data (Tự động sinh dữ liệu hệ thống)
-        // Tạo mã nhân viên: HLV_datnt_311005
-        String generatedCode = "HLV_" + AccountUtil.getUserCode(createDTO.getFullName(), createDTO.getBirthDate());
+        // Tạo mã nhân viên: VQ_datnt_311005
+        String generatedCode = AccountUtil.getUserCode(createDTO.getFullName(), createDTO.getBirthDate());
 
         // Check trùng mã sinh ra (Trường hợp hiếm gặp 2 người trùng tên trùng ngày sinh)
         if (coachRepository.existsByStaffCode(generatedCode)) {
@@ -94,7 +118,7 @@ public class CoachService {
         coachRepository.save(newCoach);
 
         log.info("Created coach successfully with code: {}", generatedCode);
-        return generatedCode;
+        return coachMapper.toCoachDetail(newCoach);
     }
 
     /**
@@ -145,12 +169,6 @@ public class CoachService {
             log.info("Updated full name for coach {}: {} -> {}",
                     coach.getStaffCode(), coach.getFullName(), formattedName);
             coach.setFullName(formattedName);
-        }
-
-        if (updateDTO.getPosition() != null) {
-            log.info("Updated position for coach {}: {} -> {}",
-                    coach.getStaffCode(), coach.getPosition(), updateDTO.getPosition());
-            coach.setPosition(updateDTO.getPosition());
         }
 
         if (updateDTO.getCoachStatus() != null) {
@@ -217,5 +235,10 @@ public class CoachService {
         coachRepository.delete(coach);
 
         log.info("Successfully permanently deleted coach with code: {}", coach.getStaffCode());
+    }
+
+    public List<CoachResDTO.CoachDetail> getAllCoaches() {
+        List<Coach> coaches = coachRepository.findAll();
+        return coachMapper.toCoachDetailList(coaches);
     }
 }

@@ -1,9 +1,14 @@
 package com.dat.backend_v2_1.repository.Core;
 
 import com.dat.backend_v2_1.domain.Core.Student;
+import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.UUID;
@@ -17,4 +22,17 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     boolean existsByNationalCode(String nationalCode);
 
     boolean existsByStudentCode(String generatedCode);
+
+    @Query("""
+        SELECT s FROM Student s
+        WHERE (LOWER(s.fullName) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(s.studentCode) LIKE LOWER(CONCAT('%', :search, '%'))
+            OR LOWER(s.phoneNumber) LIKE LOWER(CONCAT('%', :search, '%')))
+        AND (:status IS NULL OR s.studentStatus = :status)
+""")
+    Page<Student> findStudentsWithFilter(
+            @Param("search") String search,
+            @Param("status") StudentStatus status,
+            Pageable pageable
+    );
 }

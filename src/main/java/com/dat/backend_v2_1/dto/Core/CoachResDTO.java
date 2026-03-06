@@ -1,7 +1,6 @@
 package com.dat.backend_v2_1.dto.Core;
 
 import com.dat.backend_v2_1.enums.Core.Belt;
-import com.dat.backend_v2_1.enums.Core.CoachPosition;
 import com.dat.backend_v2_1.enums.Core.CoachStatus;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -54,8 +53,6 @@ public class CoachResDTO {
 
         private String fullName;
 
-        private CoachPosition position; // Vị trí (HEAD_COACH, ASSISTANT_COACH, etc.)
-
         private CoachStatus coachStatus; // Trạng thái công việc (ACTIVE, ON_LEAVE, etc.)
     }
 
@@ -68,6 +65,5 @@ public class CoachResDTO {
         private UUID userId;
         private String fullName;
         private String staffCode;
-        private CoachPosition position;
     }
 }

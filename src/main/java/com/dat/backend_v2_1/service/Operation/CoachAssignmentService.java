@@ -6,7 +6,7 @@ import com.dat.backend_v2_1.domain.Operation.CoachAssignment;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentReqDTO;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
-import com.dat.backend_v2_1.enums.Operation.ErrorCode;
+import com.dat.backend_v2_1.enums.ErrorCode;
 import com.dat.backend_v2_1.mapper.Operation.CoachAssignmentMapper;
 import com.dat.backend_v2_1.repository.Operation.CoachAssignmentRepository;
 import com.dat.backend_v2_1.service.Core.ClassScheduleService;
@@ -17,9 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -43,17 +42,25 @@ public class CoachAssignmentService {
             throw new IllegalArgumentException("One or more ClassSchedule IDs are invalid");
         }
 
+        // 3. Kiểm tra phân công đã tồn tại - FIX N+1: Lấy tất cả assignments trong 1 query
+        List<CoachAssignment> existingAssignments = coachAssignmentRepository
+                .findByCoachAndScheduleIdsAndStatus(
+                        coach.getUserId(),
+                        request.getScheduleIds(),
+                        CoachAssignmentStatus.ACTIVE
+                );
+
+        // Tạo Set chứa scheduleId đã được phân công để tra cứu nhanh O(1)
+        Set<String> assignedScheduleIds = existingAssignments.stream()
+                .map(ca -> ca.getClassSchedule().getScheduleId())
+                .collect(Collectors.toSet());
+
         List<CoachAssignment> coachAssignmentsToSave = new ArrayList<>();
 
-        // 3. Duyệt qua từng lớp để tạo CoachAssignment
+        // 4. Duyệt qua từng lớp để tạo CoachAssignment
         for (ClassSchedule schedule : schedules) {
-            boolean exists = coachAssignmentRepository.existsByCoachAndClassSchedule_ScheduleIdAndStatus(
-                    coach,
-                    schedule.getScheduleId(),
-                    CoachAssignmentStatus.ACTIVE
-            );
-
-            if (exists){
+            // Kiểm tra xem schedule đã được phân công chưa
+            if (assignedScheduleIds.contains(schedule.getScheduleId())) {
                 log.warn("Coach {} already assigned to class {}", coach.getUserId(), schedule.getScheduleId());
                 throw new AppException(ErrorCode.COACH_ALREADY_ASSIGNED);
             }
@@ -66,7 +73,7 @@ public class CoachAssignmentService {
             coachAssignmentsToSave.add(coachAssignment);
         }
 
-        // 4. Lưu tất cả phân công HLV cùng lúc
+        // 5. Lưu tất cả phân công HLV cùng lúc
         coachAssignmentRepository.saveAll(coachAssignmentsToSave);
 
         log.info("Assigned Coach {} to {} classes", coach.getUserId(), coachAssignmentsToSave.size());

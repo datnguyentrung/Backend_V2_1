@@ -8,9 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
-import java.util.UUID;
 
 @Repository
-public interface RoleRepository extends JpaRepository<Role, UUID> {
+public interface RoleRepository extends JpaRepository<Role, String> {
     Optional<Role> findByCode(@NotBlank(message = "Mã quyền không được để trống") @Size(max = 50, message = "Mã quyền không quá 50 ký tự") @Pattern(regexp = "^ROLE_[A-Z0-9_]+$", message = "Mã quyền phải bắt đầu bằng 'ROLE_' và viết hoa (VD: ROLE_ADMIN)") String code);
 }

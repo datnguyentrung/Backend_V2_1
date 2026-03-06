@@ -2,6 +2,7 @@ package com.dat.backend_v2_1.controller.Operation;
 
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentReqDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
+import com.dat.backend_v2_1.mapper.Operation.StudentEnrollmentMapper;
 import com.dat.backend_v2_1.service.Operation.StudentEnrollmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,8 @@ import java.util.UUID;
 public class StudentEnrollmentController {
 
     private final StudentEnrollmentService studentEnrollmentService;
+
+    private final StudentEnrollmentMapper studentEnrollmentMapper;
 
     /**
      * Đăng ký học viên vào lớp học
@@ -135,6 +138,28 @@ public class StudentEnrollmentController {
 
         List<StudentEnrollmentResDTO.Response> enrollments =
                 studentEnrollmentService.findDetailedStudentEnrollmentsByUserId(userId);
+
+        return ResponseEntity.ok(enrollments);
+    }
+
+    /**
+     * Lấy danh sách học viên trong một lớp học
+     * GET /api/v1/student-enrollments/class-schedule/{classScheduleId}
+     *
+     * Trả về danh sách các học viên đã đăng ký trong một lớp học cụ thể.
+     * Response dạng đơn giản, phù hợp cho dropdown hoặc danh sách tóm tắt.
+     *
+     * @param classScheduleId ID của lớp học
+     * @return 200 OK - Danh sách học viên trong lớp
+     *         404 Not Found - Không tìm thấy lớp học
+     */
+    @GetMapping("/class-schedule/{classScheduleId}")
+    public ResponseEntity<List<StudentEnrollmentResDTO.SimpleResponse>> getStudentEnrollmentsByClassScheduleId(
+            @PathVariable String classScheduleId) {
+        log.info("Request get enrollments for class schedule: {}", classScheduleId);
+
+        List<StudentEnrollmentResDTO.SimpleResponse> enrollments =
+                studentEnrollmentMapper.toSimpleResponseList(studentEnrollmentService.getStudentEnrollmentsByClassScheduleId(classScheduleId));
 
         return ResponseEntity.ok(enrollments);
     }

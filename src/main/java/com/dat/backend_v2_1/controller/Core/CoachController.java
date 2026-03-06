@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -25,11 +26,11 @@ public class CoachController {
      * POST /api/v1/coaches
      */
     @PostMapping
-    public ResponseEntity<String> createCoach(
+    public ResponseEntity<CoachResDTO.CoachDetail> createCoach(
             @RequestBody @Valid CoachReqDTO.CoachCreate createDTO) {
         log.info("Request create coach: {}", createDTO.getFullName());
 
-        String newCoachCode = coachService.createCoach(createDTO);
+        CoachResDTO.CoachDetail newCoachCode = coachService.createCoach(createDTO);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(newCoachCode);
     }
@@ -46,6 +47,19 @@ public class CoachController {
         CoachResDTO.CoachDetail coachDetail = coachService.getCoachDetail(userId);
 
         return ResponseEntity.ok(coachDetail);
+    }
+
+    /**
+     * Lấy danh sách tất cả huấn luyện viên
+     * GET /api/v1/coaches
+     */
+    @GetMapping
+    public ResponseEntity<List<CoachResDTO.CoachDetail>> getAllCoaches() {
+        log.info("Request get all coaches");
+
+        List<CoachResDTO.CoachDetail> coaches = coachService.getAllCoaches();
+
+        return ResponseEntity.ok(coaches);
     }
 
     /**

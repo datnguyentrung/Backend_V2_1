@@ -9,6 +9,8 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
 
+import java.util.List;
+
 @Mapper(componentModel = "spring")
 public interface CoachMapper {
     // 1. Sửa tham số đầu vào từ Student -> Coach
@@ -46,29 +48,7 @@ public interface CoachMapper {
         return role.getCode(); // Đảm bảo class Role có hàm getCode()
     }
 
-    default CoachResDTO.CoachDetail toCoachDetail(Coach coach) {
-        if (coach == null) {
-            return null;
-        }
+    CoachResDTO.CoachDetail toCoachDetail(Coach coach);
 
-        Role role = coach.getRole();
-
-        return CoachResDTO.CoachDetail.builder()
-                // === Thông tin từ User (Parent) ===
-                .userId(coach.getUserId())
-                .birthDate(coach.getBirthDate())
-                .phoneNumber(coach.getPhoneNumber())
-                .belt(coach.getBelt())
-                .status(coach.getStatus())
-                .createdAt(coach.getCreatedAt())
-                .updatedAt(coach.getUpdatedAt())
-                .lastLoginAt(coach.getLastLoginAt())
-                .roleName(role != null ? role.getCode() : null)
-                // === Thông tin từ Coach (Child) ===
-                .staffCode(coach.getStaffCode())
-                .fullName(coach.getFullName())
-                .position(coach.getPosition())
-                .coachStatus(coach.getCoachStatus())
-                .build();
-    }
+    List<CoachResDTO.CoachDetail> toCoachDetailList(List<Coach> coaches);
 }

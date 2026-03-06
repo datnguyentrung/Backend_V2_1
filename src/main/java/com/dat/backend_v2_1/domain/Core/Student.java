@@ -19,7 +19,14 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "student", schema = "core")
+@Table(
+        name = "student",
+        schema = "core",
+        indexes = {
+                @Index(name = "idx_student_status", columnList = "student_status"),
+                @Index(name = "idx_student_branch", columnList = "branch_id")
+        }
+)
 @PrimaryKeyJoinColumn(name = "user_id") // Khóa chính cũng là FK trỏ về bảng User
 @EqualsAndHashCode(callSuper = true) // So sánh object bao gồm cả các field của User
 @FieldDefaults(level = AccessLevel.PRIVATE)
@@ -29,11 +36,6 @@ public class Student extends User {
     @Size(max = 50, message = "Mã học viên tối đa 20 ký tự")
     @Column(name = "student_code", nullable = false, unique = true, length = 50)
     String studentCode;
-
-    @NotBlank(message = "Họ tên không được để trống")
-    @Size(max = 100, message = "Họ tên tối đa 100 ký tự")
-    @Column(name = "full_name", nullable = false, length = 100)
-    String fullName;
 
     @NotNull(message = "Ngày bắt đầu tập không được để trống")
     @PastOrPresent(message = "Ngày bắt đầu không được ở tương lai")

@@ -2,13 +2,19 @@ package com.dat.backend_v2_1.controller.Core;
 
 import com.dat.backend_v2_1.dto.Core.StudentReqDTO;
 import com.dat.backend_v2_1.dto.Core.StudentResDTO;
+import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import com.dat.backend_v2_1.service.Core.StudentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 
 import java.util.UUID;
 
@@ -32,6 +38,26 @@ public class StudentController {
         String newStudentCode = studentService.createStudent(createDTO);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(newStudentCode);
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<StudentResDTO.StudentDetail>> getStudents(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) StudentStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+        log.info("Request get students - page: {}, size: {}", page, size);
+
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name())
+                ? Sort.by(sortBy).ascending()
+                : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<StudentResDTO.StudentDetail> studentsPage = studentService.getStudentsByFilter(search, status, pageable);
+
+        return ResponseEntity.ok(studentsPage);
     }
 
     /**

@@ -5,7 +5,7 @@ import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentReqDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
-import com.dat.backend_v2_1.enums.Operation.ErrorCode;
+import com.dat.backend_v2_1.enums.ErrorCode;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
 import com.dat.backend_v2_1.mapper.Operation.StudentEnrollmentMapper;
 import com.dat.backend_v2_1.repository.Operation.StudentEnrollmentRepository;
@@ -149,5 +149,25 @@ public class StudentEnrollmentService {
         return enrollments.stream()
                 .map(studentEnrollmentMapper::toResponse)
                 .toList();
+    }
+
+    /**
+     * Lấy danh sách học viên theo ID lịch học lớp
+     * @param classScheduleId ID của lịch học lớp
+     * @return Danh sách học viên
+     */
+    public List<StudentEnrollment> getStudentEnrollmentsByClassScheduleId(String classScheduleId) {
+        return studentEnrollmentRepository.findByScheduleIdAndStatusWithStudent(
+                classScheduleId,
+                StudentEnrollmentStatus.ACTIVE
+        );
+    }
+
+    public StudentEnrollment getEnrollmentByStudentUserIdAndClassScheduleId(UUID studentUserId, String classScheduleId) {
+        return studentEnrollmentRepository.findByStudent_UserIdAndClassSchedule_ScheduleIdAndStatus (
+                studentUserId,
+                classScheduleId,
+                StudentEnrollmentStatus.ACTIVE
+        ).orElseThrow(() -> new AppException(ErrorCode.ENROLLMENT_NOT_FOUND));
     }
 }

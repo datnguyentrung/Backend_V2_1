@@ -52,8 +52,12 @@ spring:
           batch_size: 50
           order_updates: true
           order_inserts: true
+          batch_versioned_data: true
         connection:
           provider_disables_autocommit: true
+        query:
+          plan_cache_max_size: 2048
+          plan_parameter_metadata_max_size: 128
 
   #        temp:
   #          use_jdbc_metadata_defaults: false

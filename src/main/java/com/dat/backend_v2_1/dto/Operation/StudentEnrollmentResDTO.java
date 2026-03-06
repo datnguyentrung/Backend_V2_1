@@ -46,6 +46,7 @@ public class StudentEnrollmentResDTO {
     @Builder
     public static class SimpleResponse {
         private UUID enrollmentId;
+        private StudentResDTO.StudentSummary studentSummary;
         private ClassScheduleResDTO.ClassScheduleSummary classScheduleSummary;
         private LocalDate joinDate;
         private StudentEnrollmentStatus status;

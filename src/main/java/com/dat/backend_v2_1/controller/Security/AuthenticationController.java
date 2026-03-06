@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -62,7 +63,7 @@ public class AuthenticationController {
         if (currentUserDB != null) {
             LoginRes.UserLogin userLogin = new LoginRes.UserLogin(
                     // .get phải thứ tự UserLogin
-                    currentUserDB.getPhoneNumber(),
+                    currentUserDB.getUserId(),
                     currentUserDB.getStatus(),
                     currentUserDB.getRole().getCode(),
                     currentUserDB.getCreatedAt().toString()
@@ -83,7 +84,12 @@ public class AuthenticationController {
         loginRes.setRefreshToken(refreshToken);
 
         // update user
-        authTokenService.updateUserTokens(refreshToken, currentUserDB.getUserId().toString(), loginReq.getIdDevice());
+        authTokenService.updateUserTokens(
+                refreshToken,
+                currentUserDB.getUserId().toString(),
+                loginReq.getIdDevice(),
+                loginReq.getFcmToken()
+        );
 
         ResponseCookie responseCookie = ResponseCookie
                 .from("refresh_token", refreshToken)
@@ -105,7 +111,7 @@ public class AuthenticationController {
         User currentUserDB = userService.getUserByPhoneNumber(phoneNumber);
         LoginRes.UserLogin userLogin = new LoginRes.UserLogin();
         if (currentUserDB != null) {
-            userLogin.setIdAccount(currentUserDB.getPhoneNumber());
+            userLogin.setUserId(currentUserDB.getUserId());
             userLogin.setStatus(currentUserDB.getStatus());
             userLogin.setRole(currentUserDB.getRole().getCode());
         }
@@ -115,9 +121,9 @@ public class AuthenticationController {
     @PostMapping("/refresh")
     public ResponseEntity<LoginRes> getRefreshToken(
 //            @CookieValue(name = "refresh_token", defaultValue = "") String refreshToken
-        @RequestBody LoginReq.RefreshRequest request
+        @AuthenticationPrincipal Jwt jwt
     ) throws AuthenticationException, IdInvalidException {
-        String refreshToken = request.getRefreshToken();
+        String refreshToken = jwt.getTokenValue();
         if (refreshToken == null || refreshToken.isEmpty()) {
 //            throw new IdInvalidException("Bạn không có refresh token ở cookies");
             throw new IdInvalidException("Bạn không có refresh token");
@@ -144,7 +150,7 @@ public class AuthenticationController {
             System.out.println("Role ID: " + (userDB.getRole() != null ? userDB.getRole().getCode() : "NULL ROLE OBJECT")); // Kiểm tra kỹ Role
             System.out.println("CreatedAt: " + userDB.getCreatedAt());
             LoginRes.UserLogin userLogin = new LoginRes.UserLogin(
-                    userDB.getPhoneNumber(),
+                    userDB.getUserId(),
                     userDB.getStatus(),
                     userDB.getRole().getCode(),
                     userDB.getCreatedAt().toString()
@@ -164,29 +170,29 @@ public class AuthenticationController {
         loginRes.setRefreshToken(new_refreshToken);
 
         // update user
-        authTokenService.updateUserTokens(new_refreshToken, idUser, idDevice);
+        authTokenService.updateUserTokens(new_refreshToken, idUser, idDevice, null);
 
         // set cookies
-//        ResponseCookie responseCookie = ResponseCookie
-//                .from("refresh_token", refreshToken)
-//                .httpOnly(true)
-//                .secure(true)
-//                .path("/")
-//                .maxAge(refreshTokenExpiration)
-//                .build();
-//
-//        return ResponseEntity.ok()
-//                .header(HttpHeaders.SET_COOKIE, responseCookie.toString())
-//                .body(loginRes);
-        return ResponseEntity.ok(loginRes);
+        ResponseCookie responseCookie = ResponseCookie
+                .from("refresh_token", refreshToken)
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(refreshTokenExpiration)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, responseCookie.toString())
+                .body(loginRes);
+//        return ResponseEntity.ok(loginRes);
     }
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
 //            @CookieValue(name = "refresh_token", defaultValue = "") String refreshToken
-            @RequestBody LoginReq.RefreshRequest request
+            @AuthenticationPrincipal Jwt jwt
     ) throws IdInvalidException, AuthenticationException {
-        String refreshToken = request.getRefreshToken();
+        String refreshToken = jwt.getTokenValue();
         if (refreshToken == null || refreshToken.isEmpty()) {
 //            throw new IdInvalidException("Không tìm thấy refresh token trong cookie");
             throw new IdInvalidException("Không tìm thấy refresh token");
@@ -195,15 +201,13 @@ public class AuthenticationController {
         Jwt decodedToken = securityUtil.checkValidRefreshToken(refreshToken);
 
         String idUser = decodedToken.getSubject();
-        // Lấy claim "user" và convert về UserLogin
-        Object userObj = decodedToken.getClaim("user");
 
         // Lấy claim "id_device" an toàn
         String idDevice = decodedToken.getClaim("id_device");
         System.out.println("idDevice: " + idDevice);
 
         // update refresh token = null
-        authTokenService.updateUserTokens(null, idUser, idDevice);
+        authTokenService.logoutUserTokens(idUser, idDevice);
 
         // Xóa cookie refresh token trên client
         ResponseCookie deleteSpringCookie = ResponseCookie
@@ -217,5 +221,16 @@ public class AuthenticationController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, deleteSpringCookie.toString())
                 .build();
+    }
+
+    @PostMapping("/update-fcm")
+    public ResponseEntity<?> updateFcmToken(@Valid @RequestBody LoginReq.UpdateFcmReq req){
+        try {
+            authTokenService.updateFcmTokenOnly(req.getRefreshToken(), req.getFcmToken());
+            return ResponseEntity.ok("Cập nhật FCM Token thành công");
+        } catch (RuntimeException e) {
+            // Xử lý nếu không tìm thấy token
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 }

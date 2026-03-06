@@ -1,4 +1,4 @@
-package com.dat.backend_v2_1.enums.Operation;
+package com.dat.backend_v2_1.enums;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

@@ -22,6 +22,9 @@ public class ClassScheduleResDTO {
     public static class ClassScheduleSummary {
         String scheduleId;
         String branchName;
+        ScheduleLocation scheduleLocation;
+        ScheduleLevel scheduleLevel;
+        ScheduleShift scheduleShift;
 
         // Format thời gian gọn gàng: "08:30" thay vì "08:30:00"
         @JsonFormat(pattern = "HH:mm")
@@ -51,9 +54,9 @@ public class ClassScheduleResDTO {
         String branchName;
 
         // --- Thông tin Lớp học ---
-        ScheduleLevel level;      // Trình độ (BEGINNER, INTERMEDIATE...)
-        ScheduleShift shift;      // Ca học (MORNING, EVENING...)
-        String room;              // Phòng học (Location)
+        ScheduleLevel scheduleLevel;      // Trình độ (BEGINNER, INTERMEDIATE...)
+        ScheduleShift scheduleShift;      // Ca học (MORNING, EVENING...)
+        ScheduleLocation scheduleLocation;              // Phòng học (Location)
 
         // --- Thời gian ---
         Weekday weekday;

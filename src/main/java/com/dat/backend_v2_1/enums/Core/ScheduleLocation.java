@@ -4,9 +4,9 @@ import lombok.Getter;
 
 @Getter
 public enum ScheduleLocation {
-    INDOOR("Trong Nhà"),
-    OUTDOOR("Ngoài Trời"),
-    ONLINE("Trực Tuyến"); // Tùy chọn thêm nếu bạn có dạy online (Zoom/Meet)
+    INDOOR("Trong nhà"),
+    OUTDOOR("Ngoài trời"),
+    ONLINE("Trực tuyến"); // Tùy chọn thêm nếu bạn có dạy online (Zoom/Meet)
 
     private final String displayName;
 

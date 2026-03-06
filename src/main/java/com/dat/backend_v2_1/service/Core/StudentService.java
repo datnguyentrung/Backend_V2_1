@@ -2,11 +2,17 @@ package com.dat.backend_v2_1.service.Core;
 
 import com.dat.backend_v2_1.domain.Core.Branch;
 import com.dat.backend_v2_1.domain.Core.Student;
+import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
+import com.dat.backend_v2_1.dto.Core.ClassScheduleResDTO;
 import com.dat.backend_v2_1.dto.Core.StudentReqDTO;
 import com.dat.backend_v2_1.dto.Core.StudentResDTO;
+import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
+import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
 import com.dat.backend_v2_1.mapper.Core.StudentMapper;
+import com.dat.backend_v2_1.mapper.Operation.StudentEnrollmentMapper;
 import com.dat.backend_v2_1.repository.Core.StudentRepository;
+import com.dat.backend_v2_1.repository.Operation.StudentEnrollmentRepository;
 import com.dat.backend_v2_1.service.Security.UserService;
 import com.dat.backend_v2_1.util.AccountUtil;
 import com.dat.backend_v2_1.util.converter.NameConverter;
@@ -20,7 +26,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -30,6 +40,8 @@ public class StudentService {
     private final BranchService branchService;
     private final UserService userService;
     private final StudentMapper studentMapper;
+    private final StudentEnrollmentMapper studentEnrollmentMapper;
+    private final StudentEnrollmentRepository studentEnrollmentRepository;
 
     public Student getStudentById(String idUser) {
         return studentRepository.findById(UUID.fromString(idUser))
@@ -249,9 +261,61 @@ public class StudentService {
         log.info("Successfully permanently deleted student with code: {}", student.getStudentCode());
     }
 
-    public Page<StudentResDTO.StudentDetail> getStudentsByFilter(String search, StudentStatus status, Pageable pageable) {
+    /**
+     * Lấy danh sách học viên kèm theo số liệu thống kê
+     * - Cho phép filter theo tên (search) và trạng thái học viên (status)
+     * - Trả về số lượng học viên theo từng trạng thái (ACTIVE, RESERVED, DROPPED)
+     * - Trả về danh sách học viên dưới dạng Page để hỗ trợ phân trang ở frontend
+     * - Mỗi học viên trong danh sách sẽ kèm theo thông tin các lớp học đang tham gia (classSchedules)
+     * Lưu ý: Việc lấy thông tin lớp học sẽ được tối ưu bằng cách dùng 1 query duy nhất để lấy tất cả enrollment của các học viên trong page, sau đó map vào từng học viên
+     * @param search Từ khóa tìm kiếm (theo tên), có thể null hoặc rỗng để không filter theo tên
+     * @param status Trạng thái học viên để filter (ACTIVE, RESERVED, DROPPED), có thể null để không filter theo trạng thái
+     * @param pageable Thông tin phân trang (page number, page size, sort)
+     * @return StudentListResponse chứa danh sách học viên và số liệu thống kê
+     */
+    public StudentResDTO.StudentListResponse getStudentsWithStats(String search, StudentStatus status, Pageable pageable) {
+        // 1. Lấy danh sách học viên (có phân trang và filter)
         String safeSearch = (search == null) ? "" : search;
         Page<Student> studentsPage = studentRepository.findStudentsWithFilter(safeSearch, status, pageable);
-        return studentsPage.map(studentMapper::toStudentDetail);
+
+        List<UUID> studentIds = studentsPage.map(Student::getUserId).getContent();
+
+        List<StudentEnrollment> allActiveEnrollments = studentIds.isEmpty() ? Collections.emptyList() :
+                studentEnrollmentRepository.findByStudent_UserIdsInAndStatusWithClassSchedule(studentIds, StudentEnrollmentStatus.ACTIVE);
+
+        Map<UUID, List<StudentEnrollment>> enrollmentsByStudentId = allActiveEnrollments.stream()
+                .collect(Collectors.groupingBy(enrollment -> enrollment.getStudent().getUserId()));
+
+        // 1.4 Map dữ liệu từ Student sang StudentOverview và nhét classSchedules vào
+        Page<StudentResDTO.StudentOverview> studentOverviews = studentsPage.map(student -> {
+            // Gọi hàm mặc định để map các field cơ bản
+            StudentResDTO.StudentOverview overview = studentMapper.toStudentOverview(student);
+
+            // Lấy danh sách enrollment của riêng học viên này từ Map (nếu không có thì trả về list rỗng)
+            List<StudentEnrollment> studentEnrollments = enrollmentsByStudentId.getOrDefault(student.getUserId(), Collections.emptyList());
+
+            // Map từ Entity sang DTO
+            List<ClassScheduleResDTO.ClassScheduleSummary> scheduleResponses = studentEnrollments.stream()
+                    .map(studentEnrollmentMapper::toSimpleResponse)
+                    .map(StudentEnrollmentResDTO.SimpleResponse::getClassScheduleSummary) // Lấy ClassScheduleSummary từ SimpleResponse
+                    .toList();
+
+            // Điền vào DTO
+            overview.setClassSchedules(scheduleResponses);
+            return overview;
+        });
+
+        // 2. Lấy số liệu thống kê (Tổng quan toàn câu lạc bộ)
+        long active = studentRepository.countByStudentStatus(StudentStatus.ACTIVE);
+        long reserved = studentRepository.countByStudentStatus(StudentStatus.RESERVED);
+        long dropped = studentRepository.countByStudentStatus(StudentStatus.DROPPED);
+
+        // 3. Đóng gói vào Response và trả về
+        return StudentResDTO.StudentListResponse.builder()
+                .activeStudentCount(active)
+                .reservedStudentCount(reserved)
+                .droppedStudentCount(dropped)
+                .students(studentOverviews)
+                .build();
     }
 }

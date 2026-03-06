@@ -35,4 +35,6 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
             @Param("status") StudentStatus status,
             Pageable pageable
     );
+
+    long countByStudentStatus(StudentStatus studentStatus);
 }

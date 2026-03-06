@@ -4,17 +4,38 @@ import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
+import org.springframework.data.domain.Page;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Data
 public class StudentResDTO {
+    /**
+     * DTO trả về danh sách Student kèm theo thống kê số lượng theo từng trạng thái
+     * Bao gồm:
+     * - activeStudentCount: Số lượng học viên đang học (ACTIVE)
+     * - reservedStudentCount: Số lượng học viên đang tạm dừng (RESERVED)
+     * - droppedStudentCount: Số lượng học viên đã nghỉ học (DROPPED)
+     */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class StudentListResponse {
+        long activeStudentCount;
+        long reservedStudentCount;
+        long droppedStudentCount;
+
+        // Đẩy nguyên Page vào đây để Frontend giữ được tính năng phân trang
+        Page<StudentOverview> students;
+    }
+
 
     /**
      * DTO trả về thông tin chi tiết Student
@@ -66,6 +87,34 @@ public class StudentResDTO {
         private String branchName;
 
         private String branchAddress;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class StudentOverview{
+        String studentCode;
+
+        String nationalCode;
+
+        String fullName;
+
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+        LocalDate birthDate;
+
+        String phoneNumber;
+
+        Belt belt;
+
+        String roleName;
+
+        StudentStatus studentStatus;
+
+        String branchName;
+
+        List<ClassScheduleResDTO.ClassScheduleSummary> classSchedules; // Danh sách lịch học của học viên
     }
 
     /**

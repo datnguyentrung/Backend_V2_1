@@ -47,6 +47,7 @@ public class CoachAssignmentResDTO {
     public static class SimpleResponse {
         private UUID assignmentId;
         private CoachResDTO.CoachSummary coach;
+        private ClassScheduleResDTO.ClassScheduleSummary classSchedule;
         private LocalDate assignedDate;
         private CoachAssignmentStatus status;
     }

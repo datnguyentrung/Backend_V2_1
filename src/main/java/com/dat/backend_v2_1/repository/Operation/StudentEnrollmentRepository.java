@@ -57,4 +57,9 @@ public interface StudentEnrollmentRepository extends JpaRepository<StudentEnroll
     );
 
     Optional<StudentEnrollment> findByStudent_UserIdAndClassSchedule_ScheduleIdAndStatus(UUID studentUserId, String classScheduleScheduleId, StudentEnrollmentStatus status);
+
+    /**
+     * Đếm số học viên trong một lớp theo trạng thái
+     */
+    long countByClassSchedule_ScheduleIdAndStatus(String scheduleId, StudentEnrollmentStatus status);
 }

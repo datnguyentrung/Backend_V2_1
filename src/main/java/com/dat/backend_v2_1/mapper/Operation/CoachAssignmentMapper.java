@@ -31,6 +31,7 @@ public interface CoachAssignmentMapper {
 
     // Mapping entity to SimpleResponse DTO
     @Mapping(target = "coach", source = "coach", qualifiedByName = "toCoachSummary")
+    @Mapping(target = "classSchedule", source = "classSchedule", qualifiedByName = "toClassScheduleSummary")
     CoachAssignmentResDTO.SimpleResponse toSimpleResponse(CoachAssignment entity);
 
     // Named method to map Coach to CoachSummary

@@ -30,6 +30,7 @@ public class CoachAssignmentService {
     private final ClassScheduleService classScheduleService;
     private final CoachAssignmentMapper coachAssignmentMapper;
 
+    @Transactional(rollbackFor = Exception.class)
     public void createdCoachAssignment(CoachAssignmentReqDTO.CreateRequest request) {
         // 1. Lấy thông tin HLV
         Coach coach = coachService.getCoachById(request.getCoachId());
@@ -138,6 +139,18 @@ public class CoachAssignmentService {
 
         return assignments.stream()
                 .map(coachAssignmentMapper::toResponse)
+                .toList();
+    }
+
+    public List<CoachAssignmentResDTO.SimpleResponse> getAllCoachAssignmentsByStatus(CoachAssignmentStatus status) {
+        List<CoachAssignment> assignments = coachAssignmentRepository.findByStatus(status);
+
+        if (assignments.isEmpty()) {
+            log.info("No CoachAssignments found with status: {}", status);
+        }
+
+        return assignments.stream()
+                .map(coachAssignmentMapper::toSimpleResponse)
                 .toList();
     }
 }

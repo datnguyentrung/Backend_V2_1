@@ -35,4 +35,16 @@ public interface CoachAssignmentRepository extends JpaRepository<CoachAssignment
             @Param("coachId") UUID coachId,
             @Param("status") CoachAssignmentStatus status
     );
+
+    List<CoachAssignment> findByStatus(CoachAssignmentStatus status);
+
+    /**
+     * Tìm CoachAssignment theo scheduleId và status
+     */
+    List<CoachAssignment> findByClassSchedule_ScheduleIdAndStatus(String scheduleId, CoachAssignmentStatus status);
+
+    /**
+     * Đếm số coach assignment trong một lớp theo trạng thái
+     */
+    long countByClassSchedule_ScheduleIdAndStatus(String scheduleId, CoachAssignmentStatus status);
 }

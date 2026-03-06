@@ -45,5 +45,16 @@ public interface StudentEnrollmentRepository extends JpaRepository<StudentEnroll
         @Param("status") StudentEnrollmentStatus status
     );
 
+    @Query("""
+        SELECT se FROM StudentEnrollment se
+        JOIN FETCH se.classSchedule
+        WHERE se.student.userId IN :userIds
+        AND se.status = :status
+    """)
+    List<StudentEnrollment> findByStudent_UserIdsInAndStatusWithClassSchedule(
+            @Param("userIds") List<UUID> userIds,
+            @Param("status") StudentEnrollmentStatus status
+    );
+
     Optional<StudentEnrollment> findByStudent_UserIdAndClassSchedule_ScheduleIdAndStatus(UUID studentUserId, String classScheduleScheduleId, StudentEnrollmentStatus status);
 }

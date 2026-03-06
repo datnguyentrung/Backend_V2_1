@@ -41,7 +41,7 @@ public class StudentController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<StudentResDTO.StudentDetail>> getStudents(
+    public ResponseEntity<StudentResDTO.StudentListResponse> getStudents(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) StudentStatus status,
             @RequestParam(defaultValue = "0") int page,
@@ -55,9 +55,10 @@ public class StudentController {
                 : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<StudentResDTO.StudentDetail> studentsPage = studentService.getStudentsByFilter(search, status, pageable);
+        // Gọi hàm Service mới
+        StudentResDTO.StudentListResponse response = studentService.getStudentsWithStats(search, status, pageable);
 
-        return ResponseEntity.ok(studentsPage);
+        return ResponseEntity.ok(response);
     }
 
     /**

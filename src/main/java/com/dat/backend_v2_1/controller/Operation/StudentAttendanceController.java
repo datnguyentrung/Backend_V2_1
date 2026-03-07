@@ -1,28 +1,33 @@
 package com.dat.backend_v2_1.controller.Operation;
 
 import com.dat.backend_v2_1.dto.Operation.StudentAttendanceDTO;
-import com.dat.backend_v2_1.enums.Security.UserStatus;
+import com.dat.backend_v2_1.dto.PageResponse;
+import com.dat.backend_v2_1.enums.Core.Belt;
+import com.dat.backend_v2_1.enums.Core.ScheduleLevel;
+import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
+import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
 import com.dat.backend_v2_1.service.Operation.StudentAttendanceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/student-attendance")
+@RequestMapping("/api/v1/student-attendances")
 public class StudentAttendanceController {
     private final StudentAttendanceService studentAttendanceService;
 
@@ -35,7 +40,7 @@ public class StudentAttendanceController {
         String coachId = authentication.getName();
 
         log.info("Coach {} updating attendance {} to status {}",
-                 coachId, attendanceId, request.getAttendanceStatus());
+                coachId, attendanceId, request.getAttendanceStatus());
 
         studentAttendanceService.updateAttendanceStatus(coachId, request, attendanceId);
 
@@ -52,7 +57,7 @@ public class StudentAttendanceController {
         String coachId = authentication.getName();
 
         log.info("Coach {} updating attendance {} to evaluation {}",
-                 coachId, attendanceId, request.getEvaluationStatus());
+                coachId, attendanceId, request.getEvaluationStatus());
 
         studentAttendanceService.updateAttendanceEvaluation(coachId, request, attendanceId);
 
@@ -63,7 +68,7 @@ public class StudentAttendanceController {
      * Tạo bản ghi điểm danh thủ công cho 1 học viên
      *
      * @param authentication JWT authentication chứa coachId
-     * @param request Thông tin điểm danh (studentId, scheduleId, sessionDate, status, note)
+     * @param request        Thông tin điểm danh (studentId, scheduleId, sessionDate, status, note)
      * @return 201 CREATED + Response DTO chứa đầy đủ thông tin bản ghi vừa tạo
      */
     @PostMapping
@@ -74,7 +79,7 @@ public class StudentAttendanceController {
         String coachId = authentication.getName();
 
         log.info("Coach {} creating attendance record for student {} on {}",
-                 coachId, request.getStudentId(), request.getSessionDate());
+                coachId, request.getStudentId(), request.getSessionDate());
 
         // Service trả về Response DTO để FE hiển thị ngay, không cần gọi GET thêm 1 lần
         StudentAttendanceDTO.Response response = studentAttendanceService.createAttendanceRecord(request, coachId);
@@ -111,49 +116,53 @@ public class StudentAttendanceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(responses);
     }
 
+//    @GetMapping
+//    public ResponseEntity<Page<StudentAttendanceDTO.Response>> getAttendanceRecords(){
+//
+//    }
+
     /**
      * Lọc và lấy danh sách bản ghi điểm danh theo lịch học và ngày buổi học
      *
-     * @param jwt JWT chứa thông tin user và status
-     * @param classScheduleId ID lịch học cần lọc
-     * @param sessionDate Ngày buổi học cần lọc
+     * @param search             Từ khóa tìm kiếm (tên học viên, email, hoặc ID)
+     * @param sessionDate        Ngày của buổi học (yyyy-MM-dd)
+     * @param attendanceStatuses Trạng thái điểm danh (PRESENT, ABSENT, EXCUSED, LATE)
+     * @param evaluationStatuses Trạng thái đánh giá (GOOD, AVERAGE, POOR)
+     * @param belts              Cấp đai của học viên (WHITE, YELLOW, GREEN, BLUE, BROWN, BLACK)
+     * @param branchIds          ID chi nhánh (có thể lọc nhiều chi nhánh)
+     * @param scheduleLevels     Trình độ của lịch học (BEGINNER, INTERMEDIATE, ADVANCED)
+     * @param page               Trang hiện tại (bắt đầu từ 0)
+     * @param size               Số bản ghi trên mỗi trang
+     * @param sortBy             Trường để sắp xếp (ví dụ: "studentName", "checkInTime")
+     * @param sortDir            Hướng sắp xếp ("asc" hoặc "desc")
      * @return 200 OK + Danh sách bản ghi điểm danh
-    */
-    @GetMapping("/filter")
-    public ResponseEntity<List<StudentAttendanceDTO.Response>> filterAttendanceRecords(
-            @AuthenticationPrincipal Jwt jwt, // Inject thẳng Jwt vào đây
-            @RequestParam String classScheduleId,
-            @RequestParam LocalDate sessionDate
+     */
+    @GetMapping
+    public ResponseEntity<PageResponse<StudentAttendanceDTO.Response>> filterAttendanceRecords(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) LocalDate sessionDate,
+            @RequestParam(required = false) List<AttendanceStatus> attendanceStatuses,
+            @RequestParam(required = false) List<EvaluationStatus> evaluationStatuses,
+            @RequestParam(required = false) List<Belt> belts,
+            @RequestParam(required = false) List<Integer> branchIds,
+            @RequestParam(required = false) List<ScheduleLevel> scheduleLevels,
+
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size,
+            @RequestParam(defaultValue = "sessionDate") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir
     ) {
-        // --- BƯỚC 1: CHECK QUYỀN (AUTHORIZATION) ---
-        Map<String, Object> userClaim = jwt.getClaim("user");
+        Sort sort = sortDir.equalsIgnoreCase(Sort.Direction.ASC.name())
+                ? Sort.by(sortBy).ascending()
+                : Sort.by(sortBy).descending();
+        Pageable pageable = PageRequest.of(page, size, sort);
 
-        // Validate null an toàn hơn
-        if (userClaim == null || !userClaim.containsKey("status")) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid Token: Missing user status");
-        }
+        PageResponse<StudentAttendanceDTO.Response> response = studentAttendanceService
+                .getStudentAttendancesWithStats(
+                        search, sessionDate, attendanceStatuses, evaluationStatuses,
+                        belts, branchIds, scheduleLevels, pageable
+                );
 
-        String statusString = (String) userClaim.get("status");
-
-        try {
-            UserStatus status = UserStatus.valueOf(statusString);
-
-            // Nếu KHÔNG PHẢI ACTIVE -> Ném lỗi ngay lập tức
-            if (status != UserStatus.ACTIVE) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                        "Tài khoản của bạn chưa được kích hoạt (Status: " + status + ")");
-            }
-        } catch (IllegalArgumentException e) {
-            // Phòng trường hợp Token chứa status lạ không có trong Enum
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid User Status in Token");
-        }
-
-        // --- BƯỚC 2: XỬ LÝ NGHIỆP VỤ (HAPPY PATH) ---
-        // Code chạy đến đây nghĩa là User chắc chắn đã ACTIVE
-
-        List<StudentAttendanceDTO.Response> responses = studentAttendanceService
-                .filterAttendanceRecords(classScheduleId, sessionDate);
-
-        return ResponseEntity.ok(responses);
+        return ResponseEntity.ok(response);
     }
 }

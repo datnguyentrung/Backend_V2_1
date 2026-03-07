@@ -6,10 +6,10 @@ import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.domain.Operation.StudentAttendance;
 import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
 import com.dat.backend_v2_1.dto.Operation.StudentAttendanceDTO;
+import com.dat.backend_v2_1.dto.PageResponse;
+import com.dat.backend_v2_1.enums.Core.*;
 import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
-import com.dat.backend_v2_1.enums.Core.CoachStatus;
-import com.dat.backend_v2_1.enums.Core.ScheduleStatus;
-import com.dat.backend_v2_1.enums.Core.StudentStatus;
+import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
 import com.dat.backend_v2_1.mapper.Operation.StudentAttendanceMapper;
 import com.dat.backend_v2_1.repository.Operation.StudentAttendanceRepository;
@@ -18,6 +18,8 @@ import com.dat.backend_v2_1.service.NotificationService;
 import com.dat.backend_v2_1.service.Security.AuthTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,18 +51,18 @@ public class StudentAttendanceService {
      * - Tự động ghi nhận HLV đã thực hiện điểm danh
      * - Cập nhật timestamp để audit trail
      *
-     * @param coachId ID của HLV thực hiện thao tác
-     * @param request Thông tin cập nhật (trạng thái và thời gian check-in)
+     * @param coachId      ID của HLV thực hiện thao tác
+     * @param request      Thông tin cập nhật (trạng thái và thời gian check-in)
      * @param attendanceId ID của bản ghi điểm danh cần cập nhật
      * @throws NoSuchElementException nếu không tìm thấy bản ghi điểm danh
-     * @throws AccessDeniedException nếu HLV không ở trạng thái ACTIVE
+     * @throws AccessDeniedException  nếu HLV không ở trạng thái ACTIVE
      */
     @Transactional(rollbackFor = Exception.class)
     public void updateAttendanceStatus(
             String coachId,
             StudentAttendanceDTO.UpdateStatusRequest request,
             UUID attendanceId
-    ){
+    ) {
         // 1. Validate Coach (Helper method đã tách ra)
         Coach currentCoach = coachService.validateCoachAndGetActive(coachId);
 
@@ -82,7 +84,7 @@ public class StudentAttendanceService {
         attendance.setCheckInTime(request.getCheckInTime());
         attendance.setRecordedByCoach(currentCoach);
 
-        if (request.getAttendanceStatus() == AttendanceStatus.ABSENT){
+        if (request.getAttendanceStatus() == AttendanceStatus.ABSENT) {
             attendance.setCheckInTime(null); // Nếu vắng thì không có check-in time
             attendance.setRecordedByCoach(null);
             attendance.setEvaluationStatus(null);
@@ -119,7 +121,7 @@ public class StudentAttendanceService {
         String title;
         String body;
 
-        switch (attendance.getAttendanceStatus()){
+        switch (attendance.getAttendanceStatus()) {
             case PRESENT:
                 title = "✅ Điểm danh thành công";
                 body = String.format("HV %s đã có mặt tại cơ sở %s (ca %s).\n🕒 Lúc: %s\n🥋 HLV: %s",
@@ -160,7 +162,7 @@ public class StudentAttendanceService {
                 title = "Thông báo điểm danh";
                 body = String.format("Cập nhật trạng thái điểm danh cho HV %s: %s.",
                         student.getFullName(),
-                        attendance.getAttendanceStatus().getCode());
+                        attendance.getAttendanceStatus());
         }
 
         // 4. Lấy danh sách Token của user (Học viên hoặc Phụ huynh)
@@ -278,18 +280,18 @@ public class StudentAttendanceService {
      * - Có thể đánh giá sau khi đã điểm danh
      * - Ghi chú không được vượt quá 500 ký tự (validation ở DTO)
      *
-     * @param coachId ID của HLV thực hiện thao tác
-     * @param request Thông tin đánh giá (trạng thái đánh giá và ghi chú)
+     * @param coachId      ID của HLV thực hiện thao tác
+     * @param request      Thông tin đánh giá (trạng thái đánh giá và ghi chú)
      * @param attendanceId ID của bản ghi điểm danh cần cập nhật
      * @throws NoSuchElementException nếu không tìm thấy bản ghi điểm danh
-     * @throws AccessDeniedException nếu HLV không ở trạng thái ACTIVE
+     * @throws AccessDeniedException  nếu HLV không ở trạng thái ACTIVE
      */
     @Transactional(rollbackFor = Exception.class)
     public void updateAttendanceEvaluation(
             String coachId,
             StudentAttendanceDTO.UpdateEvaluationRequest request,
             UUID attendanceId
-    ){
+    ) {
         // Validate coach status
         Coach currentCoach = coachService.validateCoachAndGetActive(coachId);
 
@@ -306,7 +308,7 @@ public class StudentAttendanceService {
 
         // Gửi thông báo đánh giá cho học viên (trừ trạng thái PENDING)
         if (request.getEvaluationStatus() != null &&
-            request.getEvaluationStatus() != com.dat.backend_v2_1.enums.Operation.EvaluationStatus.PENDING) {
+                request.getEvaluationStatus() != com.dat.backend_v2_1.enums.Operation.EvaluationStatus.PENDING) {
             sendEvaluationNotification(attendance);
         }
 
@@ -319,13 +321,44 @@ public class StudentAttendanceService {
      *
      */
     @Transactional(readOnly = true)
-    public List<StudentAttendanceDTO.Response> filterAttendanceRecords(
-            String classScheduleId,
-            LocalDate sessionDate
+    public PageResponse<StudentAttendanceDTO.Response> getStudentAttendancesWithStats(
+            String search,
+            LocalDate sessionDate,
+            List<AttendanceStatus> attendanceStatuses,
+            List<EvaluationStatus> evaluationStatuses,
+            List<Belt> belts,
+            List<Integer> branchIds,
+            List<ScheduleLevel> levels,
+            Pageable pageable
     ) {
-        List<StudentAttendance> attendances = studentAttendanceRepository
-                .findByScheduleIdAndSessionDateWithDetails(classScheduleId, sessionDate);
-        return studentAttendanceMapper.toResponseList(attendances);
+        String safeSearch = (search == null) ? "" : search;
+        // 1. Lấy dữ liệu dạng Page<Entity> từ DB
+        Page<StudentAttendance> attendances = studentAttendanceRepository
+                .findStudentAttendancesWithFilter(
+                        safeSearch,
+                        sessionDate,
+                        attendanceStatuses,
+                        evaluationStatuses,
+                        belts,
+                        branchIds,
+                        levels,
+                        pageable
+                );
+
+        // 2. Dùng hàm mapper để chuyển đổi sang DTO (Page<Entity> -> Page<DTO>)
+        Page<StudentAttendanceDTO.Response> responsePage = attendances.map(studentAttendanceMapper::toResponse);
+
+        // 3. Trích xuất dữ liệu từ Page và đóng gói vào AttendancePageResponse
+        return PageResponse.<StudentAttendanceDTO.Response>builder()
+                .content(responsePage.getContent())
+                .pageNumber(responsePage.getNumber())
+                .pageSize(responsePage.getSize())
+                .totalElements(responsePage.getTotalElements())
+                .totalPages(responsePage.getTotalPages())
+                .first(responsePage.isFirst())
+                .last(responsePage.isLast())
+                .empty(responsePage.isEmpty())
+                .build();
     }
 
     /**
@@ -431,7 +464,7 @@ public class StudentAttendanceService {
     @Transactional(rollbackFor = Exception.class)
     public StudentAttendanceDTO.Response createAttendanceRecord(
             StudentAttendanceDTO.ManualLogRequest request,
-            String coachId){
+            String coachId) {
         // 1. GỘP: Validate Student, ClassSchedule và Enrollment trong 1 lần gọi
         StudentEnrollment enrollment = studentEnrollmentService
                 .getEnrollmentByStudentUserIdAndClassScheduleId(request.getStudentId(), request.getClassScheduleId());

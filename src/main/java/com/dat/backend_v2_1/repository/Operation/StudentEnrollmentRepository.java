@@ -35,22 +35,23 @@ public interface StudentEnrollmentRepository extends JpaRepository<StudentEnroll
      */
     @EntityGraph(attributePaths = {"student"})
     @Query("""
-        SELECT se FROM StudentEnrollment se
-        WHERE se.classSchedule.scheduleId = :scheduleId
-        AND se.status = :status
-        ORDER BY se.student.fullName
-        """)
+            SELECT se FROM StudentEnrollment se
+            WHERE se.classSchedule.scheduleId = :scheduleId
+            AND se.status = :status
+            ORDER BY se.student.fullName
+            """)
     List<StudentEnrollment> findByScheduleIdAndStatusWithStudent(
-        @Param("scheduleId") String scheduleId,
-        @Param("status") StudentEnrollmentStatus status
+            @Param("scheduleId") String scheduleId,
+            @Param("status") StudentEnrollmentStatus status
     );
 
     @Query("""
-        SELECT se FROM StudentEnrollment se
-        JOIN FETCH se.classSchedule
-        WHERE se.student.userId IN :userIds
-        AND se.status = :status
-    """)
+                SELECT se FROM StudentEnrollment se
+                JOIN FETCH se.classSchedule cs
+                LEFT JOIN FETCH cs.branch
+                WHERE se.student.userId IN :userIds
+                AND se.status = :status
+            """)
     List<StudentEnrollment> findByStudent_UserIdsInAndStatusWithClassSchedule(
             @Param("userIds") List<UUID> userIds,
             @Param("status") StudentEnrollmentStatus status

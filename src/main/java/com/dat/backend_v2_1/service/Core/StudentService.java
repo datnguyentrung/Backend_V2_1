@@ -7,6 +7,7 @@ import com.dat.backend_v2_1.dto.Core.ClassScheduleResDTO;
 import com.dat.backend_v2_1.dto.Core.StudentReqDTO;
 import com.dat.backend_v2_1.dto.Core.StudentResDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
+import com.dat.backend_v2_1.dto.PageResponse;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
 import com.dat.backend_v2_1.mapper.Core.StudentMapper;
@@ -55,6 +56,7 @@ public class StudentService {
 
     /**
      * Lấy thông tin chi tiết Student bao gồm cả thông tin từ User và Branch
+     *
      * @param userId ID của học viên
      * @return StudentDetail DTO chứa đầy đủ thông tin
      */
@@ -80,7 +82,7 @@ public class StudentService {
         // BƯỚC 2: Validate Business Logic
         // 2.1. Kiểm tra số điện thoại trùng (nếu có thay đổi)
         if (updateDTO.getPhoneNumber() != null &&
-            !updateDTO.getPhoneNumber().equals(student.getPhoneNumber())) {
+                !updateDTO.getPhoneNumber().equals(student.getPhoneNumber())) {
             if (studentRepository.existsByPhoneNumber(updateDTO.getPhoneNumber())) {
                 throw new BusinessException("Số điện thoại này đã được đăng ký bởi học viên khác!");
             }
@@ -88,7 +90,7 @@ public class StudentService {
 
         // 2.2. Kiểm tra CCCD/CMND trùng (nếu có thay đổi)
         if (updateDTO.getNationalCode() != null &&
-            !updateDTO.getNationalCode().equals(student.getNationalCode())) {
+                !updateDTO.getNationalCode().equals(student.getNationalCode())) {
             if (studentRepository.existsByNationalCode(updateDTO.getNationalCode())) {
                 throw new BusinessException("Mã định danh/CCCD này đã tồn tại!");
             }
@@ -159,7 +161,7 @@ public class StudentService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public String createStudent(StudentReqDTO.StudentCreate createDTO){
+    public String createStudent(StudentReqDTO.StudentCreate createDTO) {
         // BƯỚC 1: Validate Business (Check trùng lặp)
         if (studentRepository.existsByPhoneNumber(createDTO.getPhoneNumber())) {
             throw new BusinessException("Số điện thoại này đã được đăng ký!");
@@ -268,8 +270,9 @@ public class StudentService {
      * - Trả về danh sách học viên dưới dạng Page để hỗ trợ phân trang ở frontend
      * - Mỗi học viên trong danh sách sẽ kèm theo thông tin các lớp học đang tham gia (classSchedules)
      * Lưu ý: Việc lấy thông tin lớp học sẽ được tối ưu bằng cách dùng 1 query duy nhất để lấy tất cả enrollment của các học viên trong page, sau đó map vào từng học viên
-     * @param search Từ khóa tìm kiếm (theo tên), có thể null hoặc rỗng để không filter theo tên
-     * @param status Trạng thái học viên để filter (ACTIVE, RESERVED, DROPPED), có thể null để không filter theo trạng thái
+     *
+     * @param search   Từ khóa tìm kiếm (theo tên), có thể null hoặc rỗng để không filter theo tên
+     * @param status   Trạng thái học viên để filter (ACTIVE, RESERVED, DROPPED), có thể null để không filter theo trạng thái
      * @param pageable Thông tin phân trang (page number, page size, sort)
      * @return StudentListResponse chứa danh sách học viên và số liệu thống kê
      */
@@ -305,17 +308,36 @@ public class StudentService {
             return overview;
         });
 
-        // 2. Lấy số liệu thống kê (Tổng quan toàn câu lạc bộ)
-        long active = studentRepository.countByStudentStatus(StudentStatus.ACTIVE);
-        long reserved = studentRepository.countByStudentStatus(StudentStatus.RESERVED);
-        long dropped = studentRepository.countByStudentStatus(StudentStatus.DROPPED);
+        // 2. Lấy số liệu thống kê (Tổng quan toàn câu lạc bộ) - Tối ưu: 1 query thay vì 3
+        Map<StudentStatus, Long> statusCounts = studentRepository.countStudentsByStatusGrouped()
+                .stream()
+                .collect(Collectors.toMap(
+                        arr -> (StudentStatus) arr[0],
+                        arr -> (Long) arr[1]
+                ));
 
-        // 3. Đóng gói vào Response và trả về
+        long active = statusCounts.getOrDefault(StudentStatus.ACTIVE, 0L);
+        long reserved = statusCounts.getOrDefault(StudentStatus.RESERVED, 0L);
+        long dropped = statusCounts.getOrDefault(StudentStatus.DROPPED, 0L);
+
+        // 3. Đóng gói vào Response và trả về (trích xuất dữ liệu từ Page)
+        PageResponse<StudentResDTO.StudentOverview> pageResponse = PageResponse.<StudentResDTO.StudentOverview>builder()
+                .content(studentOverviews.getContent())
+                .pageNumber(studentOverviews.getNumber())
+                .pageSize(studentOverviews.getSize())
+                .totalElements(studentOverviews.getTotalElements())
+                .totalPages(studentOverviews.getTotalPages())
+                .first(studentOverviews.isFirst())
+                .last(studentOverviews.isLast())
+                .empty(studentOverviews.isEmpty())
+                .build();
+
+        // 4. Đóng gói vào Response và trả về
         return StudentResDTO.StudentListResponse.builder()
                 .activeStudentCount(active)
                 .reservedStudentCount(reserved)
                 .droppedStudentCount(dropped)
-                .students(studentOverviews)
+                .students(pageResponse) // Truyền pageResponse đã convert vào đây
                 .build();
     }
 }

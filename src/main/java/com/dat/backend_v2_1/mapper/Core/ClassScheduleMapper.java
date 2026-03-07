@@ -21,6 +21,7 @@ public interface ClassScheduleMapper {
     @Mapping(target = "scheduleLocation", source = "location")
     @Mapping(target = "scheduleLevel", source = "level")
     @Mapping(target = "scheduleShift", source = "shift")
+    @Mapping(target = "scheduleStatus", source = "scheduleStatus")
     @Mapping(target = "startTime", source = "startTime")
     @Mapping(target = "endTime", source = "endTime")
     @Mapping(target = "weekday", source = "weekday")

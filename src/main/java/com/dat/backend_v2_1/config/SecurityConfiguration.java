@@ -20,6 +20,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import javax.crypto.SecretKey;
@@ -88,7 +89,9 @@ public class SecurityConfiguration {
 
     @Bean
     public SecurityFilterChain securityFilterChain(
-            HttpSecurity http, CustomAuthenticationEntryPoint customAuthenticationEntryPoint
+            HttpSecurity http,
+            CustomAuthenticationEntryPoint customAuthenticationEntryPoint,
+            UserStatusValidationFilter userStatusValidationFilter
     ) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
@@ -114,6 +117,8 @@ public class SecurityConfiguration {
                         )
                         .authenticationEntryPoint(customAuthenticationEntryPoint)
                 )
+                // Thêm UserStatusValidationFilter sau khi JWT đã được xác thực
+                .addFilterAfter(userStatusValidationFilter, BearerTokenAuthenticationFilter.class)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .sessionManagement(
                         session ->

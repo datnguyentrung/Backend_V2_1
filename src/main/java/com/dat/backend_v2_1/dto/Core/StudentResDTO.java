@@ -1,12 +1,12 @@
 package com.dat.backend_v2_1.dto.Core;
 
+import com.dat.backend_v2_1.dto.PageResponse;
 import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-import org.springframework.data.domain.Page;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -21,6 +21,7 @@ public class StudentResDTO {
      * - activeStudentCount: Số lượng học viên đang học (ACTIVE)
      * - reservedStudentCount: Số lượng học viên đang tạm dừng (RESERVED)
      * - droppedStudentCount: Số lượng học viên đã nghỉ học (DROPPED)
+     * - Thông tin phân trang được trích xuất từ Page để tránh warning serialization
      */
     @Data
     @Builder
@@ -28,12 +29,12 @@ public class StudentResDTO {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class StudentListResponse {
+        // Statistics
         long activeStudentCount;
         long reservedStudentCount;
         long droppedStudentCount;
 
-        // Đẩy nguyên Page vào đây để Frontend giữ được tính năng phân trang
-        Page<StudentOverview> students;
+        PageResponse<StudentOverview> students; // Thông tin phân trang và danh sách học viên
     }
 
 
@@ -94,7 +95,7 @@ public class StudentResDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class StudentOverview{
+    public static class StudentOverview {
         String studentCode;
 
         String nationalCode;

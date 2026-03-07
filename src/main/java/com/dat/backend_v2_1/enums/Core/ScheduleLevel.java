@@ -1,5 +1,8 @@
 package com.dat.backend_v2_1.enums.Core;
 
+import lombok.Getter;
+
+@Getter
 public enum ScheduleLevel {
     BASIC("Lớp Cơ Bản"),
     KID("Lớp Kid"),
@@ -24,7 +27,4 @@ public enum ScheduleLevel {
         this.displayName = displayName;
     }
 
-    public String getDisplayName() {
-        return displayName;
-    }
 }

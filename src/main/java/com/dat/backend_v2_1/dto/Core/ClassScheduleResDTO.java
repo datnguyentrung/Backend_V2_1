@@ -1,9 +1,6 @@
 package com.dat.backend_v2_1.dto.Core;
 
-import com.dat.backend_v2_1.enums.Core.ScheduleLevel;
-import com.dat.backend_v2_1.enums.Core.ScheduleLocation;
-import com.dat.backend_v2_1.enums.Core.ScheduleShift;
-import com.dat.backend_v2_1.enums.Core.Weekday;
+import com.dat.backend_v2_1.enums.Core.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
@@ -61,14 +58,15 @@ public class ClassScheduleResDTO {
         ScheduleLevel scheduleLevel;      // Trình độ (BEGINNER, INTERMEDIATE...)
         ScheduleShift scheduleShift;      // Ca học (MORNING, EVENING...)
         ScheduleLocation scheduleLocation;              // Phòng học (Location)
+        ScheduleStatus scheduleStatus;              // Trạng thái (ACTIVE, INACTIVE...)
 
         // --- Thời gian ---
         Weekday weekday;
 
-        @JsonFormat(pattern = "HH:mm")
+//        @JsonFormat(pattern = "HH:mm")
         LocalTime startTime;
 
-        @JsonFormat(pattern = "HH:mm")
+//        @JsonFormat(pattern = "HH:mm")
         LocalTime endTime;
 
         // --- Metadata (Thống kê) ---

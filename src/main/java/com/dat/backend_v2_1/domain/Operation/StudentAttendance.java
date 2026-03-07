@@ -38,6 +38,7 @@ import java.util.UUID;
         // Index giúp tìm kiếm nhanh: Tìm lịch sử đi học của 1 học sinh, hoặc tìm danh sách điểm danh của 1 buổi học
         indexes = {
                 @Index(name = "idx_student_enrollment", columnList = "student_enrollment_id"),
+                @Index(name = "idx_session_date", columnList = "session_date DESC")
 //                @Index(name = "idx_attendance_schedule_date", columnList = "schedule_id, session_date")
         }
 )
@@ -75,7 +76,7 @@ public class StudentAttendance {
     // Người thực hiện điểm danh (Có thể là Lễ tân hoặc HLV)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "attendance_coach_id") // Nếu cho phép NULL (ví dụ hệ thống tự điểm danh) thì bỏ @NotNull
-    Coach recordedByCoach;
+            Coach recordedByCoach;
 
     // --- ĐÁNH GIÁ (EVALUATION) ---
 

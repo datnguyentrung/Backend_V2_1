@@ -16,10 +16,12 @@ import com.dat.backend_v2_1.repository.Operation.StudentAttendanceRepository;
 import com.dat.backend_v2_1.service.Core.CoachService;
 import com.dat.backend_v2_1.service.NotificationService;
 import com.dat.backend_v2_1.service.Security.AuthTokenService;
+import com.dat.backend_v2_1.specification.StudentAttendanceSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -318,7 +320,26 @@ public class StudentAttendanceService {
 
     /**
      * Lọc và lấy danh sách điểm danh cho một buổi học cụ thể.
+     * <p>
+     * REFACTORED: Sử dụng Specification thay cho JPQL cứng
+     * <p>
+     * Ưu điểm:
+     * 1. Type-safe: Compiler check tại compile-time
+     * 2. Dynamic: Chỉ thêm điều kiện khi tham số không null/rỗng
+     * 3. Giải quyết lỗi PostgreSQL "could not determine data type"
+     * 4. N+1 Query được xử lý bằng @EntityGraph trong Repository
+     * 5. Clean Code: Dễ đọc, dễ maintain
      *
+     * @param search             Tìm kiếm theo tên/mã/SĐT học viên
+     * @param sessionDate        Ngày học
+     * @param attendanceStatuses Danh sách trạng thái điểm danh
+     * @param evaluationStatuses Danh sách trạng thái đánh giá
+     * @param belts              Danh sách đai (belt)
+     * @param branchIds          Danh sách chi nhánh
+     * @param levels             Danh sách cấp độ lớp
+     * @param scheduleId         Mã lớp học
+     * @param pageable           Thông tin phân trang
+     * @return PageResponse chứa danh sách StudentAttendanceDTO
      */
     @Transactional(readOnly = true)
     public PageResponse<StudentAttendanceDTO.Response> getStudentAttendancesWithStats(
@@ -329,26 +350,36 @@ public class StudentAttendanceService {
             List<Belt> belts,
             List<Integer> branchIds,
             List<ScheduleLevel> levels,
+            String scheduleId,
             Pageable pageable
     ) {
-        String safeSearch = (search == null) ? "" : search;
-        // 1. Lấy dữ liệu dạng Page<Entity> từ DB
-        Page<StudentAttendance> attendances = studentAttendanceRepository
-                .findStudentAttendancesWithFilter(
-                        safeSearch,
-                        sessionDate,
-                        attendanceStatuses,
-                        evaluationStatuses,
-                        belts,
-                        branchIds,
-                        levels,
-                        pageable
-                );
+        // Chuẩn hóa tham số search (tránh trường hợp null gây lỗi)
+        String safeSearch = (search == null || search.trim().isEmpty()) ? null : search.trim();
 
-        // 2. Dùng hàm mapper để chuyển đổi sang DTO (Page<Entity> -> Page<DTO>)
+        // Build Specification động
+        Specification<StudentAttendance> spec = StudentAttendanceSpecification.filterBy(
+                safeSearch,
+                sessionDate,
+                attendanceStatuses,
+                evaluationStatuses,
+                belts,
+                branchIds,
+                levels,
+                scheduleId
+        );
+
+        // Gọi Repository với Specification + Named EntityGraph (tránh N+1 query)
+        // Custom method sử dụng EntityGraph được định nghĩa trong Entity
+        Page<StudentAttendance> attendances = studentAttendanceRepository.findAllWithEntityGraph(spec, pageable);
+
+        log.info("Found {} student attendances with {} total elements",
+                attendances.getNumberOfElements(),
+                attendances.getTotalElements());
+
+        // Chuyển đổi sang DTO
         Page<StudentAttendanceDTO.Response> responsePage = attendances.map(studentAttendanceMapper::toResponse);
 
-        // 3. Trích xuất dữ liệu từ Page và đóng gói vào AttendancePageResponse
+        // Đóng gói vào PageResponse
         return PageResponse.<StudentAttendanceDTO.Response>builder()
                 .content(responsePage.getContent())
                 .pageNumber(responsePage.getNumber())

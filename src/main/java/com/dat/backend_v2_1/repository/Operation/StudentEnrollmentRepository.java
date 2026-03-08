@@ -29,6 +29,15 @@ public interface StudentEnrollmentRepository extends JpaRepository<StudentEnroll
             @Param("status") StudentEnrollmentStatus status
     );
 
+    @Query("SELECT se FROM StudentEnrollment se " +
+            "JOIN FETCH se.classSchedule cs " +
+            "JOIN FETCH cs.branch " +
+            "WHERE se.student.studentCode = :studentCode AND se.status = :status")
+    List<StudentEnrollment> findByStudent_StudentCodeAndStatusWithClassSchedule(
+            @Param("studentCode") String studentCode,
+            @Param("status") StudentEnrollmentStatus status
+    );
+
     /**
      * Optimized query to fetch active students by schedule ID with their full details.
      * Uses EntityGraph to eagerly fetch Student entity, avoiding N+1 query problem.

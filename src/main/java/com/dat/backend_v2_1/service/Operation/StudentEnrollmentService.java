@@ -4,7 +4,6 @@ import com.dat.backend_v2_1.domain.Core.ClassSchedule;
 import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentReqDTO;
-import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.enums.ErrorCode;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
 import com.dat.backend_v2_1.mapper.Operation.StudentEnrollmentMapper;
@@ -107,52 +106,29 @@ public class StudentEnrollmentService {
 
     /**
      * Tìm tất cả các lớp học mà học viên đang tham gia (trạng thái ACTIVE)
-     * @param userId ID của học viên
+     *
+     * @param studentCode mã public của học viên
      * @return Danh sách các enrollment đang active
      */
-    public List<StudentEnrollmentResDTO.SimpleResponse> findStudentEnrollmentsByUserId(UUID userId) {
+    public List<StudentEnrollment> findStudentEnrollmentsByStudentCode(String studentCode) {
         // Validate student exists
-        studentService.getStudentById(userId);
+        studentService.getStudentByStudentCode(studentCode);
 
-        List<StudentEnrollment> enrollments = studentEnrollmentRepository.findByStudent_UserIdAndStatusWithClassSchedule(
-                userId,
+        List<StudentEnrollment> enrollments = studentEnrollmentRepository.findByStudent_StudentCodeAndStatusWithClassSchedule(
+                studentCode,
                 StudentEnrollmentStatus.ACTIVE
         );
 
         if (enrollments.isEmpty()) {
-            log.info("No active enrollments found for student: {}", userId);
+            log.info("No active enrollments found for student: {}", studentCode);
         }
 
-        return enrollments.stream()
-                .map(studentEnrollmentMapper::toSimpleResponse)
-                .toList();
-    }
-
-    /**
-     * Tìm tất cả các lớp học mà học viên đang tham gia (trạng thái ACTIVE) - Response đầy đủ
-     * @param userId ID của học viên
-     * @return Danh sách các enrollment đầy đủ thông tin
-     */
-    public List<StudentEnrollmentResDTO.Response> findDetailedStudentEnrollmentsByUserId(UUID userId) {
-        // Validate student exists
-        studentService.getStudentById(userId);
-
-        List<StudentEnrollment> enrollments = studentEnrollmentRepository.findByStudent_UserIdAndStatusWithClassSchedule(
-                userId,
-                StudentEnrollmentStatus.ACTIVE
-        );
-
-        if (enrollments.isEmpty()) {
-            log.info("No active enrollments found for student: {}", userId);
-        }
-
-        return enrollments.stream()
-                .map(studentEnrollmentMapper::toResponse)
-                .toList();
+        return enrollments;
     }
 
     /**
      * Lấy danh sách học viên theo ID lịch học lớp
+     *
      * @param classScheduleId ID của lịch học lớp
      * @return Danh sách học viên
      */
@@ -164,7 +140,7 @@ public class StudentEnrollmentService {
     }
 
     public StudentEnrollment getEnrollmentByStudentUserIdAndClassScheduleId(UUID studentUserId, String classScheduleId) {
-        return studentEnrollmentRepository.findByStudent_UserIdAndClassSchedule_ScheduleIdAndStatus (
+        return studentEnrollmentRepository.findByStudent_UserIdAndClassSchedule_ScheduleIdAndStatus(
                 studentUserId,
                 classScheduleId,
                 StudentEnrollmentStatus.ACTIVE

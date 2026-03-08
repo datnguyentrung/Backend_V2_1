@@ -116,13 +116,8 @@ public class StudentAttendanceController {
         return ResponseEntity.status(HttpStatus.CREATED).body(responses);
     }
 
-//    @GetMapping
-//    public ResponseEntity<Page<StudentAttendanceDTO.Response>> getAttendanceRecords(){
-//
-//    }
-
     /**
-     * Lọc và lấy danh sách bản ghi điểm danh theo lịch học và ngày buổi học
+     * Lọc và lấy danh sách bản ghi điểm danh theo nhiều tiêu chí khác nhau, hỗ trợ phân trang và sắp xếp.
      *
      * @param search             Từ khóa tìm kiếm (tên học viên, email, hoặc ID)
      * @param sessionDate        Ngày của buổi học (yyyy-MM-dd)
@@ -147,6 +142,8 @@ public class StudentAttendanceController {
             @RequestParam(required = false) List<Integer> branchIds,
             @RequestParam(required = false) List<ScheduleLevel> scheduleLevels,
 
+            @RequestParam(required = false) String scheduleId, // Thêm filter theo scheduleId nếu cần thiết
+
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "30") int size,
             @RequestParam(defaultValue = "sessionDate") String sortBy,
@@ -160,7 +157,7 @@ public class StudentAttendanceController {
         PageResponse<StudentAttendanceDTO.Response> response = studentAttendanceService
                 .getStudentAttendancesWithStats(
                         search, sessionDate, attendanceStatuses, evaluationStatuses,
-                        belts, branchIds, scheduleLevels, pageable
+                        belts, branchIds, scheduleLevels, scheduleId, pageable
                 );
 
         return ResponseEntity.ok(response);

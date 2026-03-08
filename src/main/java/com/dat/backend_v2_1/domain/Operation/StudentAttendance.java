@@ -26,6 +26,29 @@ import java.util.UUID;
 @AllArgsConstructor
 @Entity
 @EntityListeners(AuditingEntityListener.class)
+@NamedEntityGraph(
+        name = "StudentAttendance.withDetails",
+        attributeNodes = {
+                @NamedAttributeNode(value = "studentEnrollment", subgraph = "enrollment-subgraph"),
+                @NamedAttributeNode("recordedByCoach"),
+                @NamedAttributeNode("evaluatedByCoach")
+        },
+        subgraphs = {
+                @NamedSubgraph(
+                        name = "enrollment-subgraph",
+                        attributeNodes = {
+                                @NamedAttributeNode("student"),
+                                @NamedAttributeNode(value = "classSchedule", subgraph = "schedule-subgraph")
+                        }
+                ),
+                @NamedSubgraph(
+                        name = "schedule-subgraph",
+                        attributeNodes = {
+                                @NamedAttributeNode("branch")
+                        }
+                )
+        }
+)
 @Table(
         name = "student_attendance",
         schema = "operation",

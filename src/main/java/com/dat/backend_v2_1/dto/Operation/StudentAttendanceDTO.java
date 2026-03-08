@@ -126,9 +126,6 @@ public class StudentAttendanceDTO {
         @NotNull(message = "Trạng thái điểm danh không được để trống")
         AttendanceStatus attendanceStatus;
 
-        @NotNull(message = "Thời gian điểm danh không được để trống")
-        Instant checkInTime;
-
         // Lưu ý: Không truyền coachId ở đây để bảo mật.
         // Backend sẽ tự lấy ID của HLV đang đăng nhập từ Token.
     }

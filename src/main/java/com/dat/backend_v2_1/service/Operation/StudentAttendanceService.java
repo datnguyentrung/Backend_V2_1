@@ -83,7 +83,7 @@ public class StudentAttendanceService {
 
         // 3. Update logic
         attendance.setAttendanceStatus(request.getAttendanceStatus());
-        attendance.setCheckInTime(request.getCheckInTime());
+        attendance.setCheckInTime(Instant.now());
         attendance.setRecordedByCoach(currentCoach);
 
         if (request.getAttendanceStatus() == AttendanceStatus.ABSENT) {

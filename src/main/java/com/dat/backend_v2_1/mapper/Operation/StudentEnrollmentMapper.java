@@ -26,7 +26,8 @@ public interface StudentEnrollmentMapper { // 1. Đổi thành interface
 
     // Mapping cho Response (Quan trọng)
     @Mapping(target = "student", source = "student") // Map entity Student sang StudentSummary
-    @Mapping(target = "classSchedule", source = "classSchedule") // Map entity Class sang ClassSummary
+    @Mapping(target = "classSchedule", source = "classSchedule")
+    // Map entity Class sang ClassSummary
     StudentEnrollmentResDTO.Response toResponse(StudentEnrollment entity);
 
     // Mapping cho SimpleResponse
@@ -37,4 +38,13 @@ public interface StudentEnrollmentMapper { // 1. Đổi thành interface
     StudentEnrollmentResDTO.SimpleResponse toSimpleResponse(StudentEnrollment entity);
 
     List<StudentEnrollmentResDTO.SimpleResponse> toSimpleResponseList(List<StudentEnrollment> entities);
+
+    @Mapping(target = "studentSummary", source = "student")
+    @Mapping(target = "joinDate", source = "joinDate")
+    @Mapping(target = "status", source = "status")
+    StudentEnrollmentResDTO.EnrolledStudentItem toEnrolledStudentItem(StudentEnrollment entity);
+
+    List<StudentEnrollmentResDTO.EnrolledStudentItem> toEnrolledStudentItemList(List<StudentEnrollment> entities);
+
+
 }

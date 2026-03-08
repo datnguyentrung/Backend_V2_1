@@ -54,6 +54,11 @@ public class StudentService {
                 .orElseThrow(() -> new BusinessException("Không tìm thấy học viên với ID: " + idUser));
     }
 
+    public Student getStudentByStudentCode(String studentCode) {
+        return studentRepository.findByStudentCode(studentCode)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy học viên với mã: " + studentCode));
+    }
+
     /**
      * Lấy thông tin chi tiết Student bao gồm cả thông tin từ User và Branch
      *

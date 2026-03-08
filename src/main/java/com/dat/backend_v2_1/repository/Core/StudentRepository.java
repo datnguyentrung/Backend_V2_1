@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -51,4 +52,6 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
                 GROUP BY s.studentStatus
             """)
     List<Object[]> countStudentsByStatusGrouped();
+
+    Optional<Student> findByStudentCode(String studentCode);
 }

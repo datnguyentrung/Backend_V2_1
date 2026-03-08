@@ -31,15 +31,15 @@ public class StudentEnrollmentController {
     /**
      * Đăng ký học viên vào lớp học
      * POST /api/v1/student-enrollments
-     *
+     * <p>
      * Cho phép đăng ký một học viên vào một hoặc nhiều lớp học cùng lúc.
      * Hệ thống sẽ kiểm tra trùng lặp và validate thông tin trước khi tạo enrollment.
      *
      * @param request Thông tin đăng ký (studentId, scheduleIds, joinDate, note)
      * @return 201 Created - Đăng ký thành công
-     *         400 Bad Request - Dữ liệu không hợp lệ
-     *         404 Not Found - Không tìm thấy học viên hoặc lớp học
-     *         409 Conflict - Học viên đã được đăng ký vào lớp này
+     * 400 Bad Request - Dữ liệu không hợp lệ
+     * 404 Not Found - Không tìm thấy học viên hoặc lớp học
+     * 409 Conflict - Học viên đã được đăng ký vào lớp này
      */
     @PostMapping
     public ResponseEntity<String> createStudentEnrollment(
@@ -56,15 +56,15 @@ public class StudentEnrollmentController {
     /**
      * Cập nhật thông tin đăng ký
      * PUT /api/v1/student-enrollments/{enrollmentId}
-     *
+     * <p>
      * Cập nhật trạng thái enrollment (ACTIVE, RESERVED, TRANSFERRED, DROPPED),
      * ngày nghỉ học và ghi chú. Không cho phép thay đổi học viên hay lớp học.
      *
      * @param enrollmentId ID của enrollment cần cập nhật
-     * @param request Thông tin cập nhật (status, leaveDate, joinDate, note)
+     * @param request      Thông tin cập nhật (status, leaveDate, joinDate, note)
      * @return 200 OK - Cập nhật thành công
-     *         400 Bad Request - Dữ liệu không hợp lệ
-     *         404 Not Found - Không tìm thấy thông tin đăng ký
+     * 400 Bad Request - Dữ liệu không hợp lệ
+     * 404 Not Found - Không tìm thấy thông tin đăng ký
      */
     @PutMapping("/{enrollmentId}")
     public ResponseEntity<String> updateStudentEnrollment(
@@ -80,13 +80,13 @@ public class StudentEnrollmentController {
     /**
      * Xóa đăng ký học viên
      * DELETE /api/v1/student-enrollments/{enrollmentId}
-     *
+     * <p>
      * Xóa hoàn toàn thông tin đăng ký học viên khỏi hệ thống.
      * Thao tác này không thể hoàn tác.
      *
      * @param enrollmentId ID của enrollment cần xóa
      * @return 200 OK - Xóa thành công
-     *         404 Not Found - Không tìm thấy thông tin đăng ký
+     * 404 Not Found - Không tìm thấy thông tin đăng ký
      */
     @DeleteMapping("/{enrollmentId}")
     public ResponseEntity<String> deleteStudentEnrollment(@PathVariable UUID enrollmentId) {
@@ -100,21 +100,23 @@ public class StudentEnrollmentController {
     /**
      * Lấy danh sách lớp học của một học viên (Simple)
      * GET /api/v1/student-enrollments/student/{userId}
-     *
+     * <p>
      * Trả về danh sách các lớp học mà học viên đang tham gia (trạng thái ACTIVE).
      * Response dạng đơn giản, phù hợp cho dropdown hoặc danh sách tóm tắt.
      *
-     * @param userId ID của học viên
+     * @param studentCode mã định danh công khai của học viên
      * @return 200 OK - Danh sách enrollment
-     *         404 Not Found - Không tìm thấy học viên
+     * 404 Not Found - Không tìm thấy học viên
      */
-    @GetMapping("/student/{userId}")
+    @GetMapping("/student/{studentCode}")
     public ResponseEntity<List<StudentEnrollmentResDTO.SimpleResponse>> getStudentEnrollments(
-            @PathVariable UUID userId) {
-        log.info("Request get enrollments for student: {}", userId);
+            @PathVariable String studentCode) {
+        log.info("Request get enrollments for student: {}", studentCode);
 
         List<StudentEnrollmentResDTO.SimpleResponse> enrollments =
-                studentEnrollmentService.findStudentEnrollmentsByUserId(userId);
+                studentEnrollmentService.findStudentEnrollmentsByStudentCode(studentCode).stream()
+                        .map(studentEnrollmentMapper::toSimpleResponse)
+                        .toList();
 
         return ResponseEntity.ok(enrollments);
     }
@@ -122,22 +124,24 @@ public class StudentEnrollmentController {
     /**
      * Lấy danh sách lớp học của một học viên (Detailed)
      * GET /api/v1/student-enrollments/student/{userId}/detailed
-     *
+     * <p>
      * Trả về danh sách các lớp học mà học viên đang tham gia (trạng thái ACTIVE)
      * với đầy đủ thông tin chi tiết về học viên và lớp học.
      * Response phù hợp cho trang chi tiết hoặc báo cáo.
      *
-     * @param userId ID của học viên
+     * @param studentCode Mã định danh công khai của học viên
      * @return 200 OK - Danh sách enrollment chi tiết
-     *         404 Not Found - Không tìm thấy học viên
+     * 404 Not Found - Không tìm thấy học viên
      */
-    @GetMapping("/student/{userId}/detailed")
+    @GetMapping("/student/{studentCode}/detailed")
     public ResponseEntity<List<StudentEnrollmentResDTO.Response>> getDetailedStudentEnrollments(
-            @PathVariable UUID userId) {
-        log.info("Request get detailed enrollments for student: {}", userId);
+            @PathVariable String studentCode) {
+        log.info("Request get detailed enrollments for student: {}", studentCode);
 
         List<StudentEnrollmentResDTO.Response> enrollments =
-                studentEnrollmentService.findDetailedStudentEnrollmentsByUserId(userId);
+                studentEnrollmentService.findStudentEnrollmentsByStudentCode(studentCode).stream()
+                        .map(studentEnrollmentMapper::toResponse)
+                        .toList();
 
         return ResponseEntity.ok(enrollments);
     }
@@ -145,13 +149,13 @@ public class StudentEnrollmentController {
     /**
      * Lấy danh sách học viên trong một lớp học
      * GET /api/v1/student-enrollments/class-schedule/{classScheduleId}
-     *
+     * <p>
      * Trả về danh sách các học viên đã đăng ký trong một lớp học cụ thể.
      * Response dạng đơn giản, phù hợp cho dropdown hoặc danh sách tóm tắt.
      *
      * @param classScheduleId ID của lớp học
      * @return 200 OK - Danh sách học viên trong lớp
-     *         404 Not Found - Không tìm thấy lớp học
+     * 404 Not Found - Không tìm thấy lớp học
      */
     @GetMapping("/class-schedule/{classScheduleId}")
     public ResponseEntity<List<StudentEnrollmentResDTO.SimpleResponse>> getStudentEnrollmentsByClassScheduleId(

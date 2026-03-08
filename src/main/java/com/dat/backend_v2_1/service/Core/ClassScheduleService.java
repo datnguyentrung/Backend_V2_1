@@ -7,6 +7,7 @@ import com.dat.backend_v2_1.domain.Operation.CoachAssignment;
 import com.dat.backend_v2_1.dto.Core.ClassScheduleReqDTO;
 import com.dat.backend_v2_1.dto.Core.ClassScheduleResDTO;
 import com.dat.backend_v2_1.dto.Core.CoachResDTO;
+import com.dat.backend_v2_1.enums.Core.*;
 import com.dat.backend_v2_1.enums.ErrorCode;
 import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
@@ -59,10 +60,19 @@ public class ClassScheduleService {
         return detail;
     }
 
-    public List<ClassScheduleResDTO.ClassScheduleDetail> getAllClassSchedules() {
-        List<ClassSchedule> schedules = classScheduleRepository.findAll();
+    public List<ClassScheduleResDTO.ClassScheduleDetail> getAllClassSchedules(
+            Long branchId,
+            Weekday weekday,
+            ScheduleLevel scheduleLevel,
+            ScheduleShift scheduleShift,
+            ScheduleLocation scheduleLocation,
+            ScheduleStatus scheduleStatus) {
+        // Filter directly from repository
+        List<ClassSchedule> schedules = classScheduleRepository.findAllWithFilters(
+                branchId, weekday, scheduleLevel, scheduleShift, scheduleLocation, scheduleStatus);
+
         if (schedules.isEmpty()) {
-            log.info("No class schedules found");
+            log.info("No class schedules found matching the filters");
             return Collections.emptyList();
         }
 

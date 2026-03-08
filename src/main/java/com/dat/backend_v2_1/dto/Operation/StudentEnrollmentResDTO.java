@@ -4,11 +4,14 @@ import com.dat.backend_v2_1.dto.Core.ClassScheduleResDTO;
 import com.dat.backend_v2_1.dto.Core.StudentResDTO;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Data;
+import lombok.experimental.FieldDefaults;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -50,5 +53,23 @@ public class StudentEnrollmentResDTO {
         private ClassScheduleResDTO.ClassScheduleSummary classScheduleSummary;
         private LocalDate joinDate;
         private StudentEnrollmentStatus status;
+    }
+
+    @Data
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class EnrollmentsByScheduleResponse {
+        ClassScheduleResDTO.ClassScheduleSummary classScheduleSummary;
+        List<EnrolledStudentItem> enrollments;
+    }
+
+    @Data
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class EnrolledStudentItem {
+        UUID enrollmentId;
+        StudentResDTO.StudentSummary studentSummary;
+        LocalDate joinDate;
+        StudentEnrollmentStatus status;
     }
 }

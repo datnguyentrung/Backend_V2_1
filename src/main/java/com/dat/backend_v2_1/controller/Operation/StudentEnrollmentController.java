@@ -1,7 +1,10 @@
 package com.dat.backend_v2_1.controller.Operation;
 
+import com.dat.backend_v2_1.domain.Core.ClassSchedule;
+import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentReqDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
+import com.dat.backend_v2_1.mapper.Core.ClassScheduleMapper;
 import com.dat.backend_v2_1.mapper.Operation.StudentEnrollmentMapper;
 import com.dat.backend_v2_1.service.Operation.StudentEnrollmentService;
 import jakarta.validation.Valid;
@@ -27,6 +30,8 @@ public class StudentEnrollmentController {
     private final StudentEnrollmentService studentEnrollmentService;
 
     private final StudentEnrollmentMapper studentEnrollmentMapper;
+
+    private final ClassScheduleMapper classScheduleMapper;
 
     /**
      * Đăng ký học viên vào lớp học
@@ -158,13 +163,23 @@ public class StudentEnrollmentController {
      * 404 Not Found - Không tìm thấy lớp học
      */
     @GetMapping("/class-schedule/{classScheduleId}")
-    public ResponseEntity<List<StudentEnrollmentResDTO.SimpleResponse>> getStudentEnrollmentsByClassScheduleId(
+    public ResponseEntity<StudentEnrollmentResDTO.EnrollmentsByScheduleResponse> getStudentEnrollmentsByClassScheduleId(
             @PathVariable String classScheduleId) {
         log.info("Request get enrollments for class schedule: {}", classScheduleId);
 
-        List<StudentEnrollmentResDTO.SimpleResponse> enrollments =
-                studentEnrollmentMapper.toSimpleResponseList(studentEnrollmentService.getStudentEnrollmentsByClassScheduleId(classScheduleId));
+        List<StudentEnrollment> enrollments = studentEnrollmentService.getStudentEnrollmentsByClassScheduleId(classScheduleId);
 
-        return ResponseEntity.ok(enrollments);
+        List<StudentEnrollmentResDTO.EnrolledStudentItem> enrolledStudentItems = studentEnrollmentService.getStudentEnrollmentsByClassScheduleId(classScheduleId).stream()
+                .map(studentEnrollmentMapper::toEnrolledStudentItem)
+                .toList();
+
+        ClassSchedule schedule = enrollments.isEmpty() ? null : enrollments.getFirst().getClassSchedule();
+
+        StudentEnrollmentResDTO.EnrollmentsByScheduleResponse response = StudentEnrollmentResDTO.EnrollmentsByScheduleResponse.builder()
+                .classScheduleSummary(classScheduleMapper.toClassScheduleSummary(schedule))
+                .enrollments(enrolledStudentItems)
+                .build();
+
+        return ResponseEntity.ok(response);
     }
 }

@@ -6,6 +6,7 @@ import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentReqDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.mapper.Core.ClassScheduleMapper;
 import com.dat.backend_v2_1.mapper.Operation.StudentEnrollmentMapper;
+import com.dat.backend_v2_1.service.Core.ClassScheduleService;
 import com.dat.backend_v2_1.service.Operation.StudentEnrollmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,8 @@ public class StudentEnrollmentController {
     private final StudentEnrollmentMapper studentEnrollmentMapper;
 
     private final ClassScheduleMapper classScheduleMapper;
+    
+    private final ClassScheduleService classScheduleService;
 
     /**
      * Đăng ký học viên vào lớp học
@@ -173,7 +176,8 @@ public class StudentEnrollmentController {
                 .map(studentEnrollmentMapper::toEnrolledStudentItem)
                 .toList();
 
-        ClassSchedule schedule = enrollments.isEmpty() ? null : enrollments.getFirst().getClassSchedule();
+        ClassSchedule schedule = !enrollments.isEmpty() ? enrollments.getFirst().getClassSchedule()
+                : classScheduleService.getClassScheduleById(classScheduleId);
 
         StudentEnrollmentResDTO.EnrollmentsByScheduleResponse response = StudentEnrollmentResDTO.EnrollmentsByScheduleResponse.builder()
                 .classScheduleSummary(classScheduleMapper.toClassScheduleSummary(schedule))

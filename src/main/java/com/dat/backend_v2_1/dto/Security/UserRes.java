@@ -20,7 +20,6 @@ public class UserRes {
     @AllArgsConstructor
     public static class UserInfo {
         private UUID idUser;
-        private String idAccount;
         private String idRole;
     }
 

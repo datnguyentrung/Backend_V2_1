@@ -15,7 +15,9 @@ public enum ErrorCode {
     UNCATEGORIZED_EXCEPTION(500, "Lỗi hệ thống không xác định"),
     ENROLLMENT_NOT_FOUND(404, "Không tìm thấy thông tin đăng ký học viên"),
     COACH_ASSIGNMENT_NOT_FOUND(404, "Không tìm thấy thông tin phân công huấn luyện viên"),
-    COACH_ALREADY_ASSIGNED(409, "Huấn luyện viên đã được phân công cho lớp học này");
+    COACH_ALREADY_ASSIGNED(409, "Huấn luyện viên đã được phân công cho lớp học này"),
+    PAYMENT_NOT_FOUND(404, "Không tìm thấy thông tin thanh toán"),
+    TUITION_ALREADY_PAID(409, "Học phí tháng này đã được đóng cho lớp học tương ứng");
 
     private final int statusCode;
     private final String message;

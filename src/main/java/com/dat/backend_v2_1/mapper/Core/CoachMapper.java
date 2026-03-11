@@ -21,14 +21,14 @@ public interface CoachMapper {
 
     // 2. Mapping cho UserInfo
     @Mapping(target = "idUser", source = "userId")
-    @Mapping(target = "idAccount", source = "staffCode") // Coach dùng staffCode, Student dùng studentCode
     @Mapping(target = "idRole", source = "role", qualifiedByName = "getRoleName")
     UserRes.UserInfo toUserInfo(Coach coach);
 
     // 3. Mapping cho UserProfile
     @Mapping(target = "name", source = "fullName")
     @Mapping(target = "phone", source = "phoneNumber")
-    @Mapping(target = "isActive", source = "status", qualifiedByName = "mapActiveStatus") // Lấy status của User (ACTIVE/LOCKED)
+    @Mapping(target = "isActive", source = "status", qualifiedByName = "mapActiveStatus")
+    // Lấy status của User (ACTIVE/LOCKED)
     // Lưu ý: Nếu muốn map thêm thuộc tính riêng của Coach (ví dụ belt, position) vào UserProfile
     // thì class UserProfile phải có các trường đó. Hiện tại UserProfile có 'belt', Coach không có 'belt'.
     // Nếu Coach có logic đai đẳng riêng thì cần xử lý, nếu không thì trường belt trong UserProfile sẽ null.

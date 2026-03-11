@@ -58,37 +58,37 @@ public class SecurityUtil {
                 .getTokenValue();
     }
 
-    public String createRefreshToken(UUID idUser, LoginRes userLogin) {
-        Instant now = Instant.now();
-        Instant validity = now.plus(this.refreshTokenExpiration, ChronoUnit.SECONDS);
+//    public String createRefreshToken(UUID idUser, LoginRes userLogin) {
+//        Instant now = Instant.now();
+//        Instant validity = now.plus(this.refreshTokenExpiration, ChronoUnit.SECONDS);
+//
+//        JwtClaimsSet claimsSet = JwtClaimsSet.builder()
+//                .issuedAt(now)
+//                .expiresAt(validity)
+//                .subject(idUser.toString())
+//                .claim("user", userLogin.getUser())
+//                .claim("role", userLogin.getUser().getRole())
+//                .claim("id_device", userLogin.getIdDevice())
+//                .build();
+//
+//        JwsHeader jwsHeader = JwsHeader.with(JWT_ALGORITHM).build();
+//        return this.jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claimsSet))
+//                .getTokenValue();
+//    }
 
-        JwtClaimsSet claimsSet = JwtClaimsSet.builder()
-                .issuedAt(now)
-                .expiresAt(validity)
-                .subject(idUser.toString())
-                .claim("user", userLogin.getUser())
-                .claim("role", userLogin.getUser().getRole())
-                .claim("id_device", userLogin.getIdDevice())
-                .build();
-
-        JwsHeader jwsHeader = JwsHeader.with(JWT_ALGORITHM).build();
-        return this.jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claimsSet))
-                .getTokenValue();
-    }
-
-    public static Optional<String> getCurrentUserLogin(){
+    public static Optional<String> getCurrentUserLogin() {
         SecurityContext securityContext = SecurityContextHolder.getContext();
         return Optional.ofNullable(extractPrincipal(securityContext.getAuthentication()));
     }
 
-    private static String extractPrincipal(Authentication authentication){
-        if (authentication == null){
+    private static String extractPrincipal(Authentication authentication) {
+        if (authentication == null) {
             return null;
-        } else if (authentication.getPrincipal() instanceof UserDetails springSecurityUser){
+        } else if (authentication.getPrincipal() instanceof UserDetails springSecurityUser) {
             return springSecurityUser.getUsername();
-        } else if (authentication.getPrincipal() instanceof Jwt jwt){
+        } else if (authentication.getPrincipal() instanceof Jwt jwt) {
             return jwt.getSubject();
-        } else if (authentication.getPrincipal() instanceof String s){
+        } else if (authentication.getPrincipal() instanceof String s) {
             return s;
         }
         return null;
@@ -109,10 +109,10 @@ public class SecurityUtil {
     public Jwt checkValidRefreshToken(String refreshToken) {
         NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(
                 getSecretKey()).macAlgorithm(JWT_ALGORITHM).build();
-        try{
+        try {
             return jwtDecoder.decode(refreshToken);
 //            System.out.println(">>> Refresh Token ok!");
-        } catch (Exception e){
+        } catch (Exception e) {
             System.out.println(">>> Refresh Token error: " + e.getMessage());
             throw e;
         }

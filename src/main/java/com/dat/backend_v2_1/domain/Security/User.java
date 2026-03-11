@@ -16,7 +16,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -90,4 +89,7 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "belt", length = 20)
     Belt belt = Belt.C10;
+
+    @Transient
+    float[] faceEmbedding;
 }

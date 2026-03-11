@@ -17,13 +17,14 @@ public interface StudentMapper {
     UserRes toUserRes(Student student);
 
     @Mapping(target = "idUser", source = "userId") // Lấy từ User (cha)
-    @Mapping(target = "idAccount", source = "studentCode") // Dùng mã SV làm ID Account
-    @Mapping(target = "idRole", source = "role", qualifiedByName = "getRoleName") // Xử lý object Role ra String
+    @Mapping(target = "idRole", source = "role", qualifiedByName = "getRoleName")
+        // Xử lý object Role ra String
     UserRes.UserInfo toUserInfo(Student student);
 
     @Mapping(target = "name", source = "fullName") // Mapping khác tên: fullName -> name
     @Mapping(target = "phone", source = "phoneNumber") // Mapping khác tên
-    @Mapping(target = "isActive", source = "status", qualifiedByName = "mapActiveStatus") // Convert Enum -> Boolean
+    @Mapping(target = "isActive", source = "status", qualifiedByName = "mapActiveStatus")
+        // Convert Enum -> Boolean
     UserRes.UserProfile toUserProfile(Student student);
 
     @Named("mapActiveStatus")

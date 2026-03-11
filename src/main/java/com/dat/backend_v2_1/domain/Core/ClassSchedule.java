@@ -6,8 +6,9 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.math.BigDecimal;
 import java.time.LocalTime;
 
 @Getter
@@ -64,6 +65,13 @@ public class ClassSchedule {
     @Enumerated(EnumType.STRING)
     @Column(name = "schedule_status", length = 20)
     ScheduleStatus scheduleStatus;
+
+    @NotNull(message = "Học phí tháng không được để trống")
+    @Column(name = "monthly_fee")
+    BigDecimal monthlyFee;
+
+    @Column(name = "quarterly_fee")
+    BigDecimal quarterlyFee; // Có thể dùng để giảm giá khi đóng 3 tháng
 
     // --- Validation Logic (Optional) ---
     // Hibernate sẽ gọi hàm này trước khi Insert/Update

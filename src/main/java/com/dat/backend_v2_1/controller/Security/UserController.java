@@ -1,15 +1,14 @@
 package com.dat.backend_v2_1.controller.Security;
 
-import com.dat.backend_v2_1.domain.Core.Coach;
-import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.dto.RestResponse;
 import com.dat.backend_v2_1.dto.Security.ChangePasswordReq;
 import com.dat.backend_v2_1.dto.Security.UserRes;
 import com.dat.backend_v2_1.mapper.Core.CoachMapper;
 import com.dat.backend_v2_1.mapper.Core.StudentMapper;
-import com.dat.backend_v2_1.service.Security.UserService;
+import com.dat.backend_v2_1.mapper.Security.UserMapper;
 import com.dat.backend_v2_1.service.Core.CoachService;
 import com.dat.backend_v2_1.service.Core.StudentService;
+import com.dat.backend_v2_1.service.Security.UserService;
 import com.dat.backend_v2_1.util.error.IdInvalidException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -26,6 +25,7 @@ public class UserController {
     private final StudentService studentService;
     private final StudentMapper studentMapper;
     private final CoachMapper coachMapper;
+    private final UserMapper userMapper;
 
     @PostMapping("/me/change-password")
     public ResponseEntity<RestResponse<String>> changePassword(
@@ -45,18 +45,8 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<UserRes> getCurrentUser(Authentication authentication) throws IdInvalidException {
         String idUser = authentication.getName();
-        String role = authentication.getAuthorities().iterator().next().getAuthority();
 
-        return switch (role) {
-            case "STUDENT" -> {
-                Student student = studentService.getStudentById(idUser);
-                yield ResponseEntity.ok(studentMapper.toUserRes(student));
-            }
-            case "COACH" -> {
-                Coach coach = coachService.getCoachById(idUser);
-                yield ResponseEntity.ok(coachMapper.toUserRes(coach));
-            }
-            default -> ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        };
+        UserRes userRes = userMapper.toUserRes(usersService.getUserById(idUser));
+        return ResponseEntity.ok(userRes);
     }
 }

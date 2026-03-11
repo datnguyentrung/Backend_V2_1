@@ -4,7 +4,6 @@ import com.dat.backend_v2_1.domain.Security.AuthToken;
 import com.dat.backend_v2_1.domain.Security.User;
 import com.dat.backend_v2_1.repository.Security.AuthTokenRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -115,7 +114,12 @@ public class AuthTokenService {
                 .orElse(null);
     }
 
-    public void updateFcmTokenOnly(String refreshToken, String fcmToken){
+    public AuthToken getUserTokenByRefreshToken(String refreshToken) {
+        return authTokenRepository.findByRefreshToken(refreshToken)
+                .orElseThrow(() -> new RuntimeException("Phiên đăng nhập không tồn tại hoặc Token sai"));
+    }
+
+    public void updateFcmTokenOnly(String refreshToken, String fcmToken) {
         AuthToken authToken = authTokenRepository.findByRefreshToken(refreshToken)
                 .orElseThrow(() -> new RuntimeException("Phiên đăng nhập không tồn tại hoặc Token sai"));
         // 2. Cập nhật FCM Token mới

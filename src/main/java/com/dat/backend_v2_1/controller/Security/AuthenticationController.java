@@ -9,7 +9,6 @@ import com.dat.backend_v2_1.service.Security.UserService;
 import com.dat.backend_v2_1.util.SecurityUtil;
 import com.dat.backend_v2_1.util.error.AuthenticationException;
 import com.dat.backend_v2_1.util.error.IdInvalidException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -18,13 +17,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.UUID;
+
 @RestController
-    @RequestMapping("/api/v1/auth")
+@RequestMapping("/api/v1/auth")
 public class AuthenticationController {
     private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final SecurityUtil securityUtil;
@@ -46,7 +48,7 @@ public class AuthenticationController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginRes> login(@Valid @RequestBody LoginReq.UserBase loginReq) {
+    public ResponseEntity<LoginRes> login(@Valid @RequestBody LoginReq.UserBase loginReq) throws NoSuchAlgorithmException {
         // Nạp input gồm username/passwork vào Security
         UsernamePasswordAuthenticationToken authenticationToken
                 = new UsernamePasswordAuthenticationToken(loginReq.getPhoneNumber(), loginReq.getPassword());
@@ -80,7 +82,7 @@ public class AuthenticationController {
         loginRes.setAccessToken(accessToken);
 
         // Create refresh token
-        String refreshToken = securityUtil.createRefreshToken(currentUserDB.getUserId(), loginRes);
+        String refreshToken = UUID.randomUUID() + "-" + SecureRandom.getInstanceStrong().nextLong();
         loginRes.setRefreshToken(refreshToken);
 
         // update user
@@ -120,53 +122,53 @@ public class AuthenticationController {
 
     @PostMapping("/refresh")
     public ResponseEntity<LoginRes> getRefreshToken(
-//            @CookieValue(name = "refresh_token", defaultValue = "") String refreshToken
-        @AuthenticationPrincipal Jwt jwt
-    ) throws AuthenticationException, IdInvalidException {
-        String refreshToken = jwt.getTokenValue();
+            @CookieValue(name = "refresh_token", defaultValue = "") String refreshToken
+    ) throws AuthenticationException, IdInvalidException, NoSuchAlgorithmException {
         if (refreshToken == null || refreshToken.isEmpty()) {
 //            throw new IdInvalidException("Bạn không có refresh token ở cookies");
             throw new IdInvalidException("Bạn không có refresh token");
         }
 
-        Jwt decodedToken = securityUtil.checkValidRefreshToken(refreshToken);
-        String idUser = decodedToken.getSubject();
-        String idDevice = decodedToken.getClaim("id_device");
+        // 1. DÙNG DATABASE ĐỂ TRA CỨU THAY VÌ DECODE JWT
+        AuthToken currentUserDB = authTokenService.getUserTokenByRefreshToken(refreshToken);
 
-        // check user by token + phoneNumber + idDevice
-        AuthToken currentUserDB = authTokenService
-                .getUserTokensByRefreshTokenAndIdAccountAndIdDevice(refreshToken, idUser, idDevice);
         if (currentUserDB == null) {
             throw new AuthenticationException("Token không hợp lệ hoặc thiết bị không khớp");
         }
 
+        // 2. Kiểm tra token đã hết hạn hay chưa
+        if (currentUserDB.getExpiresAt().isBefore(Instant.now())) {
+            throw new AuthenticationException("Token đã hết hạn");
+        }
+        if (currentUserDB.isRevoked()) {
+            authTokenService.logoutUserTokens(
+                    currentUserDB.getUser().getUserId().toString(),
+                    currentUserDB.getDeviceInfo());
+            throw new AuthenticationException("Phát hiện truy cập bất thường. Phiên đăng nhập bị khóa.");
+        }
+
+        String idUser = currentUserDB.getUser().getUserId().toString();
+        String idDevice = currentUserDB.getDeviceInfo();
+        User userDB = currentUserDB.getUser();
+
         // issue new token/set refresh token as cookies
         LoginRes loginRes = new LoginRes();
-        User userDB = userService.getUserById(idUser);
-        System.out.println("UserDB: " + userDB);
-        if (userDB != null) {
-            System.out.println("IdAccount: " + userDB.getPhoneNumber());
-            System.out.println("Status: " + userDB.getStatus());
-            System.out.println("Role ID: " + (userDB.getRole() != null ? userDB.getRole().getCode() : "NULL ROLE OBJECT")); // Kiểm tra kỹ Role
-            System.out.println("CreatedAt: " + userDB.getCreatedAt());
-            LoginRes.UserLogin userLogin = new LoginRes.UserLogin(
-                    userDB.getUserId(),
-                    userDB.getStatus(),
-                    userDB.getRole().getCode(),
-                    userDB.getCreatedAt().toString()
-            );
-            loginRes.setUser(userLogin);
-        }
         loginRes.setIdDevice(idDevice);
 
-        // Create access token
-        assert userDB != null;
+        LoginRes.UserLogin userLogin = new LoginRes.UserLogin(
+                userDB.getUserId(),
+                userDB.getStatus(),
+                userDB.getRole().getCode(),
+                userDB.getCreatedAt().toString()
+        );
+        loginRes.setUser(userLogin);
+
+        // 5. Tạo Access Token mới (vẫn là JWT)
         String accessToken = securityUtil.createAccessToken(userDB.getUserId(), loginRes.getUser());
         loginRes.setAccessToken(accessToken);
 
-        // Create refresh token
-        String new_refreshToken = securityUtil.createRefreshToken(userDB.getUserId(), loginRes);
-
+        // 6. Tạo Refresh Token MỚI (Opaque Token)
+        String new_refreshToken = UUID.randomUUID() + "-" + SecureRandom.getInstanceStrong().nextLong();
         loginRes.setRefreshToken(new_refreshToken);
 
         // update user
@@ -174,7 +176,7 @@ public class AuthenticationController {
 
         // set cookies
         ResponseCookie responseCookie = ResponseCookie
-                .from("refresh_token", refreshToken)
+                .from("refresh_token", new_refreshToken)
                 .httpOnly(true)
                 .secure(true)
                 .path("/")
@@ -189,25 +191,20 @@ public class AuthenticationController {
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
-//            @CookieValue(name = "refresh_token", defaultValue = "") String refreshToken
-            @AuthenticationPrincipal Jwt jwt
+            @CookieValue(name = "refresh_token", defaultValue = "") String refreshToken
     ) throws IdInvalidException, AuthenticationException {
-        String refreshToken = jwt.getTokenValue();
         if (refreshToken == null || refreshToken.isEmpty()) {
-//            throw new IdInvalidException("Không tìm thấy refresh token trong cookie");
             throw new IdInvalidException("Không tìm thấy refresh token");
         }
 
-        Jwt decodedToken = securityUtil.checkValidRefreshToken(refreshToken);
+        AuthToken currentUserDB = authTokenService.getUserTokenByRefreshToken(refreshToken);
 
-        String idUser = decodedToken.getSubject();
+        if (currentUserDB != null) {
+            String idUser = currentUserDB.getUser().getUserId().toString();
+            String idDevice = currentUserDB.getDeviceInfo();
 
-        // Lấy claim "id_device" an toàn
-        String idDevice = decodedToken.getClaim("id_device");
-        System.out.println("idDevice: " + idDevice);
-
-        // update refresh token = null
-        authTokenService.logoutUserTokens(idUser, idDevice);
+            authTokenService.logoutUserTokens(idUser, idDevice);
+        }
 
         // Xóa cookie refresh token trên client
         ResponseCookie deleteSpringCookie = ResponseCookie
@@ -224,7 +221,7 @@ public class AuthenticationController {
     }
 
     @PostMapping("/update-fcm")
-    public ResponseEntity<?> updateFcmToken(@Valid @RequestBody LoginReq.UpdateFcmReq req){
+    public ResponseEntity<?> updateFcmToken(@Valid @RequestBody LoginReq.UpdateFcmReq req) {
         try {
             authTokenService.updateFcmTokenOnly(req.getRefreshToken(), req.getFcmToken());
             return ResponseEntity.ok("Cập nhật FCM Token thành công");

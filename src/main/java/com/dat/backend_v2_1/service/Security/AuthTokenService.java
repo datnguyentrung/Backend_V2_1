@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -53,7 +53,7 @@ public class AuthTokenService {
 
             // 2. Set thời gian hết hạn về HIỆN TẠI (để coi như nó đã chết ngay lập tức)
             // Đừng cộng thêm thời gian!
-            existingToken.setExpiresAt(Instant.now());
+            existingToken.setExpiresAt(LocalDateTime.now());
 
             // 3. Lưu lại (Phải nằm TRONG khối if)
             authTokenRepository.save(existingToken);
@@ -76,7 +76,7 @@ public class AuthTokenService {
         if (currentUser != null) {
             // Update existing token
             currentUser.setRefreshToken(token);
-            currentUser.setExpiresAt(Instant.now().plusSeconds(refreshTokenExpiration));
+            currentUser.setExpiresAt(LocalDateTime.now().plusSeconds(refreshTokenExpiration));
             currentUser.setRevoked(false);
 
             // Nếu client có gửi fcmToken lên thì mới update, không thì giữ nguyên cái cũ
@@ -93,7 +93,7 @@ public class AuthTokenService {
             newToken.setDeviceInfo(idDevice);
             newToken.setRefreshToken(token);
             newToken.setRevoked(false);
-            newToken.setExpiresAt(Instant.now().plusSeconds(refreshTokenExpiration));
+            newToken.setExpiresAt(LocalDateTime.now().plusSeconds(refreshTokenExpiration));
             newToken.setFcmToken(fcmToken);
 
             authTokenRepository.save(newToken);

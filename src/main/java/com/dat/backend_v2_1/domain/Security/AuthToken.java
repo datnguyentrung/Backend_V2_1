@@ -7,7 +7,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -37,7 +37,7 @@ public class AuthToken {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false) // Tên cột foreign key chuẩn: user_id
     @ToString.Exclude // Ngắt vòng lặp vô hạn khi in log
-    User user;
+            User user;
 
     @Column(name = "refresh_token", nullable = false, unique = true, length = 1024)
     String refreshToken; // Token thường dài, nên set length lớn hoặc dùng @Lob nếu cần
@@ -46,14 +46,14 @@ public class AuthToken {
     String deviceInfo;
 
     @Column(name = "expires_at", nullable = false)
-    Instant expiresAt; // Đã sửa lỗi chính tả (expriresAt -> expiresAt)
+    LocalDateTime expiresAt; // Đã sửa lỗi chính tả (expriresAt -> expiresAt)
 
     @Column(name = "revoked", nullable = false)
     @Builder.Default // Khi dùng Builder, giá trị này mặc định là false
     boolean revoked = false; // Dùng boolean nguyên thủy (tránh null), mặc định là false
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    Instant createdAt;
+    LocalDateTime createdAt;
 
     @Column(name = "fcm_token", length = 500) // Token Firebase khá dài, nên để 500 cho chắc
     String fcmToken;
@@ -61,7 +61,7 @@ public class AuthToken {
     // Tự động set thời gian tạo
     @PrePersist
     protected void onCreate() {
-        this.createdAt = Instant.now();
+        this.createdAt = LocalDateTime.now();
         if (this.revoked) { // Đảm bảo logic nếu không dùng Builder
             // logic này thừa nếu đã init = false, nhưng giữ để chắc chắn
         }

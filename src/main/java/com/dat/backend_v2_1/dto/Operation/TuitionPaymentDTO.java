@@ -7,7 +7,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,7 +47,7 @@ public class TuitionPaymentDTO {
         StudentResDTO.StudentSummary student;
         BigDecimal totalAmount;
         String note;
-        Instant createdAt;
+        LocalDateTime createdAt;
         List<TuitionPaymentDetailDTO.TuitionPaymentDetailResponse> details;
     }
 
@@ -64,6 +64,6 @@ public class TuitionPaymentDTO {
         int forYear;
         BigDecimal amountAllocated;
         String className;   // scheduleId của lớp
-        Instant paidAt;     // createdAt của Payment cha
+        LocalDateTime paidAt;     // createdAt của Payment cha
     }
 }

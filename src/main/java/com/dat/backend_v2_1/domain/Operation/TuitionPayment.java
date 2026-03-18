@@ -10,7 +10,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -41,11 +41,11 @@ public class TuitionPayment {
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
-    Instant createdAt;
+    LocalDateTime createdAt;
 
     @LastModifiedDate
     @Column(name = "updated_at")
-    Instant updatedAt;
+    LocalDateTime updatedAt;
 
     @Column(name = "note")
     String note; // Ví dụ: "Mẹ đóng học phí quý 3"

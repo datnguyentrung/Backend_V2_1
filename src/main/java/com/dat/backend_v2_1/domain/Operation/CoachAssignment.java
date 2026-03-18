@@ -14,8 +14,8 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -80,9 +80,9 @@ public class CoachAssignment {
     // --- AUDIT ---
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
-    Instant createdAt;
+    LocalDateTime createdAt;
 
     @LastModifiedDate
     @Column(name = "updated_at")
-    Instant updatedAt;
+    LocalDateTime updatedAt;
 }

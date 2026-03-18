@@ -35,4 +35,6 @@ public interface ClassScheduleRepository extends JpaRepository<ClassSchedule, St
             @Param("location") ScheduleLocation location,
             @Param("status") ScheduleStatus status
     );
+
+    List<ClassSchedule> findByWeekdayAndScheduleStatus(Weekday weekday, ScheduleStatus scheduleStatus);
 }

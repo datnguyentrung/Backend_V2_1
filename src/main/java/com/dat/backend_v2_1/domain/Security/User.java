@@ -14,8 +14,8 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -60,14 +60,14 @@ public class User {
 
     @CreatedDate // Tự động set khi tạo mới
     @Column(name = "created_at", nullable = false, updatable = false)
-    Instant createdAt;
+    LocalDateTime createdAt;
 
     @LastModifiedDate // Tự động cập nhật thời gian khi bản ghi bị thay đổi
     @Column(name = "updated_at")
-    Instant updatedAt;
+    LocalDateTime updatedAt;
 
     @Column(name = "last_login_at")
-    Instant lastLoginAt;
+    LocalDateTime lastLoginAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_code", nullable = false, referencedColumnName = "role_code")

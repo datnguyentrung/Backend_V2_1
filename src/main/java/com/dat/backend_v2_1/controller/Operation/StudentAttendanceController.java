@@ -67,24 +67,38 @@ public class StudentAttendanceController {
     /**
      * Tạo bản ghi điểm danh thủ công cho 1 học viên
      *
-     * @param authentication JWT authentication chứa coachId
-     * @param request        Thông tin điểm danh (studentId, scheduleId, sessionDate, status, note)
+     * @param request Thông tin điểm danh (studentId, scheduleId, sessionDate, status, note)
      * @return 201 CREATED + Response DTO chứa đầy đủ thông tin bản ghi vừa tạo
      */
-    @PostMapping
-    public ResponseEntity<StudentAttendanceDTO.Response> createAttendanceRecord(
-            Authentication authentication,
+    @PostMapping // URL rõ ràng hành động
+    public ResponseEntity<StudentAttendanceDTO.Response> createAttendanceRecordByAdmin(
             @Valid @RequestBody StudentAttendanceDTO.ManualLogRequest request
     ) {
-        String coachId = authentication.getName();
-
-        log.info("Coach {} creating attendance record for student {} on {}",
-                coachId, request.getStudentId(), request.getSessionDate());
+        log.info("Creating attendance record for student {}", request.getStudentId());
 
         // Service trả về Response DTO để FE hiển thị ngay, không cần gọi GET thêm 1 lần
-        StudentAttendanceDTO.Response response = studentAttendanceService.createAttendanceRecord(request, coachId);
+        StudentAttendanceDTO.Response response = studentAttendanceService.createAttendanceRecord(request);
 
         // HTTP 201 Created + Return body
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * API Điểm danh nhanh cho học viên (Check-in)
+     *
+     * @param request Thông tin điểm danh (studentId, scheduleId, sessionDate)
+     *                - attendanceStatus mặc định là PRESENT
+     *                - checkInTime mặc định là thời điểm hiện tại
+     * @return 201 CREATED + Response DTO chứa thông tin bản ghi vừa tạo
+     */
+    @PostMapping("/check-in") // URL rõ ràng hành động
+    public ResponseEntity<StudentAttendanceDTO.Response> createAttendanceRecordByStudent(
+            @Valid @RequestBody StudentAttendanceDTO.CreateRequest request
+    ) {
+        log.info("Creating attendance record for student {}", request.getStudentId());
+
+        StudentAttendanceDTO.Response response = studentAttendanceService.createAttendanceRecord(request);
+
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -101,18 +115,11 @@ public class StudentAttendanceController {
             @AuthenticationPrincipal Jwt jwt, // Best practice: Lấy token đã decode
             @Valid @RequestBody StudentAttendanceDTO.BatchCreateRequest request
     ) {
-        // 1. Lấy Coach ID từ Token (Subject thường là UserID/CoachID)
-        String coachId = jwt.getSubject();
-
-        // (Optional) Log request để dễ trace lỗi production
-        log.info("Rest Request to initialize attendance for Schedule: {} by Coach: {}",
-                request.getClassScheduleId(), coachId);
-
-        // 2. Gọi Service xử lý
+        // 1. Gọi Service xử lý
         List<StudentAttendanceDTO.Response> responses = studentAttendanceService
-                .markAsAbsentByScheduleId(request, coachId);
+                .markAsAbsentByScheduleId(request);
 
-        // 3. Trả về 201 Created + Body
+        // 2. Trả về 201 Created + Body
         return ResponseEntity.status(HttpStatus.CREATED).body(responses);
     }
 

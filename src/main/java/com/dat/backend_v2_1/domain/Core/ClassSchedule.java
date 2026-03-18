@@ -42,7 +42,7 @@ public class ClassSchedule {
     @Column(name = "level", length = 20, nullable = false)
     ScheduleLevel level;
 
-    // SỬA ĐỔI QUAN TRỌNG: Dùng LocalTime thay vì Instant
+    // SỬA ĐỔI QUAN TRỌNG: Dùng LocalTime thay vì LocalDateTime
     @NotNull(message = "Giờ bắt đầu không được để trống")
     @Column(name = "start_time", nullable = false, columnDefinition = "TIME")
     LocalTime startTime;

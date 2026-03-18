@@ -16,8 +16,8 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -69,7 +69,7 @@ public class CoachTimesheet {
     LocalDate workingDate;
 
     @Column(name = "check_in_time")
-    Instant checkInTime; // Thời gian thực tế HLV bấm nút "Check-in"
+    LocalDateTime checkInTime; // Thời gian thực tế HLV bấm nút "Check-in"
 
     @NotNull
     @Enumerated(EnumType.STRING)
@@ -86,9 +86,9 @@ public class CoachTimesheet {
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
-    Instant createdAt;
+    LocalDateTime createdAt;
 
     @LastModifiedDate
     @Column(name = "updated_at")
-    Instant updatedAt;
+    LocalDateTime updatedAt;
 }

@@ -3,31 +3,40 @@ package com.dat.backend_v2_1.service.Operation;
 import com.dat.backend_v2_1.domain.Core.ClassSchedule;
 import com.dat.backend_v2_1.domain.Core.Coach;
 import com.dat.backend_v2_1.domain.Core.Student;
+import com.dat.backend_v2_1.domain.Operation.ClassSession;
 import com.dat.backend_v2_1.domain.Operation.StudentAttendance;
 import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
 import com.dat.backend_v2_1.dto.Operation.StudentAttendanceDTO;
 import com.dat.backend_v2_1.dto.PageResponse;
-import com.dat.backend_v2_1.enums.Core.*;
+import com.dat.backend_v2_1.enums.Core.Belt;
+import com.dat.backend_v2_1.enums.Core.ScheduleLevel;
+import com.dat.backend_v2_1.enums.Core.ScheduleStatus;
+import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
 import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
 import com.dat.backend_v2_1.mapper.Operation.StudentAttendanceMapper;
+import com.dat.backend_v2_1.repository.Operation.ClassSessionRepository;
 import com.dat.backend_v2_1.repository.Operation.StudentAttendanceRepository;
 import com.dat.backend_v2_1.service.Core.CoachService;
+import com.dat.backend_v2_1.service.Core.StudentService;
 import com.dat.backend_v2_1.service.NotificationService;
 import com.dat.backend_v2_1.service.Security.AuthTokenService;
 import com.dat.backend_v2_1.specification.StudentAttendanceSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -41,6 +50,111 @@ public class StudentAttendanceService {
     private final StudentEnrollmentService studentEnrollmentService;
     private final NotificationService notificationService;
     private final AuthTokenService authTokenService;
+    private final ClassSessionRepository classSessionRepository;
+    private final StudentService studentService;
+
+    @Value("${ATTENDANCE_GRACE_PERIOD_MINUTES}")
+    private int attendanceGracePeriodMinutes;
+
+    public List<StudentAttendance> getAttendancesByUserIdAndSessionDate(UUID studentUserId, LocalDate sessionDate) {
+        // 1. Lấy danh sách từ DB (Repository bắt buộc phải trả về List<StudentAttendance>)
+        List<StudentAttendance> attendances = studentAttendanceRepository
+                .findByStudentEnrollment_Student_UserIdAndSessionDate(studentUserId, sessionDate);
+
+        // 2. Kiểm tra xem danh sách có rỗng không
+        if (attendances.isEmpty()) {
+            throw new NoSuchElementException(
+                    String.format("Không tìm thấy bản ghi điểm danh cho học viên %s vào ngày %s",
+                            studentUserId, sessionDate)
+            );
+        }
+
+        // 3. Trả về danh sách hợp lệ
+        return attendances;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public StudentAttendanceDTO.Response createAttendanceRecord(
+            StudentAttendanceDTO.CreateRequest request
+    ) {
+        Student student = studentService.getStudentById(request.getStudentId());
+        LocalDateTime now = LocalDateTime.now();
+
+        if (student.getStudentStatus() != StudentStatus.ACTIVE) {
+            throw new IllegalStateException("Học viên không ở trạng thái ACTIVE");
+        }
+
+        List<StudentEnrollment> studentEnrollments = studentEnrollmentService
+                .findStudentEnrollmentsByStudentId(request.getStudentId());
+
+        if (studentEnrollments.isEmpty()) {
+            throw new NoSuchElementException("Học viên không có đăng ký lớp nào");
+        }
+
+        List<UUID> enrollmentHasAttendanceOnToday = getAttendancesByUserIdAndSessionDate(
+                request.getStudentId(), LocalDate.from(now))
+                .stream()
+                .map(attendance -> attendance.getStudentEnrollment().getEnrollmentId())
+                .toList();
+
+        for (StudentEnrollment studentEnrollment : studentEnrollments) {
+            if (enrollmentHasAttendanceOnToday.contains(studentEnrollment.getEnrollmentId())) {
+                continue;
+            }
+            LocalTime classStartTime = studentEnrollment.getClassSchedule().getStartTime();
+            if (LocalTime.from(now).isAfter(classStartTime.minusMinutes(attendanceGracePeriodMinutes)) &&
+                    LocalTime.from(now).isBefore(classStartTime.plusMinutes(attendanceGracePeriodMinutes))) {
+                StudentAttendance savedAttendance = studentAttendanceRepository.save(StudentAttendance.builder()
+                        .studentEnrollment(studentEnrollment)
+                        .sessionDate(LocalDate.from(now))
+                        .attendanceStatus(
+                                LocalTime.from(now).isBefore(classStartTime) ? AttendanceStatus.PRESENT : AttendanceStatus.LATE
+                        )
+                        .checkInTime(now)
+                        .note("Điểm danh tự động qua API")
+                        .build());
+                return studentAttendanceMapper.toResponse(savedAttendance);
+            }
+        }
+        throw new NoSuchElementException("Không tìm thấy lớp học phù hợp với thời gian hiện tại");
+    }
+
+    @Scheduled(cron = "0 */5 * * * *")
+    @Transactional(rollbackFor = Exception.class)
+    public void autoCloseAttendanceJob() {
+        LocalDateTime now = LocalDateTime.now();
+
+        LocalDateTime thresholdDateTime = now.minusMinutes(attendanceGracePeriodMinutes);
+        LocalDate thresholdDate = thresholdDateTime.toLocalDate();
+        LocalTime thresholdTime = thresholdDateTime.toLocalTime();
+
+        List<ClassSession> sessionsToClose = classSessionRepository
+                .findClassSessionToClose(thresholdDate, thresholdTime);
+
+        if (sessionsToClose.isEmpty()) {
+            log.info("No class sessions found that require attendance closure at {}", now);
+            return;
+        }
+
+        for (ClassSession session : sessionsToClose) {
+            try {
+                markAsAbsentByScheduleId(
+                        StudentAttendanceDTO.BatchCreateRequest.builder()
+                                .classScheduleId(session.getClassSchedule().getScheduleId())
+                                .sessionDate(session.getSessionDate())
+                                .build()
+                );
+
+                session.setAttendanceClosed(true);
+                classSessionRepository.save(session);
+                log.info("Closed attendance for class session {} on date {}",
+                        session.getSessionId(), session.getSessionDate());
+            } catch (Exception e) {
+                log.error("Failed to close attendance for class session {}: {}",
+                        session.getSessionId(), e.getMessage());
+            }
+        }
+    }
 
     /**
      * Cập nhật trạng thái điểm danh của học viên.
@@ -83,7 +197,7 @@ public class StudentAttendanceService {
 
         // 3. Update logic
         attendance.setAttendanceStatus(request.getAttendanceStatus());
-        attendance.setCheckInTime(Instant.now());
+        attendance.setCheckInTime(LocalDateTime.now());
         attendance.setRecordedByCoach(currentCoach);
 
         if (request.getAttendanceStatus() == AttendanceStatus.ABSENT) {
@@ -403,31 +517,11 @@ public class StudentAttendanceService {
      * 5. Trả về danh sách đầy đủ (Cũ + Mới) để Frontend hiển thị ngay lập tức (UX Optimization).
      *
      * @param request Chứa classScheduleId và sessionDate.
-     * @param coachId ID của HLV thực hiện thao tác.
      * @return Danh sách điểm danh đầy đủ (Full state) để update UI.
      */
     @Transactional(rollbackFor = Exception.class)
     public List<StudentAttendanceDTO.Response> markAsAbsentByScheduleId(
-            StudentAttendanceDTO.BatchCreateRequest request,
-            String coachId) {
-
-        // ========================================================================
-        // STEP 1: BUSINESS VALIDATION
-        // Đảm bảo các thực thể liên quan đều đang ở trạng thái ACTIVE
-        // ========================================================================
-
-        Coach currentCoach = coachService.getCoachById(coachId); // Hàm này tự throw Exception nếu không tìm thấy
-
-        if (currentCoach.getCoachStatus() != CoachStatus.ACTIVE) {
-            log.warn("Security Alert: Coach {} (Status: {}) tried to perform action but is inactive.",
-                    currentCoach.getFullName(), currentCoach.getCoachStatus());
-            throw new AccessDeniedException("Tài khoản của bạn đã bị khóa hoặc không hoạt động.");
-        }
-
-        // ========================================================================
-        // STEP 2: DATA PREPARATION (ROSTER & EXISTING RECORDS)
-        // ========================================================================
-
+            StudentAttendanceDTO.BatchCreateRequest request) {
         // Lấy danh sách "sĩ số lớp" hiện tại (Chỉ lấy học viên đang Active)
         List<StudentEnrollment> activeStudents = studentEnrollmentService
                 .getStudentEnrollmentsByClassScheduleId(request.getClassScheduleId());
@@ -494,8 +588,7 @@ public class StudentAttendanceService {
 
     @Transactional(rollbackFor = Exception.class)
     public StudentAttendanceDTO.Response createAttendanceRecord(
-            StudentAttendanceDTO.ManualLogRequest request,
-            String coachId) {
+            StudentAttendanceDTO.ManualLogRequest request) {
         // 1. GỘP: Validate Student, ClassSchedule và Enrollment trong 1 lần gọi
         StudentEnrollment enrollment = studentEnrollmentService
                 .getEnrollmentByStudentUserIdAndClassScheduleId(request.getStudentId(), request.getClassScheduleId());
@@ -514,19 +607,12 @@ public class StudentAttendanceService {
             throw new IllegalStateException("Học viên đã nghỉ hoặc bảo lưu lớp này");
         }
 
-        // 3. Validate Coach (Vẫn cần check riêng vì Coach độc lập với Enrollment)
-        Coach coach = coachService.getCoachById(coachId);
-        if (coach.getCoachStatus() != CoachStatus.ACTIVE) {
-            throw new IllegalStateException("Coach is not ACTIVE");
-        }
-
         // 4. Create & Save
         StudentAttendance attendance = StudentAttendance.builder()
                 .studentEnrollment(enrollment) // Đã có sẵn Student và Schedule bên trong
-                .recordedByCoach(coach)
                 .sessionDate(request.getSessionDate())
                 .attendanceStatus(request.getAttendanceStatus())
-                .checkInTime(request.getCheckInTime() != null ? request.getCheckInTime() : Instant.now())
+                .checkInTime(request.getCheckInTime() != null ? request.getCheckInTime() : LocalDateTime.now())
                 .note(request.getNote())
                 .build();
 

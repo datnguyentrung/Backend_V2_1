@@ -33,7 +33,7 @@ public class StudentEnrollmentController {
     private final StudentEnrollmentMapper studentEnrollmentMapper;
 
     private final ClassScheduleMapper classScheduleMapper;
-    
+
     private final ClassScheduleService classScheduleService;
 
     /**

@@ -9,8 +9,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.experimental.FieldDefaults;
 
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -41,8 +41,8 @@ public class StudentEnrollmentResDTO {
         private String note;
 
         // --- AUDIT ---
-        private Instant createdAt;
-        private Instant updatedAt;
+        private LocalDateTime createdAt;
+        private LocalDateTime updatedAt;
     }
 
     @Data

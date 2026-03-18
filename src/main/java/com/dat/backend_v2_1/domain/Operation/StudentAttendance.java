@@ -15,8 +15,8 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -94,7 +94,7 @@ public class StudentAttendance {
     AttendanceStatus attendanceStatus = AttendanceStatus.ABSENT; // Mặc định là vắng
 
     @Column(name = "check_in_time")
-    Instant checkInTime; // Đổi tên: attendanceTime -> checkInTime (Thời điểm thực tế quẹt thẻ/điểm danh)
+    LocalDateTime checkInTime; // Đổi tên: attendanceTime -> checkInTime (Thời điểm thực tế quẹt thẻ/điểm danh)
 
     // Người thực hiện điểm danh (Có thể là Lễ tân hoặc HLV)
     @ManyToOne(fetch = FetchType.LAZY)
@@ -120,9 +120,9 @@ public class StudentAttendance {
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
-    Instant createdAt;
+    LocalDateTime createdAt;
 
     @LastModifiedDate
     @Column(name = "updated_at")
-    Instant updatedAt;
+    LocalDateTime updatedAt;
 }

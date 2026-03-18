@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @RestController
@@ -137,7 +137,7 @@ public class AuthenticationController {
         }
 
         // 2. Kiểm tra token đã hết hạn hay chưa
-        if (currentUserDB.getExpiresAt().isBefore(Instant.now())) {
+        if (currentUserDB.getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new AuthenticationException("Token đã hết hạn");
         }
         if (currentUserDB.isRevoked()) {

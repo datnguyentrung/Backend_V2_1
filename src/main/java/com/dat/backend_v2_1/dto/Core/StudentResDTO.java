@@ -8,8 +8,8 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -60,13 +60,13 @@ public class StudentResDTO {
         private UserStatus status; // Trạng thái tài khoản hệ thống (ACTIVE, BANNED, etc.)
 
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        private Instant createdAt;
+        private LocalDateTime createdAt;
 
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        private Instant updatedAt;
+        private LocalDateTime updatedAt;
 
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        private Instant lastLoginAt;
+        private LocalDateTime lastLoginAt;
 
         private String roleName; // Tên role (STUDENT, TEACHER, ADMIN, etc.)
 

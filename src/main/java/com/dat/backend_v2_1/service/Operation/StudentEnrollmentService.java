@@ -127,6 +127,28 @@ public class StudentEnrollmentService {
     }
 
     /**
+     * Tìm tất cả các lớp học mà học viên đang tham gia (trạng thái ACTIVE) theo userId
+     *
+     * @param userId ID của học viên
+     * @return Danh sách các enrollment đang active
+     */
+    public List<StudentEnrollment> findStudentEnrollmentsByStudentId(UUID userId) {
+        // Validate student exists
+        studentService.getStudentById(userId);
+
+        List<StudentEnrollment> enrollments = studentEnrollmentRepository.findByStudent_UserIdAndStatusWithClassSchedule(
+                userId,
+                StudentEnrollmentStatus.ACTIVE
+        );
+
+        if (enrollments.isEmpty()) {
+            log.info("No active enrollments found for student: {}", userId);
+        }
+
+        return enrollments;
+    }
+
+    /**
      * Lấy danh sách học viên theo ID lịch học lớp
      *
      * @param classScheduleId ID của lịch học lớp

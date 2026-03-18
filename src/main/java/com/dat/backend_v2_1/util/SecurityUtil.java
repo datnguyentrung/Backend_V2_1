@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,12 +42,12 @@ public class SecurityUtil {
     private long refreshTokenExpiration;
 
     public String createAccessToken(UUID idUser, LoginRes.UserLogin userLogin) {
-        Instant now = Instant.now();
-        Instant validity = now.plus(this.accessTokenExpiration, ChronoUnit.SECONDS);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime validity = now.plusSeconds(this.accessTokenExpiration);
 
         JwtClaimsSet claimsSet = JwtClaimsSet.builder()
-                .issuedAt(now)
-                .expiresAt(validity)
+                .issuedAt(Instant.from(now))
+                .expiresAt(Instant.from(validity))
                 .subject(idUser.toString())
                 .claim("user", userLogin)
                 .claim("role", userLogin.getRole())
@@ -59,8 +59,8 @@ public class SecurityUtil {
     }
 
 //    public String createRefreshToken(UUID idUser, LoginRes userLogin) {
-//        Instant now = Instant.now();
-//        Instant validity = now.plus(this.refreshTokenExpiration, ChronoUnit.SECONDS);
+//        LocalDateTime now = LocalDateTime.now();
+//        LocalDateTime validity = now.plus(this.refreshTokenExpiration, ChronoUnit.SECONDS);
 //
 //        JwtClaimsSet claimsSet = JwtClaimsSet.builder()
 //                .issuedAt(now)

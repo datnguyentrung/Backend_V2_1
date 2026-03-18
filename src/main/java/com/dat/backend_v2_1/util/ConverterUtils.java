@@ -1,7 +1,6 @@
 package com.dat.backend_v2_1.util;
 
 import java.text.Normalizer;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -9,7 +8,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 public class ConverterUtils {
-    public static LocalDate instantToLocalDate(Instant instant) {
+    public static LocalDate instantToLocalDate(LocalDateTime instant) {
         return instant.atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toLocalDate();
     }
 

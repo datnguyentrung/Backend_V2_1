@@ -8,8 +8,8 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
@@ -34,7 +34,7 @@ public class StudentAttendanceDTO {
 
         // Trạng thái điểm danh
         AttendanceStatus attendanceStatus;
-        Instant checkInTime;
+        LocalDateTime checkInTime;
         String recordedByCoachName; // Tên HLV đã điểm danh
 
         // Đánh giá
@@ -42,7 +42,7 @@ public class StudentAttendanceDTO {
         String note;
         String evaluatedByCoachName; // Tên HLV đã đánh giá
 
-        Instant updatedAt;
+        LocalDateTime updatedAt;
     }
 
     @Data
@@ -55,7 +55,7 @@ public class StudentAttendanceDTO {
         UUID enrollmentId;
         UUID studentId;
         AttendanceStatus attendanceStatus;
-        Instant checkInTime;
+        LocalDateTime checkInTime;
         String recordedByCoachName;
 
         EvaluationStatus evaluationStatus;
@@ -74,6 +74,7 @@ public class StudentAttendanceDTO {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class BatchCreateRequest {
         @NotNull(message = "Schedule ID không được để trống")
@@ -108,7 +109,7 @@ public class StudentAttendanceDTO {
         @NotNull
         AttendanceStatus attendanceStatus; // Thường là EXCUSED (Có phép) hoặc PRESENT (Đi bù)
 
-        Instant checkInTime; // Nullable. Nếu xin nghỉ (EXCUSED/ABSENT) thì để null. Nếu đi học thì truyền vào.
+        LocalDateTime checkInTime; // Nullable. Nếu xin nghỉ (EXCUSED/ABSENT) thì để null. Nếu đi học thì truyền vào.
 
         @Size(max = 500)
         String note; // Lý do: "Về quê", "Ốm", ...
@@ -156,5 +157,13 @@ public class StudentAttendanceDTO {
         AttendanceStatus attendanceStatus;
         EvaluationStatus evaluationStatus;
         String note;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class CreateRequest {
+        UUID studentId;
     }
 }

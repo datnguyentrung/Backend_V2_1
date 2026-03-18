@@ -9,8 +9,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
@@ -38,13 +38,13 @@ public class CoachResDTO {
         private UserStatus status; // Trạng thái tài khoản hệ thống (ACTIVE, BANNED, etc.)
 
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        private Instant createdAt;
+        private LocalDateTime createdAt;
 
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        private Instant updatedAt;
+        private LocalDateTime updatedAt;
 
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        private Instant lastLoginAt;
+        private LocalDateTime lastLoginAt;
 
         private String roleName; // Tên role (COACH, ADMIN, etc.)
 

@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.dat</groupId>
     <artifactId>Backend_V2_1</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>Backend_V2_1</name>
     <description>Backend_V2_1</description>
     <url/>

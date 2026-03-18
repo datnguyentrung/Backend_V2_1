@@ -155,4 +155,6 @@ public interface StudentAttendanceRepository extends JpaRepository<StudentAttend
             @Param("scheduleId") String scheduleId,
             Pageable pageable
     );
+
+    List<StudentAttendance> findByStudentEnrollment_Student_UserIdAndSessionDate(UUID studentEnrollmentStudentUserId, LocalDate sessionDate);
 }

@@ -2,12 +2,17 @@ package com.dat.backend_v2_1.controller.Operation;
 
 import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDTO;
 import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDetailDTO;
+import com.dat.backend_v2_1.dto.PageResponse;
 import com.dat.backend_v2_1.service.Operation.TuitionPaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -125,6 +130,34 @@ public class TuitionPaymentController {
                 tuitionPaymentService.getPaymentHistoryByEnrollment(enrollmentId);
 
         return ResponseEntity.ok(history);
+    }
+
+    // =========================================================================
+    // D. QUẢN LÝ TỔNG THỂ — ADMIN / MANAGER
+    // =========================================================================
+
+    /**
+     * Lấy danh sách toàn bộ lịch sử giao dịch đóng học phí trên hệ thống.
+     * Có hỗ trợ tìm kiếm theo tên võ sinh, mã võ sinh, hoặc ghi chú.
+     * Dành riêng cho Admin, Quản lý hoặc Coach Trainee xem báo cáo.
+     *
+     * @param search   Từ khóa tìm kiếm (tên, mã, note)
+     * @param pageable Cấu hình phân trang (mặc định 10 dòng, xếp mới nhất lên đầu)
+     * @return 200 OK + PageResponse chứa danh sách giao dịch
+     */
+//    @PreAuthorize("hasAnyAuthority('ADMIN', 'MANAGER', 'COACH_TRAINEE')")
+    @PreAuthorize("@securityRule.isManager(authentication)")
+    @GetMapping
+    public ResponseEntity<PageResponse<TuitionPaymentDTO.TuitionPaymentResponse>> getAllPaymentsForAdmin(
+            @RequestParam(required = false, defaultValue = "") String search,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        log.info("REST request to get all tuition payments for admin with search: [{}]", search);
+
+        PageResponse<TuitionPaymentDTO.TuitionPaymentResponse> responsePage =
+                tuitionPaymentService.getPaymentHistoryForAdmin(search, pageable);
+
+        return ResponseEntity.ok(responsePage);
     }
 }
 

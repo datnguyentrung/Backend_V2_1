@@ -127,7 +127,7 @@ public class StudentResDTO {
     public static class StudentSummary {
         private UUID userId;
         private String fullName;
-        private String email;
+        //        private String email;
         private String code; // Mã sinh viên
     }
 }

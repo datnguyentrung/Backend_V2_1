@@ -7,8 +7,10 @@ import com.dat.backend_v2_1.domain.Operation.TuitionPaymentDetail;
 import com.dat.backend_v2_1.dto.Core.StudentResDTO;
 import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDTO;
 import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDetailDTO;
+import com.dat.backend_v2_1.dto.PageResponse;
 import com.dat.backend_v2_1.enums.ErrorCode;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
+import com.dat.backend_v2_1.mapper.Operation.TuitionPaymentMapper;
 import com.dat.backend_v2_1.repository.Operation.StudentEnrollmentRepository;
 import com.dat.backend_v2_1.repository.Operation.TuitionPaymentDetailRepository;
 import com.dat.backend_v2_1.repository.Operation.TuitionPaymentRepository;
@@ -17,6 +19,8 @@ import com.dat.backend_v2_1.util.error.AppException;
 import com.dat.backend_v2_1.util.error.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +41,7 @@ public class TuitionPaymentService {
     private final TuitionPaymentDetailRepository tuitionPaymentDetailRepository;
     private final StudentEnrollmentRepository studentEnrollmentRepository;
     private final StudentService studentService;
+    private final TuitionPaymentMapper tuitionPaymentMapper;
 
     // =========================================================================
     // A. TÁC VỤ ĐÓNG PHÍ (CREATE PAYMENT)
@@ -292,5 +297,57 @@ public class TuitionPaymentService {
                         .paidAt(d.getTuitionPayment().getCreatedAt())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    public PageResponse<TuitionPaymentDTO.TuitionPaymentResponse> getPaymentHistoryForAdmin(String search, Pageable pageable) {
+        String safeSearch = (search == null) ? "" : search;
+
+        // 1. Lấy danh sách Payment theo phân trang (Đã có sẵn Student nhờ EntityGraph)
+        Page<TuitionPayment> tuitionPayments = tuitionPaymentRepository.findTuitionPaymentHistory(safeSearch, pageable);
+
+        // 1.5. Nếu dữ liệu rỗng (không tìm thấy ai), map thẳng ra PageResponse rỗng
+        if (tuitionPayments.isEmpty()) {
+            return new PageResponse<>(
+                    List.of(), // list rỗng
+                    tuitionPayments.getNumber(),
+                    tuitionPayments.getSize(),
+                    tuitionPayments.getTotalElements(),
+                    tuitionPayments.getTotalPages(),
+                    tuitionPayments.isFirst(),
+                    tuitionPayments.isLast(),
+                    tuitionPayments.isEmpty()
+            );
+        }
+
+        // 2. Lấy danh sách các Payment ID có trong trang hiện tại
+        List<UUID> paymentIds = tuitionPayments.stream()
+                .map(TuitionPayment::getPaymentId)
+                .toList();
+
+        // 3. Query 1 LẦN DUY NHẤT để lấy tất cả details của các payment này
+        List<TuitionPaymentDetail> allDetails = tuitionPaymentDetailRepository.findByTuitionPayment_PaymentIdIn(paymentIds);
+
+        // 4. Gom nhóm Details theo Payment ID (Map<PaymentId, List<Detail>>)
+        Map<UUID, List<TuitionPaymentDetail>> detailsByPaymentId = allDetails.stream()
+                .collect(Collectors.groupingBy(detail -> detail.getTuitionPayment().getPaymentId()));
+
+        // 5. Map từ Entity sang Response DTO (Lúc này vẫn đang là Spring Page)
+        Page<TuitionPaymentDTO.TuitionPaymentResponse> dtoPage = tuitionPayments.map(payment -> {
+            // Lấy list detail tương ứng từ Map, nếu không có thì trả về list rỗng
+            List<TuitionPaymentDetail> paymentDetails = detailsByPaymentId.getOrDefault(payment.getPaymentId(), List.of());
+            return tuitionPaymentMapper.toResponse(payment, paymentDetails); // Lưu ý: sửa tuitionPaymentMap thành tuitionPaymentMapper
+        });
+
+        // 6. Convert từ Spring Page sang Custom PageResponse của bạn
+        return new PageResponse<>(
+                dtoPage.getContent(),
+                dtoPage.getNumber(),
+                dtoPage.getSize(),
+                dtoPage.getTotalElements(),
+                dtoPage.getTotalPages(),
+                dtoPage.isFirst(),
+                dtoPage.isLast(),
+                dtoPage.isEmpty()
+        );
     }
 }

@@ -80,4 +80,7 @@ public interface TuitionPaymentDetailRepository extends JpaRepository<TuitionPay
     List<TuitionPaymentDetail> findPaidEnrollmentsForYear(
             @Param("enrollmentIds") List<UUID> enrollmentIds,
             @Param("year") int year);
+
+    // Lấy toàn bộ Detail của một danh sách Payment IDs
+    List<TuitionPaymentDetail> findByTuitionPayment_PaymentIdIn(List<UUID> paymentIds);
 }

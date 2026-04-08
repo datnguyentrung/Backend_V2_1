@@ -1,12 +1,14 @@
 package com.dat.backend_v2_1.controller.Operation;
 
 import com.dat.backend_v2_1.dto.Operation.StudentAttendanceDTO;
+import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDetailDTO;
 import com.dat.backend_v2_1.dto.PageResponse;
 import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.ScheduleLevel;
 import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
 import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
 import com.dat.backend_v2_1.service.Operation.StudentAttendanceService;
+import com.dat.backend_v2_1.service.Operation.TuitionPaymentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +32,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/student-attendances")
 public class StudentAttendanceController {
     private final StudentAttendanceService studentAttendanceService;
+    private final TuitionPaymentService tuitionPaymentService;
 
     @PatchMapping("/{attendanceId}/status")
     public ResponseEntity<Void> updateAttendanceStatus(
@@ -86,9 +89,6 @@ public class StudentAttendanceController {
     /**
      * API Điểm danh nhanh cho học viên (Check-in)
      *
-     * @param request Thông tin điểm danh (studentId, scheduleId, sessionDate)
-     *                - attendanceStatus mặc định là PRESENT
-     *                - checkInTime mặc định là thời điểm hiện tại
      * @return 201 CREATED + Response DTO chứa thông tin bản ghi vừa tạo
      */
     @PostMapping("/check-in") // URL rõ ràng hành động
@@ -98,6 +98,14 @@ public class StudentAttendanceController {
         log.info("Creating attendance record for student {}", request.getStudentId());
 
         StudentAttendanceDTO.Response response = studentAttendanceService.createAttendanceRecord(request);
+
+        if (response == null) {
+            // Trường hợp không tạo được bản ghi (ví dụ: đã điểm danh rồi), trả về 400 Bad Request
+            return ResponseEntity.badRequest().build();
+        }
+
+        TuitionPaymentDetailDTO.TuitionStatusResponse tuitionStatusResponse = tuitionPaymentService.checkTuitionStatus(request.getStudentId());
+        response.setTuitionStatus(tuitionStatusResponse);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

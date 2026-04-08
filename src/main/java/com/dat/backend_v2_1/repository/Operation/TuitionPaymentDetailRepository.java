@@ -65,4 +65,19 @@ public interface TuitionPaymentDetailRepository extends JpaRepository<TuitionPay
             @Param("enrollmentIds") List<UUID> enrollmentIds,
             @Param("month") int month,
             @Param("year") int year);
+
+    /**
+     * Liệt kê các tháng đã đóng trong năm nay
+     * Dùng cho lễ tân AI.
+     */
+    @Query("""
+            SELECT tpd FROM TuitionPaymentDetail tpd
+            JOIN FETCH tpd.enrollment enr
+            JOIN FETCH enr.classSchedule cs
+            WHERE enr.enrollmentId IN :enrollmentIds
+              AND tpd.forYear  = :year
+            """)
+    List<TuitionPaymentDetail> findPaidEnrollmentsForYear(
+            @Param("enrollmentIds") List<UUID> enrollmentIds,
+            @Param("year") int year);
 }

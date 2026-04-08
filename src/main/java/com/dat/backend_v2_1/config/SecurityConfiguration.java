@@ -1,8 +1,10 @@
 package com.dat.backend_v2_1.config;
 
+import com.dat.backend_v2_1.util.ApiKeyAuthenticationFilter;
 import com.dat.backend_v2_1.util.SecurityUtil;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.util.Base64;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +36,9 @@ import java.util.List;
 public class SecurityConfiguration {
     @Value("${jwt.base64-secret}")
     private String jwtKey;
+
+    @Autowired
+    private ApiKeyAuthenticationFilter apiKeyAuthenticationFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -119,6 +124,7 @@ public class SecurityConfiguration {
                         .authenticationEntryPoint(customAuthenticationEntryPoint)
                 )
                 // Thêm UserStatusValidationFilter sau khi JWT đã được xác thực
+                .addFilterBefore(apiKeyAuthenticationFilter, BearerTokenAuthenticationFilter.class)
                 .addFilterAfter(userStatusValidationFilter, BearerTokenAuthenticationFilter.class)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .sessionManagement(

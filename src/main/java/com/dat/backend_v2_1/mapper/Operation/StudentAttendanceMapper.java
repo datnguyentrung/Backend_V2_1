@@ -17,14 +17,12 @@ public interface StudentAttendanceMapper {
     @Mapping(source = "studentEnrollment.student.userId", target = "studentId")
     @Mapping(source = "studentEnrollment.student.fullName", target = "studentName")
     @Mapping(source = "studentEnrollment.classSchedule.scheduleId", target = "classScheduleId")
-    @Mapping(source = "recordedByCoach.fullName", target = "recordedByCoachName")
     @Mapping(source = "evaluatedByCoach.fullName", target = "evaluatedByCoachName")
     @Mapping(source = "studentEnrollment.enrollmentId", target = "enrollmentId")
     StudentAttendanceDTO.Response toResponse(StudentAttendance entity);
 
     @Mapping(source = "studentEnrollment.student.userId", target = "studentId")
     @Mapping(source = "studentEnrollment.enrollmentId", target = "enrollmentId")
-    @Mapping(source = "recordedByCoach.fullName", target = "recordedByCoachName")
     @Mapping(source = "evaluatedByCoach.fullName", target = "evaluatedByCoachName")
     StudentAttendanceDTO.SimpleResponse toSimpleResponse(StudentAttendance entity);
 

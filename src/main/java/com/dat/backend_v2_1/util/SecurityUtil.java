@@ -18,6 +18,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,12 +43,14 @@ public class SecurityUtil {
     private long refreshTokenExpiration;
 
     public String createAccessToken(UUID idUser, LoginRes.UserLogin userLogin) {
+
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime validity = now.plusSeconds(this.accessTokenExpiration);
+        Instant instant = now.atZone(ZoneId.systemDefault()).toInstant();
+        Instant validity = instant.plusSeconds(this.accessTokenExpiration);
 
         JwtClaimsSet claimsSet = JwtClaimsSet.builder()
-                .issuedAt(Instant.from(now))
-                .expiresAt(Instant.from(validity))
+                .issuedAt(instant)
+                .expiresAt(validity)
                 .subject(idUser.toString())
                 .claim("user", userLogin)
                 .claim("role", userLogin.getRole())

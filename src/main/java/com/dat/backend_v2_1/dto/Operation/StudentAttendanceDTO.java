@@ -14,6 +14,7 @@ import java.util.UUID;
 
 @Data
 public class StudentAttendanceDTO {
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -27,6 +28,9 @@ public class StudentAttendanceDTO {
         UUID studentId;
         String studentName;
 
+        // Thông tin học phí (Thông tin cho tts generate nhắc nhở đóng học phí nếu chưa đóng)
+        TuitionPaymentDetailDTO.TuitionStatusResponse tuitionStatus;
+
         // Thông tin buổi học
         String classScheduleId;
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
@@ -35,7 +39,7 @@ public class StudentAttendanceDTO {
         // Trạng thái điểm danh
         AttendanceStatus attendanceStatus;
         LocalDateTime checkInTime;
-        String recordedByCoachName; // Tên HLV đã điểm danh
+//        String recordedByCoachName; // Tên HLV đã điểm danh
 
         // Đánh giá
         EvaluationStatus evaluationStatus;
@@ -56,7 +60,6 @@ public class StudentAttendanceDTO {
         UUID studentId;
         AttendanceStatus attendanceStatus;
         LocalDateTime checkInTime;
-        String recordedByCoachName;
 
         EvaluationStatus evaluationStatus;
         String evaluatedByCoachName;

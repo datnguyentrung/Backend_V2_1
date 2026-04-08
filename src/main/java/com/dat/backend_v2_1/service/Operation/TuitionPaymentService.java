@@ -194,15 +194,21 @@ public class TuitionPaymentService {
                 .map(StudentEnrollment::getEnrollmentId)
                 .collect(Collectors.toList());
 
+//        // Batch query: lấy các detail đã đóng trong tháng này
+//        List<TuitionPaymentDetail> paidDetails = tuitionPaymentDetailRepository
+//                .findPaidEnrollmentsForMonth(enrollmentIds, currentMonth, currentYear);
+
         // Batch query: lấy các detail đã đóng trong tháng này
         List<TuitionPaymentDetail> paidDetails = tuitionPaymentDetailRepository
-                .findPaidEnrollmentsForMonth(enrollmentIds, currentMonth, currentYear);
+                .findPaidEnrollmentsForYear(enrollmentIds, currentYear);
 
         // Map enrollmentId → detail để tra cứu O(1)
         Map<UUID, TuitionPaymentDetail> paidMap = paidDetails.stream()
                 .collect(Collectors.toMap(
-                        d -> d.getEnrollment().getEnrollmentId(),
-                        d -> d
+                        detail -> detail.getEnrollment().getEnrollmentId(),
+                        detail -> detail,
+                        // 2. Thêm merge function để tránh lỗi Duplicate Key nếu query theo năm trả về nhiều record cho 1 lớp
+                        (existing, replacement) -> existing
                 ));
 
         // Xây dựng danh sách trạng thái từng lớp
@@ -212,7 +218,7 @@ public class TuitionPaymentService {
                     return TuitionPaymentDetailDTO.ActiveClassStatus.builder()
                             .enrollmentId(enr.getEnrollmentId())
                             .scheduleId(enr.getClassSchedule().getScheduleId())
-                            .paid(paidDetail != null)
+                            .paid(Boolean.FALSE) // TODO: sau thay bằng paidDetail != null
                             .amountAllocated(paidDetail != null ? paidDetail.getAmountAllocated() : null)
                             .build();
                 })

@@ -15,8 +15,13 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         // Cho phép frontend gọi API
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000", "http://localhost:4173",
-                "http://localhost:5173", "https://tkdvanquan.vercel.app"));
+        configuration.setAllowedOrigins(
+                Arrays.asList(
+                        "http://localhost:3000", "http://localhost:4173",
+                        "http://localhost:5173", "https://tkdvanquan.vercel.app",
+                        "http://localhost:8000"
+                )
+        );
         // Các phương thức HTTP được phép
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         // Các header được phép gửi lên

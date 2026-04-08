@@ -23,8 +23,7 @@ public class ClassSessionService {
     private final ClassSessionRepository classSessionRepository;
     private final ClassScheduleRepository classScheduleRepository;
 
-    // Tiến trình này sẽ chạy vào lúc 9:32 sáng hàng ngày để sinh buổi học cho ngày hôm đó
-    @Scheduled(cron = "0 35 9 * * *")
+    @Scheduled(cron = "0 0 0 * * *")
     @Transactional(rollbackFor = Exception.class)
     public void generateClassSessions() {
         LocalDate today = LocalDate.now();

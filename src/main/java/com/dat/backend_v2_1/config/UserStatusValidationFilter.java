@@ -32,6 +32,13 @@ public class UserStatusValidationFilter extends OncePerRequestFilter {
     );
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getRequestURI();
+        // Bỏ qua, KHÔNG đòi JWT Token nếu đây là API do AI Python gọi
+        return path.equals("/api/v1/student-attendances/check-in");
+    }
+
+    @Override
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,

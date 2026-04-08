@@ -3,11 +3,7 @@ package com.dat.backend_v2_1.controller.Security;
 import com.dat.backend_v2_1.dto.RestResponse;
 import com.dat.backend_v2_1.dto.Security.ChangePasswordReq;
 import com.dat.backend_v2_1.dto.Security.UserRes;
-import com.dat.backend_v2_1.mapper.Core.CoachMapper;
-import com.dat.backend_v2_1.mapper.Core.StudentMapper;
 import com.dat.backend_v2_1.mapper.Security.UserMapper;
-import com.dat.backend_v2_1.service.Core.CoachService;
-import com.dat.backend_v2_1.service.Core.StudentService;
 import com.dat.backend_v2_1.service.Security.UserService;
 import com.dat.backend_v2_1.util.error.IdInvalidException;
 import lombok.RequiredArgsConstructor;
@@ -21,10 +17,6 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UserController {
     private final UserService usersService;
-    private final CoachService coachService;
-    private final StudentService studentService;
-    private final StudentMapper studentMapper;
-    private final CoachMapper coachMapper;
     private final UserMapper userMapper;
 
     @PostMapping("/me/change-password")

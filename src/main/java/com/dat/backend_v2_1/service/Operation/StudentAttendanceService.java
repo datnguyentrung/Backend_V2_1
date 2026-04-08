@@ -57,26 +57,15 @@ public class StudentAttendanceService {
     private int attendanceGracePeriodMinutes;
 
     public List<StudentAttendance> getAttendancesByUserIdAndSessionDate(UUID studentUserId, LocalDate sessionDate) {
-        // 1. Lấy danh sách từ DB (Repository bắt buộc phải trả về List<StudentAttendance>)
-        List<StudentAttendance> attendances = studentAttendanceRepository
+        return studentAttendanceRepository
                 .findByStudentEnrollment_Student_UserIdAndSessionDate(studentUserId, sessionDate);
-
-        // 2. Kiểm tra xem danh sách có rỗng không
-        if (attendances.isEmpty()) {
-            throw new NoSuchElementException(
-                    String.format("Không tìm thấy bản ghi điểm danh cho học viên %s vào ngày %s",
-                            studentUserId, sessionDate)
-            );
-        }
-
-        // 3. Trả về danh sách hợp lệ
-        return attendances;
     }
 
     @Transactional(rollbackFor = Exception.class)
     public StudentAttendanceDTO.Response createAttendanceRecord(
             StudentAttendanceDTO.CreateRequest request
     ) {
+        // 1. Validate Student (Helper method đã tách ra)
         Student student = studentService.getStudentById(request.getStudentId());
         LocalDateTime now = LocalDateTime.now();
 
@@ -84,6 +73,7 @@ public class StudentAttendanceService {
             throw new IllegalStateException("Học viên không ở trạng thái ACTIVE");
         }
 
+        // 2. Lấy danh sách đăng ký lớp của học viên
         List<StudentEnrollment> studentEnrollments = studentEnrollmentService
                 .findStudentEnrollmentsByStudentId(request.getStudentId());
 
@@ -91,12 +81,16 @@ public class StudentAttendanceService {
             throw new NoSuchElementException("Học viên không có đăng ký lớp nào");
         }
 
+        // 3. Lấy danh sách enrollmentId đã có điểm danh trong ngày hôm nay để tránh tạo trùng
         List<UUID> enrollmentHasAttendanceOnToday = getAttendancesByUserIdAndSessionDate(
                 request.getStudentId(), LocalDate.from(now))
                 .stream()
                 .map(attendance -> attendance.getStudentEnrollment().getEnrollmentId())
                 .toList();
 
+        System.out.println("hello");
+
+        // 4. Kiểm tra từng enrollment xem có lớp nào phù hợp với thời gian hiện tại để tạo điểm danh tự động
         for (StudentEnrollment studentEnrollment : studentEnrollments) {
             if (enrollmentHasAttendanceOnToday.contains(studentEnrollment.getEnrollmentId())) {
                 continue;

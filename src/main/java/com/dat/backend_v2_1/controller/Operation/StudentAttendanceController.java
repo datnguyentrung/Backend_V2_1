@@ -1,5 +1,7 @@
 package com.dat.backend_v2_1.controller.Operation;
 
+import com.dat.backend_v2_1.config.SecurityRule;
+import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentAttendanceDTO;
 import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDetailDTO;
 import com.dat.backend_v2_1.dto.PageResponse;
@@ -7,6 +9,7 @@ import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.ScheduleLevel;
 import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
 import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
+import com.dat.backend_v2_1.service.Operation.CoachAssignmentService;
 import com.dat.backend_v2_1.service.Operation.StudentAttendanceService;
 import com.dat.backend_v2_1.service.Operation.TuitionPaymentService;
 import jakarta.validation.Valid;
@@ -17,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -25,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -33,6 +38,8 @@ import java.util.UUID;
 public class StudentAttendanceController {
     private final StudentAttendanceService studentAttendanceService;
     private final TuitionPaymentService tuitionPaymentService;
+    private final SecurityRule securityRule;
+    private final CoachAssignmentService coachAssignmentService;
 
     @PatchMapping("/{attendanceId}/status")
     public ResponseEntity<Void> updateAttendanceStatus(
@@ -74,6 +81,7 @@ public class StudentAttendanceController {
      * @return 201 CREATED + Response DTO chứa đầy đủ thông tin bản ghi vừa tạo
      */
     @PostMapping // URL rõ ràng hành động
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<StudentAttendanceDTO.Response> createAttendanceRecordByAdmin(
             @Valid @RequestBody StudentAttendanceDTO.ManualLogRequest request
     ) {
@@ -119,6 +127,7 @@ public class StudentAttendanceController {
      * - Trả về: Full danh sách để hiển thị ngay lập tức.
      */
     @PostMapping("/batch-init") // URL rõ ràng hành động
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     public ResponseEntity<List<StudentAttendanceDTO.Response>> initializeAttendance(
             @AuthenticationPrincipal Jwt jwt, // Best practice: Lấy token đã decode
             @Valid @RequestBody StudentAttendanceDTO.BatchCreateRequest request
@@ -149,6 +158,7 @@ public class StudentAttendanceController {
      */
     @GetMapping
     public ResponseEntity<PageResponse<StudentAttendanceDTO.Response>> filterAttendanceRecords(
+            Authentication authentication,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) LocalDate sessionDate,
             @RequestParam(required = false) List<AttendanceStatus> attendanceStatuses,
@@ -157,7 +167,7 @@ public class StudentAttendanceController {
             @RequestParam(required = false) List<Integer> branchIds,
             @RequestParam(required = false) List<ScheduleLevel> scheduleLevels,
 
-            @RequestParam(required = false) String scheduleId, // Thêm filter theo scheduleId nếu cần thiết
+            @RequestParam(required = false) List<String> scheduleIds, // Thêm filter theo scheduleId nếu cần thiết
 
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "30") int size,
@@ -169,10 +179,35 @@ public class StudentAttendanceController {
                 : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
+        if (securityRule.isHeadCoach(authentication)) {
+            // Xử lý riêng nếu là HEAD_COACH / ADMIN
+            // VD: Lấy full quyền hạn, toàn bộ dữ liệu hệ thống
+
+        } else if (securityRule.isManager(authentication)) {
+            // Xử lý riêng nếu là MANAGER
+            // VD: Lấy danh sách các cơ sở do Manager này quản lý
+
+        } else if (securityRule.isCoach(authentication)) {
+            if (scheduleIds == null || scheduleIds.isEmpty()) {
+                // Nếu không có filter theo scheduleId, lấy danh sách các lớp do Coach này phụ trách
+                List<CoachAssignmentResDTO.SimpleResponse> coachAssignments =
+                        coachAssignmentService.findStudentEnrollmentsByCoachId(UUID.fromString(authentication.getName()));
+
+                // Map danh sách lớp học sang List<String> (giả sử lấy tên lớp hoặc ID lớp)
+                scheduleIds = coachAssignments.stream()
+                        .map(assignment -> assignment.getClassSchedule().getScheduleId()) // Thay bằng getter thực tế của bạn
+                        .collect(Collectors.toList());
+            }
+
+        } else {
+            // Xử lý cho các Role còn lại (như STUDENT)
+            // Không làm gì thêm, chỉ trả về thông tin UserRes cơ bản đã map ở trên
+        }
+
         PageResponse<StudentAttendanceDTO.Response> response = studentAttendanceService
                 .getStudentAttendancesWithStats(
                         search, sessionDate, attendanceStatuses, evaluationStatuses,
-                        belts, branchIds, scheduleLevels, scheduleId, pageable
+                        belts, branchIds, scheduleLevels, scheduleIds, pageable
                 );
 
         return ResponseEntity.ok(response);

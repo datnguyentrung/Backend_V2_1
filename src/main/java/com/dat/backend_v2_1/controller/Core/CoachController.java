@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,6 +27,7 @@ public class CoachController {
      * POST /api/v1/coaches
      */
     @PostMapping
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<CoachResDTO.CoachDetail> createCoach(
             @RequestBody @Valid CoachReqDTO.CoachCreate createDTO) {
         log.info("Request create coach: {}", createDTO.getFullName());
@@ -67,6 +69,7 @@ public class CoachController {
      * PUT /api/v1/coaches/{userId}
      */
     @PutMapping("/{userId}")
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<CoachResDTO.CoachDetail> updateCoach(
             @PathVariable UUID userId,
             @RequestBody @Valid CoachReqDTO.CoachUpdate updateDTO) {
@@ -85,6 +88,7 @@ public class CoachController {
      * DELETE /api/v1/coaches/{userId}
      */
     @DeleteMapping("/{userId}")
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<Void> deleteCoach(@PathVariable UUID userId) {
         log.info("Request delete coach: {}", userId);
 
@@ -99,6 +103,7 @@ public class CoachController {
      * ⚠️ CẢNH BÁO: Không thể hoàn tác!
      */
     @DeleteMapping("/{userId}/permanent")
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<Void> permanentlyDeleteCoach(@PathVariable UUID userId) {
         log.warn("⚠️ Request PERMANENTLY delete coach: {}", userId);
 

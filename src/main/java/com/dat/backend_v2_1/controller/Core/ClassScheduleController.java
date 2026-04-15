@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -49,13 +50,14 @@ public class ClassScheduleController {
             @RequestParam(required = false) ScheduleLevel scheduleLevel,
             @RequestParam(required = false) ScheduleShift scheduleShift,
             @RequestParam(required = false) ScheduleLocation scheduleLocation,
-            @RequestParam(required = false) ScheduleStatus scheduleStatus
+            @RequestParam(required = false) ScheduleStatus scheduleStatus,
+            @RequestParam(required = false) List<String> scheduleIds
     ) {
-        log.info("Request to get class schedules with filters - branchId: {}, weekday: {}, level: {}, shift: {}, location: {}, status: {}",
-                branchId, weekday, scheduleLevel, scheduleShift, scheduleLocation, scheduleStatus);
+        log.info("Request to get class schedules with filters - branchId: {}, weekday: {}, level: {}, shift: {}, location: {}, status: {}, scheduleIds: {}",
+                branchId, weekday, scheduleLevel, scheduleShift, scheduleLocation, scheduleStatus, scheduleIds);
 
         List<ClassScheduleResDTO.ClassScheduleDetail> schedules = classScheduleService.getAllClassSchedules(
-                branchId, weekday, scheduleLevel, scheduleShift, scheduleLocation, scheduleStatus);
+                branchId, weekday, scheduleLevel, scheduleShift, scheduleLocation, scheduleStatus, scheduleIds);
 
         return ResponseEntity.ok(schedules);
     }
@@ -87,6 +89,7 @@ public class ClassScheduleController {
      * 400 Bad Request - Dữ liệu không hợp lệ
      * 409 Conflict - Mã lịch học đã tồn tại
      */
+    @PreAuthorize("@securityRule.isManager(authentication)")
     @PostMapping
     public ResponseEntity<ClassScheduleResDTO.ClassScheduleDetail> createClassSchedule(
             @Valid @RequestBody ClassScheduleReqDTO.CreateRequest request) {
@@ -111,6 +114,7 @@ public class ClassScheduleController {
      * 400 Bad Request - Dữ liệu không hợp lệ
      */
     @PutMapping("/{scheduleId}")
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<ClassScheduleResDTO.ClassScheduleDetail> updateClassSchedule(
             @PathVariable String scheduleId,
             @Valid @RequestBody ClassScheduleReqDTO.UpdateRequest request) {
@@ -136,6 +140,7 @@ public class ClassScheduleController {
      * 400 Bad Request - Không thể xóa vì còn học viên/HLV
      */
     @DeleteMapping("/{scheduleId}")
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<Void> deleteClassSchedule(@PathVariable String scheduleId) {
         log.info("Request to delete class schedule: {}", scheduleId);
 

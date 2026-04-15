@@ -25,6 +25,7 @@ public interface ClassScheduleRepository extends JpaRepository<ClassSchedule, St
             AND (:shift IS NULL OR cs.shift = :shift)
             AND (:location IS NULL OR cs.location = :location)
             AND (:status IS NULL OR cs.scheduleStatus = :status)
+            AND (:scheduleIds IS NULL OR cs.scheduleId IN :scheduleIds)
             ORDER BY cs.scheduleId
             """)
     List<ClassSchedule> findAllWithFilters(
@@ -33,7 +34,8 @@ public interface ClassScheduleRepository extends JpaRepository<ClassSchedule, St
             @Param("level") ScheduleLevel level,
             @Param("shift") ScheduleShift shift,
             @Param("location") ScheduleLocation location,
-            @Param("status") ScheduleStatus status
+            @Param("status") ScheduleStatus status,
+            @Param("scheduleIds") List<String> scheduleIds
     );
 
     List<ClassSchedule> findByWeekdayAndScheduleStatus(Weekday weekday, ScheduleStatus scheduleStatus);

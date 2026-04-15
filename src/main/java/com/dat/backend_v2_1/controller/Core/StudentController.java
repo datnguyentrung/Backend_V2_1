@@ -12,8 +12,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -29,6 +31,7 @@ public class StudentController {
      * POST /api/v1/students
      */
     @PostMapping
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<String> createStudent(
             @RequestBody @Valid StudentReqDTO.StudentCreate createDTO) {
         log.info("Request create student: {}", createDTO.getFullName());
@@ -42,6 +45,7 @@ public class StudentController {
     public ResponseEntity<StudentResDTO.StudentListResponse> getStudents(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) StudentStatus status,
+            @RequestParam(required = false) List<String> scheduleIds, // Thêm filter theo lớp học
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id") String sortBy,
@@ -54,7 +58,8 @@ public class StudentController {
         Pageable pageable = PageRequest.of(page, size, sort);
 
         // Gọi hàm Service mới
-        StudentResDTO.StudentListResponse response = studentService.getStudentsWithStats(search, status, pageable);
+        StudentResDTO.StudentListResponse response = studentService
+                .getStudentsWithStats(search, status, pageable, scheduleIds);
 
         return ResponseEntity.ok(response);
     }
@@ -78,6 +83,7 @@ public class StudentController {
      * PUT /api/v1/students/{userId}
      */
     @PutMapping("/{userId}")
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<StudentResDTO.StudentDetail> updateStudent(
             @PathVariable UUID userId,
             @RequestBody @Valid StudentReqDTO.StudentUpdate updateDTO) {
@@ -96,6 +102,7 @@ public class StudentController {
      * DELETE /api/v1/students/{userId}
      */
     @DeleteMapping("/{userId}")
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<Void> deleteStudent(@PathVariable UUID userId) {
         log.info("Request delete student: {}", userId);
 
@@ -110,6 +117,7 @@ public class StudentController {
      * ⚠️ CẢNH BÁO: Không thể hoàn tác!
      */
     @DeleteMapping("/{userId}/permanent")
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<Void> permanentlyDeleteStudent(@PathVariable UUID userId) {
         log.warn("⚠️ Request PERMANENTLY delete student: {}", userId);
 

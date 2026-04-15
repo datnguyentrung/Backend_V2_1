@@ -45,7 +45,7 @@ public class StudentAttendanceSpecification {
      * @param belts              Danh sách đai (belt)
      * @param branchIds          Danh sách chi nhánh
      * @param scheduleLevels     Danh sách cấp độ lớp
-     * @param scheduleId         Mã lớp học
+     * @param scheduleIds        Danh sách mã lớp học cụ thể
      * @return Specification kết hợp
      */
     public static Specification<StudentAttendance> filterBy(
@@ -56,7 +56,7 @@ public class StudentAttendanceSpecification {
             List<Belt> belts,
             List<Integer> branchIds,
             List<ScheduleLevel> scheduleLevels,
-            String scheduleId
+            List<String> scheduleIds
     ) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -114,12 +114,12 @@ public class StudentAttendanceSpecification {
 
             // 7. Filter theo cấp độ lớp (IN)
             if (scheduleLevels != null && !scheduleLevels.isEmpty()) {
-                predicates.add(scheduleJoin.get("scheduleStatus").in(scheduleLevels));
+                predicates.add(scheduleJoin.get("level").in(scheduleLevels));
             }
 
             // 8. Filter theo mã lớp học cụ thể
-            if (scheduleId != null && !scheduleId.trim().isEmpty()) {
-                predicates.add(criteriaBuilder.equal(scheduleJoin.get("scheduleId"), scheduleId.trim()));
+            if (scheduleIds != null && !scheduleIds.isEmpty()) {
+                predicates.add(scheduleJoin.get("scheduleId").in(scheduleIds));
             }
 
             log.debug("Built {} predicates for StudentAttendance filtering", predicates.size());

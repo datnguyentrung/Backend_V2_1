@@ -458,7 +458,7 @@ public class StudentAttendanceService {
             List<Belt> belts,
             List<Integer> branchIds,
             List<ScheduleLevel> levels,
-            String scheduleId,
+            List<String> scheduleId,
             Pageable pageable
     ) {
         // Chuẩn hóa tham số search (tránh trường hợp null gây lỗi)

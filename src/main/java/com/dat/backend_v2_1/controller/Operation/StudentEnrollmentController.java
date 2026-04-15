@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -50,6 +51,7 @@ public class StudentEnrollmentController {
      * 409 Conflict - Học viên đã được đăng ký vào lớp này
      */
     @PostMapping
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<String> createStudentEnrollment(
             @RequestBody @Valid StudentEnrollmentReqDTO.CreateRequest request) {
         log.info("Request create enrollment for student: {} to {} classes",
@@ -75,6 +77,7 @@ public class StudentEnrollmentController {
      * 404 Not Found - Không tìm thấy thông tin đăng ký
      */
     @PutMapping("/{enrollmentId}")
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<String> updateStudentEnrollment(
             @PathVariable UUID enrollmentId,
             @RequestBody @Valid StudentEnrollmentReqDTO.UpdateRequest request) {
@@ -97,6 +100,7 @@ public class StudentEnrollmentController {
      * 404 Not Found - Không tìm thấy thông tin đăng ký
      */
     @DeleteMapping("/{enrollmentId}")
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<String> deleteStudentEnrollment(@PathVariable UUID enrollmentId) {
         log.info("Request delete enrollment: {}", enrollmentId);
 
@@ -117,6 +121,7 @@ public class StudentEnrollmentController {
      * 404 Not Found - Không tìm thấy học viên
      */
     @GetMapping("/student/{studentCode}")
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     public ResponseEntity<List<StudentEnrollmentResDTO.SimpleResponse>> getStudentEnrollments(
             @PathVariable String studentCode) {
         log.info("Request get enrollments for student: {}", studentCode);
@@ -142,6 +147,7 @@ public class StudentEnrollmentController {
      * 404 Not Found - Không tìm thấy học viên
      */
     @GetMapping("/student/{studentCode}/detailed")
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     public ResponseEntity<List<StudentEnrollmentResDTO.Response>> getDetailedStudentEnrollments(
             @PathVariable String studentCode) {
         log.info("Request get detailed enrollments for student: {}", studentCode);
@@ -166,6 +172,7 @@ public class StudentEnrollmentController {
      * 404 Not Found - Không tìm thấy lớp học
      */
     @GetMapping("/class-schedule/{classScheduleId}")
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     public ResponseEntity<StudentEnrollmentResDTO.EnrollmentsByScheduleResponse> getStudentEnrollmentsByClassScheduleId(
             @PathVariable String classScheduleId) {
         log.info("Request get enrollments for class schedule: {}", classScheduleId);

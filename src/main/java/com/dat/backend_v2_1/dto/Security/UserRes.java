@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -21,6 +22,7 @@ public class UserRes {
     public static class UserInfo {
         private UUID idUser;
         private String idRole;
+        private List<String> assignedClasses; // Dành riêng cho HLV, có thể là null hoặc rỗng nếu không phải HLV
     }
 
     @Data

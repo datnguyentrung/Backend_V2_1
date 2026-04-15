@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -39,6 +40,7 @@ public class CoachAssignmentController {
      * 409 Conflict - HLV đã được phân công vào lớp này
      */
     @PostMapping
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<String> createCoachAssignment(
             @RequestBody @Valid CoachAssignmentReqDTO.CreateRequest request) {
         log.info("Request create coach assignment for coach: {} to {} classes",
@@ -64,6 +66,7 @@ public class CoachAssignmentController {
      * 404 Not Found - Không tìm thấy thông tin phân công
      */
     @PutMapping("/{coachAssignmentId}")
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<String> updateCoachAssignment(
             @PathVariable UUID coachAssignmentId,
             @RequestBody @Valid CoachAssignmentReqDTO.UpdateRequest request) {
@@ -86,6 +89,7 @@ public class CoachAssignmentController {
      * 404 Not Found - Không tìm thấy thông tin phân công
      */
     @DeleteMapping("/{coachAssignmentId}")
+    @PreAuthorize("@securityRule.isManager(authentication)")
     public ResponseEntity<String> deleteCoachAssignment(@PathVariable UUID coachAssignmentId) {
         log.info("Request delete coach assignment: {}", coachAssignmentId);
 

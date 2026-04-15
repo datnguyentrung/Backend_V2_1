@@ -281,68 +281,64 @@ public class StudentService {
      * @param pageable Thông tin phân trang (page number, page size, sort)
      * @return StudentListResponse chứa danh sách học viên và số liệu thống kê
      */
-    public StudentResDTO.StudentListResponse getStudentsWithStats(String search, StudentStatus status, Pageable pageable) {
-        // 1. Lấy danh sách học viên (có phân trang và filter)
-        String safeSearch = (search == null) ? "" : search;
-        Page<Student> studentsPage = studentRepository.findStudentsWithFilter(safeSearch, status, pageable);
+    public StudentResDTO.StudentListResponse getStudentsWithStats(String search, StudentStatus status, Pageable pageable, List<String> scheduleIds) {
+        // 1. Chuẩn bị tham số
+        String searchParam = "%" + (search == null ? "" : search.toLowerCase()) + "%";
+        boolean isFilterSchedule = (scheduleIds != null && !scheduleIds.isEmpty());
 
-        List<UUID> studentIds = studentsPage.map(Student::getUserId).getContent();
+        // 2. Lấy danh sách học viên (Page)
+        // SỬA LỖI 2: Truyền searchParam vào thay vì search
+        Page<Student> studentsPage = studentRepository.findStudentsWithFilter(
+                searchParam, status, scheduleIds, isFilterSchedule, pageable);
 
-        List<StudentEnrollment> allActiveEnrollments = studentIds.isEmpty() ? Collections.emptyList() :
-                studentEnrollmentRepository.findByStudent_UserIdsInAndStatusWithClassSchedule(studentIds, StudentEnrollmentStatus.ACTIVE);
+        // 3. Lấy số lượng thống kê THEO FILTER (Chỉ cần 1 hàm này thôi)
+        List<StudentRepository.StudentStatusCount> filteredCounts = studentRepository.countStudentsByStatusWithFilter(
+                searchParam, scheduleIds, isFilterSchedule);
 
-        Map<UUID, List<StudentEnrollment>> enrollmentsByStudentId = allActiveEnrollments.stream()
-                .collect(Collectors.groupingBy(enrollment -> enrollment.getStudent().getUserId()));
+        // 4. Map kết quả thống kê ra Map cho dễ lấy
+        // SỬA LỖI 1: Áp dụng list lấy ở Bước 3, không gọi DB thêm lần nữa
+        Map<StudentStatus, Long> statusCountMap = filteredCounts.stream()
+                .collect(Collectors.toMap(
+                        StudentRepository.StudentStatusCount::getStatus,
+                        StudentRepository.StudentStatusCount::getCount
+                ));
 
-        // 1.4 Map dữ liệu từ Student sang StudentOverview và nhét classSchedules vào
+        // 5. Batch Fetch Enrollments (Chống N + 1)
+        List<UUID> studentIds = studentsPage.getContent().stream()
+                .map(Student::getUserId)
+                .toList();
+
+        Map<UUID, List<StudentEnrollment>> enrollmentsByStudentId = Collections.emptyMap();
+        if (!studentIds.isEmpty()) {
+            List<StudentEnrollment> allActiveEnrollments = studentEnrollmentRepository
+                    .findByStudent_UserIdsInAndStatusWithClassSchedule(studentIds, StudentEnrollmentStatus.ACTIVE);
+
+            enrollmentsByStudentId = allActiveEnrollments.stream()
+                    .collect(Collectors.groupingBy(e -> e.getStudent().getUserId()));
+        }
+
+        // 6. Map sang DTO
+        final Map<UUID, List<StudentEnrollment>> finalEnrollmentsMap = enrollmentsByStudentId;
         Page<StudentResDTO.StudentOverview> studentOverviews = studentsPage.map(student -> {
-            // Gọi hàm mặc định để map các field cơ bản
             StudentResDTO.StudentOverview overview = studentMapper.toStudentOverview(student);
 
-            // Lấy danh sách enrollment của riêng học viên này từ Map (nếu không có thì trả về list rỗng)
-            List<StudentEnrollment> studentEnrollments = enrollmentsByStudentId.getOrDefault(student.getUserId(), Collections.emptyList());
+            List<StudentEnrollment> studentEnrollments = finalEnrollmentsMap.getOrDefault(student.getUserId(), Collections.emptyList());
 
-            // Map từ Entity sang DTO
             List<ClassScheduleResDTO.ClassScheduleSummary> scheduleResponses = studentEnrollments.stream()
                     .map(studentEnrollmentMapper::toSimpleResponse)
-                    .map(StudentEnrollmentResDTO.SimpleResponse::getClassScheduleSummary) // Lấy ClassScheduleSummary từ SimpleResponse
+                    .map(StudentEnrollmentResDTO.SimpleResponse::getClassScheduleSummary)
                     .toList();
 
-            // Điền vào DTO
             overview.setClassSchedules(scheduleResponses);
             return overview;
         });
 
-        // 2. Lấy số liệu thống kê (Tổng quan toàn câu lạc bộ) - Tối ưu: 1 query thay vì 3
-        Map<StudentStatus, Long> statusCounts = studentRepository.countStudentsByStatusGrouped()
-                .stream()
-                .collect(Collectors.toMap(
-                        arr -> (StudentStatus) arr[0],
-                        arr -> (Long) arr[1]
-                ));
-
-        long active = statusCounts.getOrDefault(StudentStatus.ACTIVE, 0L);
-        long reserved = statusCounts.getOrDefault(StudentStatus.RESERVED, 0L);
-        long dropped = statusCounts.getOrDefault(StudentStatus.DROPPED, 0L);
-
-        // 3. Đóng gói vào Response và trả về (trích xuất dữ liệu từ Page)
-        PageResponse<StudentResDTO.StudentOverview> pageResponse = PageResponse.<StudentResDTO.StudentOverview>builder()
-                .content(studentOverviews.getContent())
-                .pageNumber(studentOverviews.getNumber())
-                .pageSize(studentOverviews.getSize())
-                .totalElements(studentOverviews.getTotalElements())
-                .totalPages(studentOverviews.getTotalPages())
-                .first(studentOverviews.isFirst())
-                .last(studentOverviews.isLast())
-                .empty(studentOverviews.isEmpty())
-                .build();
-
-        // 4. Đóng gói vào Response và trả về
+        // 7. Build Response trả về với Map đã xử lý
         return StudentResDTO.StudentListResponse.builder()
-                .activeStudentCount(active)
-                .reservedStudentCount(reserved)
-                .droppedStudentCount(dropped)
-                .students(pageResponse) // Truyền pageResponse đã convert vào đây
+                .activeStudentCount(statusCountMap.getOrDefault(StudentStatus.ACTIVE, 0L))
+                .reservedStudentCount(statusCountMap.getOrDefault(StudentStatus.RESERVED, 0L))
+                .droppedStudentCount(statusCountMap.getOrDefault(StudentStatus.DROPPED, 0L))
+                .students(PageResponse.of(studentOverviews))
                 .build();
     }
 }

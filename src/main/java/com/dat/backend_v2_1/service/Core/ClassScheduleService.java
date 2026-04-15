@@ -66,10 +66,11 @@ public class ClassScheduleService {
             ScheduleLevel scheduleLevel,
             ScheduleShift scheduleShift,
             ScheduleLocation scheduleLocation,
-            ScheduleStatus scheduleStatus) {
+            ScheduleStatus scheduleStatus,
+            List<String> scheduleIds) {
         // Filter directly from repository
         List<ClassSchedule> schedules = classScheduleRepository.findAllWithFilters(
-                branchId, weekday, scheduleLevel, scheduleShift, scheduleLocation, scheduleStatus);
+                branchId, weekday, scheduleLevel, scheduleShift, scheduleLocation, scheduleStatus, scheduleIds);
 
         if (schedules.isEmpty()) {
             log.info("No class schedules found matching the filters");

@@ -5,11 +5,13 @@ import lombok.Getter;
 @Getter
 public enum ScheduleLevel {
     BASIC("Lớp Cơ Bản"),
+    ADVANCED("Lớp Nâng Cao"),
     KID("Lớp Kid"),
     ADULT("Lớp Người Lớn"),
     ASSISTANT("Lớp Trợ Giảng"),
     PERFORMANCE("Lớp Biểu Diễn"),
     DAN("Lớp Đẳng"),
+    SKILL("Lớp Kỹ Năng"),
 
     // Đội tuyển đối kháng (Sparring/Kumite)
     SPARRING_TEAM_TIER_1("Đội Tuyển Đối Kháng Tuyến 1"),

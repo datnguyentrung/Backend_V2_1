@@ -179,7 +179,7 @@ public class StudentEnrollmentController {
 
         List<StudentEnrollment> enrollments = studentEnrollmentService.getStudentEnrollmentsByClassScheduleId(classScheduleId);
 
-        List<StudentEnrollmentResDTO.EnrolledStudentItem> enrolledStudentItems = studentEnrollmentService.getStudentEnrollmentsByClassScheduleId(classScheduleId).stream()
+        List<StudentEnrollmentResDTO.EnrolledStudentItem> enrolledStudentItems = enrollments.stream()
                 .map(studentEnrollmentMapper::toEnrolledStudentItem)
                 .toList();
 

@@ -35,6 +35,8 @@ public class CoachResDTO {
 
         private Belt belt;
 
+        private String email;
+
         private UserStatus status; // Trạng thái tài khoản hệ thống (ACTIVE, BANNED, etc.)
 
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
@@ -65,5 +67,6 @@ public class CoachResDTO {
         private UUID userId;
         private String fullName;
         private String staffCode;
+        private String email;
     }
 }

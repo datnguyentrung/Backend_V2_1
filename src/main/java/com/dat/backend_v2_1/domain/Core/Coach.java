@@ -27,6 +27,10 @@ public class Coach extends User {
     @Size(max = 20)
     @Column(name = "staff_code", unique = true, nullable = false, length = 20)
     String staffCode;
+    
+    @Size(max = 50)
+    @Column(name = "email", length = 50)
+    String email; // Thêm trường email cho Coach (có thể dùng để đăng nhập hoặc liên hệ)
 
     // Lưu ý: User đã có status (UserStatus), Coach cũng có status (CoachStatus).
     // Nên đặt tên cột rõ ràng để tránh nhầm lẫn logic sau này.

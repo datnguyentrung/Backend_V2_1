@@ -48,6 +48,8 @@ public interface CoachMapper {
         return role.getCode(); // Đảm bảo class Role có hàm getCode()
     }
 
+    @Mapping(target = "roleName", source = "role", qualifiedByName = "getRoleName")
+//    @Mapping(target = "email", source = "email")
     CoachResDTO.CoachDetail toCoachDetail(Coach coach);
 
     List<CoachResDTO.CoachDetail> toCoachDetailList(List<Coach> coaches);

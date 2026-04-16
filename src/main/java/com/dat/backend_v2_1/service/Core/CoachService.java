@@ -16,6 +16,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -36,7 +37,7 @@ public class CoachService {
      *
      * @param coachId ID của HLV cần validate
      * @return Coach entity nếu hợp lệ
-     * @throws AccessDeniedException nếu HLV không ở trạng thái ACTIVE
+     * @throws AccessDeniedException  nếu HLV không ở trạng thái ACTIVE
      * @throws NoSuchElementException nếu không tìm thấy HLV
      */
     public Coach validateCoachAndGetActive(String coachId) {
@@ -51,22 +52,23 @@ public class CoachService {
         return coach;
     }
 
-    public Coach getCoachById(String coachId){
+    public Coach getCoachById(String coachId) {
         return coachRepository.findById(UUID.fromString(coachId))
                 .orElseThrow(() -> new BusinessException("Không tìm thấy huấn luyện viên với ID: " + coachId));
     }
 
-    public Coach getCoachById(UUID coachId){
+    public Coach getCoachById(UUID coachId) {
         return coachRepository.findById(coachId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy huấn luyện viên với ID: " + coachId));
     }
 
     /**
      * Lấy thông tin chi tiết Coach bao gồm cả thông tin từ User
+     *
      * @param userId ID của huấn luyện viên
      * @return CoachDetail DTO chứa đầy đủ thông tin
      */
-    public CoachResDTO.CoachDetail getCoachDetail(UUID userId){
+    public CoachResDTO.CoachDetail getCoachDetail(UUID userId) {
         Coach coach = getCoachById(userId);
         return coachMapper.toCoachDetail(coach);
     }
@@ -96,6 +98,7 @@ public class CoachService {
         newCoach.setPhoneNumber(createDTO.getPhoneNumber());
         newCoach.setBirthDate(createDTO.getBirthDate());
         newCoach.setBelt(createDTO.getBelt());
+        newCoach.setEmail(createDTO.getEmail());
 
         // --- Thông tin chuyên môn ---
         newCoach.setCoachStatus(createDTO.getCoachStatus() != null ? createDTO.getCoachStatus() : CoachStatus.ACTIVE);
@@ -112,7 +115,8 @@ public class CoachService {
 
         // BƯỚC 4: Thiết lập User Base (Tài khoản đăng nhập)
         // Logic này sẽ encode password, set Role COACH
-        userService.setupBaseUser(newCoach, "COACH_TRAINEE");
+        String roleCode = StringUtils.hasText(createDTO.getRoleCode()) ? createDTO.getRoleCode() : "COACH_TRAINEE";
+        userService.setupBaseUser(newCoach, roleCode);
 
         // BƯỚC 5: Save
         coachRepository.save(newCoach);
@@ -138,7 +142,7 @@ public class CoachService {
         // BƯỚC 2: Validate Business Logic
         // 2.1. Kiểm tra số điện thoại trùng (nếu có thay đổi)
         if (updateDTO.getPhoneNumber() != null &&
-            !updateDTO.getPhoneNumber().equals(coach.getPhoneNumber())) {
+                !updateDTO.getPhoneNumber().equals(coach.getPhoneNumber())) {
             if (coachRepository.existsByPhoneNumber(updateDTO.getPhoneNumber())) {
                 throw new BusinessException("Số điện thoại này đã được đăng ký bởi huấn luyện viên khác!");
             }

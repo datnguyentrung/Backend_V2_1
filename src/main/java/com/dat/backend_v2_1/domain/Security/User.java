@@ -47,6 +47,9 @@ public class User {
     @Size(max = 100, message = "Họ tên không quá 100 ký tự")
     @Column(name = "full_name", nullable = false, length = 100)
     String fullName;
+    
+    @Column(name = "gender")
+    Boolean gender; // true: Nam, false: Nữ, null: Không xác định
 
     @NotNull
     @Column(name = "password_hash", nullable = false)

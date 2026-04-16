@@ -12,7 +12,7 @@ import java.util.UUID;
 @Data
 public class CoachReqDTO {
     @Data
-    public static class CoachCreate{
+    public static class CoachCreate {
 
         private CoachStatus coachStatus; // Optional, sẽ mặc định là ACTIVE nếu không được cung cấp
 
@@ -33,10 +33,16 @@ public class CoachReqDTO {
 
         @NotNull(message = "Đai (Trình độ) không được để trống")
         private Belt belt;
+
+        @NotNull(message = "Email không được để trống")
+        @Email(message = "Email không đúng định dạng")
+        private String email;
+
+        private String roleCode;
     }
 
     @Data
-    public static class CoachUpdate{
+    public static class CoachUpdate {
         @NotNull(message = "ID học viên không được để trống")
         private UUID userId;
 

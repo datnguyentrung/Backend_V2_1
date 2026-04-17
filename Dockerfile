@@ -12,7 +12,7 @@ COPY --from=build /app/target/*.jar app.jar
 
 # Tối ưu RAM cho môi trường Render (giới hạn 512MB)
 # -Xmx300m: Giới hạn Heap Memory ở mức 300MB để dành phần còn lại cho hệ thống và Metaspace
-ENV JAVA_OPTS="-Xmx300m -Xms256m"
+ENV JAVA_OPTS="-Xmx300m -Xms256m -XX:+UseSerialGC -Xss512k"
 
 EXPOSE 8080
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

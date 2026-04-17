@@ -104,6 +104,7 @@ public class SecurityConfiguration {
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(
                         authz -> authz
+                                .requestMatchers("/actuator/**").permitAll() // Thêm dòng này
                                 .requestMatchers(
                                         "/api/v1/auth/login",
                                         "/api/v1/auth/logout",

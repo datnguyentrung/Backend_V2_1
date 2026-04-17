@@ -39,9 +39,13 @@ spring:
     ssl:
       enabled: true
 
+  threads:
+    virtual:
+      enabled: true
+
   jpa:
     hibernate:
-      ddl-auto: update # none, validate, update, create, create-drop, update
+      ddl-auto: validate # none, validate, update, create, create-drop
     database: postgresql
     show-sql: true
     open-in-view: true

@@ -97,7 +97,7 @@ logging:
     org.hibernate: WARN
     org.postgresql: WARN
     root: INFO
-    org.springframework.web: DEBUG
+    org.springframework.web: INFO
 
     #    root: INFO
     #

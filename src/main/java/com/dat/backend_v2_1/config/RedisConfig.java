@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
@@ -40,8 +41,26 @@ public class RedisConfig implements CachingConfigurer {
     @Bean
     public LettuceConnectionFactory lettuceConnectionFactory() {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(redisHost, redisPort);
-        config.setUsername(redisUsername);
-        config.setPassword(redisPassword);
+
+        // Chỉ set user/pass nếu trong .env có (phòng lỗi null)
+        if (redisUsername != null && !redisUsername.isEmpty()) {
+            config.setUsername(redisUsername);
+        }
+        if (redisPassword != null && !redisPassword.isEmpty()) {
+            config.setPassword(redisPassword);
+        }
+
+        // ĐÂY LÀ ĐOẠN QUYẾT ĐỊNH SỰ SỐNG CÒN CỦA KẾT NỐI
+        // Nếu thấy chữ render.com thì ép nó dùng SSL và TẮT kiểm tra chứng chỉ
+        if (redisHost != null && redisHost.contains("render.com")) {
+            LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
+                    .useSsl() // Ép bật SSL
+                    .disablePeerVerification() // Tắt kiểm tra chứng chỉ (Bắt buộc phải có dòng này)
+                    .build();
+            return new LettuceConnectionFactory(config, clientConfig);
+        }
+
+        // Còn nếu chạy localhost ở máy nhà ông thì cứ chạy bình thường không cần SSL
         return new LettuceConnectionFactory(config);
     }
 

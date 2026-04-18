@@ -52,6 +52,7 @@ public class TuitionPaymentController {
      *
      * @return 201 Created + TuitionPaymentResponse (bao gồm danh sách tháng đã phân bổ)
      */
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     @PostMapping
     public ResponseEntity<TuitionPaymentDTO.TuitionPaymentResponse> processPayment(
             @RequestBody @Valid TuitionPaymentDTO.ProcessPaymentRequest request) {
@@ -78,6 +79,7 @@ public class TuitionPaymentController {
      * @param studentId UUID của học viên
      * @return TuitionStatusResponse chứa trạng thái từng lớp đang học
      */
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping("/status/{studentId}")
     public ResponseEntity<TuitionPaymentDetailDTO.TuitionStatusResponse> checkTuitionStatus(
             @PathVariable UUID studentId) {
@@ -101,6 +103,7 @@ public class TuitionPaymentController {
      * @param studentId UUID của học viên
      * @return Danh sách PaymentHistoryItem, sắp xếp theo năm/tháng mới nhất trước
      */
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping("/history/{studentId}")
     public ResponseEntity<List<TuitionPaymentDTO.PaymentHistoryItem>> getPaymentHistory(
             @PathVariable UUID studentId) {
@@ -120,6 +123,7 @@ public class TuitionPaymentController {
      * @param enrollmentId UUID của enrollment
      * @return Danh sách PaymentHistoryItem của lớp đó
      */
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping("/history/enrollment/{enrollmentId}")
     public ResponseEntity<List<TuitionPaymentDTO.PaymentHistoryItem>> getPaymentHistoryByEnrollment(
             @PathVariable UUID enrollmentId) {
@@ -146,7 +150,7 @@ public class TuitionPaymentController {
      * @return 200 OK + PageResponse chứa danh sách giao dịch
      */
 //    @PreAuthorize("hasAnyAuthority('ADMIN', 'MANAGER', 'COACH_TRAINEE')")
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     @GetMapping
     public ResponseEntity<PageResponse<TuitionPaymentDTO.TuitionPaymentResponse>> getAllPaymentsForAdmin(
             @RequestParam(required = false, defaultValue = "") String search,

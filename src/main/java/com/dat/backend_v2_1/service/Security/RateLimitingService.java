@@ -21,8 +21,8 @@ public class RateLimitingService {
     private Bucket newBucket(String ipAddress) {
         // Cú pháp MỚI NHẤT: Không dùng Refill và classic nữa
         Bandwidth limit = Bandwidth.builder()
-                .capacity(1000) // Thể tích xô: Chứa tối đa 5 lần thử
-                .refillIntervally(5, Duration.ofMinutes(15)) // Tốc độ hồi phục: Cứ 15 phút bơm lại 5 giọt
+                .capacity(5) // Thể tích xô: Chứa tối đa 5 lần thử
+                .refillIntervally(5, Duration.ofMinutes(5)) // Tốc độ hồi phục: Cứ 5 phút bơm lại 5 giọt
                 .build();
 
         return Bucket.builder()

@@ -43,6 +43,7 @@ public class ClassScheduleController {
      * @param scheduleStatus   Filter theo trạng thái
      * @return 200 OK - Danh sách lịch học (có thể được filter)
      */
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping
     public ResponseEntity<List<ClassScheduleResDTO.ClassScheduleDetail>> getClassSchedules(
             @RequestParam(required = false) Long branchId,
@@ -70,6 +71,7 @@ public class ClassScheduleController {
      * @return 200 OK - Thông tin chi tiết lịch học
      * 404 Not Found - Không tìm thấy lịch học
      */
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping("/{scheduleId}")
     public ResponseEntity<ClassScheduleResDTO.ClassScheduleDetail> getClassScheduleDetail(
             @PathVariable String scheduleId) {
@@ -89,7 +91,7 @@ public class ClassScheduleController {
      * 400 Bad Request - Dữ liệu không hợp lệ
      * 409 Conflict - Mã lịch học đã tồn tại
      */
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     @PostMapping
     public ResponseEntity<ClassScheduleResDTO.ClassScheduleDetail> createClassSchedule(
             @Valid @RequestBody ClassScheduleReqDTO.CreateRequest request) {
@@ -114,7 +116,7 @@ public class ClassScheduleController {
      * 400 Bad Request - Dữ liệu không hợp lệ
      */
     @PutMapping("/{scheduleId}")
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<ClassScheduleResDTO.ClassScheduleDetail> updateClassSchedule(
             @PathVariable String scheduleId,
             @Valid @RequestBody ClassScheduleReqDTO.UpdateRequest request) {
@@ -140,12 +142,27 @@ public class ClassScheduleController {
      * 400 Bad Request - Không thể xóa vì còn học viên/HLV
      */
     @DeleteMapping("/{scheduleId}")
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<Void> deleteClassSchedule(@PathVariable String scheduleId) {
         log.info("Request to delete class schedule: {}", scheduleId);
 
         classScheduleService.deleteClassSchedule(scheduleId);
 
         return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/{scheduleId}/status")
+    @PreAuthorize("@securityRule.isHeadCoach(authentication)")
+    public ResponseEntity<Void> updateStatus(
+            @PathVariable String scheduleId,
+            @RequestParam ScheduleStatus status) {
+
+        log.info("Request to change status of schedule {} to {}", scheduleId, status);
+
+        // Service giờ chỉ trả về void
+        classScheduleService.updateStatus(scheduleId, status);
+
+        // Trả về HTTP 204 No Content (Thành công nhưng không có body)
+        return ResponseEntity.noContent().build();
     }
 }

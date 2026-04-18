@@ -12,6 +12,7 @@ import com.dat.backend_v2_1.util.error.IdInvalidException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,6 +32,7 @@ public class UserController {
     // 1. Inject SecurityRule vào Controller
     private final SecurityRule securityRule;
 
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/me/change-password")
     public ResponseEntity<RestResponse<String>> changePassword(
             @RequestBody ChangePasswordReq request,
@@ -46,6 +48,7 @@ public class UserController {
         return ResponseEntity.ok(res);
     }
 
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/me")
     public ResponseEntity<UserRes> getCurrentUser(Authentication authentication) throws IdInvalidException {
         String idUser = authentication.getName();
@@ -58,7 +61,7 @@ public class UserController {
             // Xử lý riêng nếu là HEAD_COACH / ADMIN
             // VD: Lấy full quyền hạn, toàn bộ dữ liệu hệ thống
 
-        } else if (securityRule.isManager(authentication)) {
+        } else if (securityRule.isManagerSenior(authentication)) {
             // Xử lý riêng nếu là MANAGER
             // VD: Lấy danh sách các cơ sở do Manager này quản lý
 

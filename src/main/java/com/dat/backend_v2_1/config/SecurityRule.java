@@ -13,22 +13,25 @@ public class SecurityRule {
 
     // 2. Cấp trung: MANAGER
     // Trả về true nếu user có chữ MANAGER, HOẶC user đó là HEAD_COACH
-    public boolean isManager(Authentication authentication) {
-        return checkContains(authentication, "MANAGER")
+    public boolean isManagerSenior(Authentication authentication) {
+        return checkContains(authentication, "MANAGER_SENIOR")
                 || isHeadCoach(authentication);
     }
 
     // 3. Cấp cơ sở: COACH
-    // Trả về true nếu user có chữ COACH, HOẶC user đó thỏa mãn điều kiện isManager
+    // Trả về true nếu user có chữ COACH, HOẶC user đó thỏa mãn điều kiện isManagerSenior
     public boolean isCoach(Authentication authentication) {
         return checkContains(authentication, "COACH")
-                || isManager(authentication);
+                || checkContains(authentication, "MANAGER")
+                || isManagerSenior(authentication);
     }
 
     // --- Hàm Helper dùng chung để tránh lặp code ---
     private boolean checkContains(Authentication authentication, String keyword) {
-        if (authentication == null || authentication.getAuthorities() == null) {
+        if (authentication == null) {
             return false;
+        } else {
+            authentication.getAuthorities();
         }
         return authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority() != null && a.getAuthority().contains(keyword));

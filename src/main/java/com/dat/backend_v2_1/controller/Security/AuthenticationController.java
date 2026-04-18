@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
@@ -106,6 +107,7 @@ public class AuthenticationController {
                 .body(loginRes);
     }
 
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/account")
     public ResponseEntity<LoginRes.UserLogin> getAccount() {
         String phoneNumber = SecurityUtil.getCurrentUserLogin().isPresent() ?
@@ -189,6 +191,7 @@ public class AuthenticationController {
 //        return ResponseEntity.ok(loginRes);
     }
 
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             @CookieValue(name = "refresh_token", defaultValue = "") String refreshToken
@@ -220,6 +223,7 @@ public class AuthenticationController {
                 .build();
     }
 
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/update-fcm")
     public ResponseEntity<?> updateFcmToken(@Valid @RequestBody LoginReq.UpdateFcmReq req) {
         try {

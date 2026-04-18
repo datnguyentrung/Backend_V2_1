@@ -40,7 +40,7 @@ public class CoachAssignmentController {
      * 409 Conflict - HLV đã được phân công vào lớp này
      */
     @PostMapping
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<String> createCoachAssignment(
             @RequestBody @Valid CoachAssignmentReqDTO.CreateRequest request) {
         log.info("Request create coach assignment for coach: {} to {} classes",
@@ -66,7 +66,7 @@ public class CoachAssignmentController {
      * 404 Not Found - Không tìm thấy thông tin phân công
      */
     @PutMapping("/{coachAssignmentId}")
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<String> updateCoachAssignment(
             @PathVariable UUID coachAssignmentId,
             @RequestBody @Valid CoachAssignmentReqDTO.UpdateRequest request) {
@@ -89,7 +89,7 @@ public class CoachAssignmentController {
      * 404 Not Found - Không tìm thấy thông tin phân công
      */
     @DeleteMapping("/{coachAssignmentId}")
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<String> deleteCoachAssignment(@PathVariable UUID coachAssignmentId) {
         log.info("Request delete coach assignment: {}", coachAssignmentId);
 
@@ -109,6 +109,7 @@ public class CoachAssignmentController {
      * @return 200 OK - Danh sách phân công
      * 404 Not Found - Không tìm thấy huấn luyện viên
      */
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping("/coach/{coachId}")
     public ResponseEntity<List<CoachAssignmentResDTO.Response>> getCoachAssignments(
             @PathVariable UUID coachId) {

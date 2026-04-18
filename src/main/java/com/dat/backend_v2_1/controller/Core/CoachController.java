@@ -27,7 +27,7 @@ public class CoachController {
      * POST /api/v1/coaches
      */
     @PostMapping
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<CoachResDTO.CoachDetail> createCoach(
             @RequestBody @Valid CoachReqDTO.CoachCreate createDTO) {
         log.info("Request create coach: {}", createDTO.getFullName());
@@ -41,6 +41,7 @@ public class CoachController {
      * Lấy thông tin chi tiết huấn luyện viên
      * GET /api/v1/coaches/{userId}
      */
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping("/{userId}")
     public ResponseEntity<CoachResDTO.CoachDetail> getCoachDetail(
             @PathVariable UUID userId) {
@@ -55,6 +56,7 @@ public class CoachController {
      * Lấy danh sách tất cả huấn luyện viên
      * GET /api/v1/coaches
      */
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping
     public ResponseEntity<List<CoachResDTO.CoachDetail>> getAllCoaches() {
         log.info("Request get all coaches");
@@ -69,7 +71,7 @@ public class CoachController {
      * PUT /api/v1/coaches/{userId}
      */
     @PutMapping("/{userId}")
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<CoachResDTO.CoachDetail> updateCoach(
             @PathVariable UUID userId,
             @RequestBody @Valid CoachReqDTO.CoachUpdate updateDTO) {
@@ -88,7 +90,7 @@ public class CoachController {
      * DELETE /api/v1/coaches/{userId}
      */
     @DeleteMapping("/{userId}")
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<Void> deleteCoach(@PathVariable UUID userId) {
         log.info("Request delete coach: {}", userId);
 
@@ -103,7 +105,7 @@ public class CoachController {
      * ⚠️ CẢNH BÁO: Không thể hoàn tác!
      */
     @DeleteMapping("/{userId}/permanent")
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<Void> permanentlyDeleteCoach(@PathVariable UUID userId) {
         log.warn("⚠️ Request PERMANENTLY delete coach: {}", userId);
 

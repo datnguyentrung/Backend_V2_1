@@ -41,6 +41,7 @@ public class StudentAttendanceController {
     private final SecurityRule securityRule;
     private final CoachAssignmentService coachAssignmentService;
 
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @PatchMapping("/{attendanceId}/status")
     public ResponseEntity<Void> updateAttendanceStatus(
             Authentication authentication, // Giả sử dùng Spring Security
@@ -58,6 +59,7 @@ public class StudentAttendanceController {
         return ResponseEntity.noContent().build();
     }
 
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @PatchMapping("/{attendanceId}/evaluation")
     public ResponseEntity<Void> updateAttendanceEvaluation(
             Authentication authentication,
@@ -81,7 +83,7 @@ public class StudentAttendanceController {
      * @return 201 CREATED + Response DTO chứa đầy đủ thông tin bản ghi vừa tạo
      */
     @PostMapping // URL rõ ràng hành động
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<StudentAttendanceDTO.Response> createAttendanceRecordByAdmin(
             @Valid @RequestBody StudentAttendanceDTO.ManualLogRequest request
     ) {
@@ -99,6 +101,7 @@ public class StudentAttendanceController {
      *
      * @return 201 CREATED + Response DTO chứa thông tin bản ghi vừa tạo
      */
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @PostMapping("/check-in") // URL rõ ràng hành động
     public ResponseEntity<StudentAttendanceDTO.Response> createAttendanceRecordByStudent(
             @Valid @RequestBody StudentAttendanceDTO.CreateRequest request
@@ -156,6 +159,7 @@ public class StudentAttendanceController {
      * @param sortDir            Hướng sắp xếp ("asc" hoặc "desc")
      * @return 200 OK + Danh sách bản ghi điểm danh
      */
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping
     public ResponseEntity<PageResponse<StudentAttendanceDTO.Response>> filterAttendanceRecords(
             Authentication authentication,
@@ -183,7 +187,7 @@ public class StudentAttendanceController {
             // Xử lý riêng nếu là HEAD_COACH / ADMIN
             // VD: Lấy full quyền hạn, toàn bộ dữ liệu hệ thống
 
-        } else if (securityRule.isManager(authentication)) {
+        } else if (securityRule.isManagerSenior(authentication)) {
             // Xử lý riêng nếu là MANAGER
             // VD: Lấy danh sách các cơ sở do Manager này quản lý
 

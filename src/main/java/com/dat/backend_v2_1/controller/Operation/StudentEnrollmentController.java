@@ -51,7 +51,7 @@ public class StudentEnrollmentController {
      * 409 Conflict - Học viên đã được đăng ký vào lớp này
      */
     @PostMapping
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<String> createStudentEnrollment(
             @RequestBody @Valid StudentEnrollmentReqDTO.CreateRequest request) {
         log.info("Request create enrollment for student: {} to {} classes",
@@ -77,7 +77,7 @@ public class StudentEnrollmentController {
      * 404 Not Found - Không tìm thấy thông tin đăng ký
      */
     @PutMapping("/{enrollmentId}")
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<String> updateStudentEnrollment(
             @PathVariable UUID enrollmentId,
             @RequestBody @Valid StudentEnrollmentReqDTO.UpdateRequest request) {
@@ -100,7 +100,7 @@ public class StudentEnrollmentController {
      * 404 Not Found - Không tìm thấy thông tin đăng ký
      */
     @DeleteMapping("/{enrollmentId}")
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<String> deleteStudentEnrollment(@PathVariable UUID enrollmentId) {
         log.info("Request delete enrollment: {}", enrollmentId);
 

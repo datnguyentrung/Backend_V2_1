@@ -188,4 +188,13 @@ public class ClassScheduleService {
         classScheduleRepository.delete(classSchedule);
         log.info("Deleted class schedule: {}", scheduleId);
     }
+
+    // Service
+    @Transactional(rollbackFor = Exception.class)
+    public void updateStatus(String scheduleId, ScheduleStatus status) {
+        ClassSchedule classSchedule = getClassScheduleById(scheduleId);
+        classSchedule.setScheduleStatus(status);
+        log.info("Updated status of class schedule {} to {}", scheduleId, status);
+        // Kết thúc hàm, Hibernate tự update, không cần return gì cả
+    }
 }

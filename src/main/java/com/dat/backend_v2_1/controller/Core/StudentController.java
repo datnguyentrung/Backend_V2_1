@@ -31,7 +31,7 @@ public class StudentController {
      * POST /api/v1/students
      */
     @PostMapping
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<String> createStudent(
             @RequestBody @Valid StudentReqDTO.StudentCreate createDTO) {
         log.info("Request create student: {}", createDTO.getFullName());
@@ -41,6 +41,7 @@ public class StudentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(newStudentCode);
     }
 
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping
     public ResponseEntity<StudentResDTO.StudentListResponse> getStudents(
             @RequestParam(required = false) String search,
@@ -68,6 +69,7 @@ public class StudentController {
      * Lấy thông tin chi tiết học viên
      * GET /api/v1/students/{userId}
      */
+    @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping("/{userId}")
     public ResponseEntity<StudentResDTO.StudentDetail> getStudentDetail(
             @PathVariable UUID userId) {
@@ -83,7 +85,7 @@ public class StudentController {
      * PUT /api/v1/students/{userId}
      */
     @PutMapping("/{userId}")
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<StudentResDTO.StudentDetail> updateStudent(
             @PathVariable UUID userId,
             @RequestBody @Valid StudentReqDTO.StudentUpdate updateDTO) {
@@ -102,7 +104,7 @@ public class StudentController {
      * DELETE /api/v1/students/{userId}
      */
     @DeleteMapping("/{userId}")
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<Void> deleteStudent(@PathVariable UUID userId) {
         log.info("Request delete student: {}", userId);
 
@@ -117,7 +119,7 @@ public class StudentController {
      * ⚠️ CẢNH BÁO: Không thể hoàn tác!
      */
     @DeleteMapping("/{userId}/permanent")
-    @PreAuthorize("@securityRule.isManager(authentication)")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<Void> permanentlyDeleteStudent(@PathVariable UUID userId) {
         log.warn("⚠️ Request PERMANENTLY delete student: {}", userId);
 

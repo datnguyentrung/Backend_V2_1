@@ -17,6 +17,8 @@ public interface StudentMapper {
     UserRes toUserRes(Student student);
 
     @Mapping(target = "idUser", source = "userId") // Lấy từ User (cha)
+    @Mapping(target = "userCode", source = "student", qualifiedByName = "getUserCode")
+    // Lấy từ Student (con) hoặc để null
     @Mapping(target = "idRole", source = "role", qualifiedByName = "getRoleName")
         // Xử lý object Role ra String
     UserRes.UserInfo toUserInfo(Student student);
@@ -39,6 +41,13 @@ public interface StudentMapper {
         if (role == null) return null;
         // Role.code là khóa chính (VD: ROLE_STUDENT, ROLE_COACH)
         return role.getCode();
+    }
+
+    @Named("getUserCode")
+    default String getUserCode(Student student) {
+        if (student == null) return null;
+        // Student không có userCode riêng, có thể lấy từ studentCode hoặc để null
+        return student.getStudentCode(); // Hoặc có thể để null nếu không muốn map
     }
 
     /**

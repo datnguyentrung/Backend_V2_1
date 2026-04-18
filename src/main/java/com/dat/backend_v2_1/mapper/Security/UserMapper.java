@@ -19,6 +19,7 @@ public interface UserMapper {
     UserRes toUserRes(User user);
 
     @Mapping(target = "idUser", source = "userId")
+    @Mapping(target = "userCode", source = "user", qualifiedByName = "getUserCode")
     @Mapping(target = "idRole", source = "role", qualifiedByName = "getRoleName")
         // Xử lý object Role ra String
     UserRes.UserInfo toUserInfo(User user);
@@ -40,5 +41,13 @@ public interface UserMapper {
         if (role == null) return null;
         // Role.code là khóa chính (VD: ROLE_STUDENT, ROLE_COACH)
         return role.getCode();
+    }
+
+    // Logic: Lấy userCode từ User
+    // User base class không có staffCode/studentCode, nên trả về null
+    // CoachMapper và StudentMapper sẽ override để lấy staffCode/studentCode
+    @Named("getUserCode")
+    default String getUserCode(User user) {
+        return null; // User base class không có code
     }
 }

@@ -21,6 +21,7 @@ public interface CoachMapper {
 
     // 2. Mapping cho UserInfo
     @Mapping(target = "idUser", source = "userId")
+    @Mapping(target = "userCode", source = "coach", qualifiedByName = "getUserCode")
     @Mapping(target = "idRole", source = "role", qualifiedByName = "getRoleName")
     UserRes.UserInfo toUserInfo(Coach coach);
 
@@ -40,6 +41,12 @@ public interface CoachMapper {
     default Boolean mapActiveStatus(UserStatus status) {
         if (status == null) return false;
         return status == UserStatus.ACTIVE;
+    }
+
+    @Named("getUserCode")
+    default String getUserCode(Coach coach) {
+        if (coach == null) return null;
+        return coach.getStaffCode(); // Hoặc có thể map sang một giá trị khác nếu cần
     }
 
     @Named("getRoleName")

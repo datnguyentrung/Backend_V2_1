@@ -1,10 +1,15 @@
 package com.dat.backend_v2_1.controller.Security;
 
 import com.dat.backend_v2_1.config.SecurityRule;
+import com.dat.backend_v2_1.domain.Core.Coach;
+import com.dat.backend_v2_1.domain.Core.Student;
+import com.dat.backend_v2_1.domain.Security.User;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.dto.RestResponse;
 import com.dat.backend_v2_1.dto.Security.ChangePasswordReq;
 import com.dat.backend_v2_1.dto.Security.UserRes;
+import com.dat.backend_v2_1.mapper.Core.CoachMapper;
+import com.dat.backend_v2_1.mapper.Core.StudentMapper;
 import com.dat.backend_v2_1.mapper.Security.UserMapper;
 import com.dat.backend_v2_1.service.Operation.CoachAssignmentService;
 import com.dat.backend_v2_1.service.Security.UserService;
@@ -27,9 +32,9 @@ public class UserController {
 
     private final UserService usersService;
     private final UserMapper userMapper;
+    private final CoachMapper coachMapper;
+    private final StudentMapper studentMapper;
     private final CoachAssignmentService coachAssignmentService;
-
-    // 1. Inject SecurityRule vào Controller
     private final SecurityRule securityRule;
 
     @PreAuthorize("isAuthenticated()")
@@ -53,35 +58,33 @@ public class UserController {
     public ResponseEntity<UserRes> getCurrentUser(Authentication authentication) throws IdInvalidException {
         String idUser = authentication.getName();
 
-        // Lấy thông tin user cơ bản
-        UserRes userRes = userMapper.toUserRes(usersService.getUserById(idUser));
+        // Lấy user từ database
+        User user = usersService.getUserById(idUser);
 
-        // 2. Sử dụng SecurityRule để rẽ nhánh logic (Check từ cao xuống thấp)
-        if (securityRule.isHeadCoach(authentication)) {
-            // Xử lý riêng nếu là HEAD_COACH / ADMIN
-            // VD: Lấy full quyền hạn, toàn bộ dữ liệu hệ thống
+        // Map User sang UserRes dựa trên type thực tế (Coach có staffCode, Student có studentCode)
+        UserRes userRes;
+        if (user instanceof Coach) {
+            userRes = coachMapper.toUserRes((Coach) user);
+        } else if (user instanceof Student) {
+            userRes = studentMapper.toUserRes((Student) user);
+        } else {
+            // User base class không có staffCode hay studentCode
+            userRes = userMapper.toUserRes(user);
+        }
 
-        } else if (securityRule.isManagerSenior(authentication)) {
-            // Xử lý riêng nếu là MANAGER
-            // VD: Lấy danh sách các cơ sở do Manager này quản lý
-
-        } else if (securityRule.isCoach(authentication)) {
-            // Xử lý riêng nếu là COACH
+        // Xử lý phân quyền: Set assignedClasses cho COACH
+        if (securityRule.isCoach(authentication) && !securityRule.isManagerSenior(authentication)) {
+            // Chỉ là COACH (không phải MANAGER hay HEAD_COACH)
             List<CoachAssignmentResDTO.SimpleResponse> coachAssignments =
                     coachAssignmentService.findStudentEnrollmentsByCoachId(UUID.fromString(idUser));
 
-            // Map danh sách lớp học sang List<String> (giả sử lấy tên lớp hoặc ID lớp)
             List<String> classNames = coachAssignments.stream()
-                    .map(assignment -> assignment.getClassSchedule().getScheduleId()) // Thay bằng getter thực tế của bạn
+                    .map(assignment -> assignment.getClassSchedule().getScheduleId())
                     .collect(Collectors.toList());
 
-            // 4. Set dữ liệu vào UserInfo
             if (userRes.getUserInfo() != null) {
                 userRes.getUserInfo().setAssignedClasses(classNames);
             }
-        } else {
-            // Xử lý cho các Role còn lại (như STUDENT)
-            // Không làm gì thêm, chỉ trả về thông tin UserRes cơ bản đã map ở trên
         }
 
         return ResponseEntity.ok(userRes);

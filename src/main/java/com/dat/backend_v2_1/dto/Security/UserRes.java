@@ -21,6 +21,7 @@ public class UserRes {
     @AllArgsConstructor
     public static class UserInfo {
         private UUID idUser;
+        private String userCode;
         private String idRole;
         private List<String> assignedClasses; // Dành riêng cho HLV, có thể là null hoặc rỗng nếu không phải HLV
     }

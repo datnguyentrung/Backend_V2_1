@@ -33,6 +33,7 @@ build/
 .vscode/
 
 .env
+.env_comment
 *.md
 
 src/main/resources/serviceAccountKey.json

@@ -7,6 +7,7 @@ import com.dat.backend_v2_1.domain.Operation.ClassSession;
 import com.dat.backend_v2_1.domain.Operation.StudentAttendance;
 import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
 import com.dat.backend_v2_1.dto.Operation.StudentAttendanceDTO;
+import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.dto.PageResponse;
 import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.ScheduleLevel;
@@ -16,6 +17,7 @@ import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
 import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
 import com.dat.backend_v2_1.mapper.Operation.StudentAttendanceMapper;
+import com.dat.backend_v2_1.repository.Core.CoachRepository;
 import com.dat.backend_v2_1.repository.Operation.ClassSessionRepository;
 import com.dat.backend_v2_1.repository.Operation.StudentAttendanceRepository;
 import com.dat.backend_v2_1.service.Core.CoachService;
@@ -39,6 +41,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -52,9 +55,73 @@ public class StudentAttendanceService {
     private final AuthTokenService authTokenService;
     private final ClassSessionRepository classSessionRepository;
     private final StudentService studentService;
+    private final CoachRepository coachRepository;
 
     @Value("${ATTENDANCE_GRACE_PERIOD_MINUTES}")
     private int attendanceGracePeriodMinutes;
+
+    @Transactional
+    public List<StudentAttendanceDTO.Response> updateStudentAttendance(
+            List<StudentAttendanceDTO.SimpleResponse> requests,
+            String coachId) { // Nhận trực tiếp ID thay vì Object
+
+        if (requests == null || requests.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 1. Dùng getReferenceById (Proxy) thay vì findById
+        // KHÔNG tạo ra câu lệnh SELECT nào xuống DB, chỉ khởi tạo proxy object để gán Khóa Ngoại.
+        Coach coachProxy = coachRepository.getReferenceById(UUID.fromString(coachId));
+
+        // 2. Lấy toàn bộ ID từ request
+        Set<UUID> attendanceIds = requests.stream()
+                .map(StudentAttendanceDTO.SimpleResponse::getAttendanceId)
+                .collect(Collectors.toSet());
+
+        // 3. Tối ưu N+1: Lấy TOÀN BỘ record trong 1 câu Query duy nhất (SELECT ... WHERE id IN (...))
+        List<StudentAttendance> existingRecords = studentAttendanceRepository.findAllById(attendanceIds);
+
+        // Kiểm tra xem có bản ghi nào bịa đặt/không tồn tại không
+        if (existingRecords.size() != attendanceIds.size()) {
+            throw new NoSuchElementException("Một hoặc nhiều bản ghi điểm danh không tồn tại trong hệ thống.");
+        }
+
+        // 4. Chuyển List thành Map để tra cứu tốc độ O(1)
+        Map<UUID, StudentAttendance> attendanceMap = existingRecords.stream()
+                .collect(Collectors.toMap(StudentAttendance::getAttendanceId, a -> a));
+
+        // 5. Cập nhật dữ liệu
+        for (StudentAttendanceDTO.SimpleResponse dto : requests) {
+            StudentAttendance entity = attendanceMap.get(dto.getAttendanceId());
+
+            // Update Trạng thái điểm danh
+            if (!Objects.equals(dto.getAttendanceStatus(), entity.getAttendanceStatus())) {
+                entity.setAttendanceStatus(dto.getAttendanceStatus());
+                // Ghi nhận thời gian điểm danh thực tế (nếu trước đó là vắng)
+                if (entity.getCheckInTime() == null && dto.getAttendanceStatus() != AttendanceStatus.ABSENT) {
+                    entity.setCheckInTime(LocalDateTime.now());
+                }
+                entity.setRecordedByCoach(coachProxy);
+            }
+
+            // Update Trạng thái đánh giá
+            if (!Objects.equals(dto.getEvaluationStatus(), entity.getEvaluationStatus())) {
+                entity.setEvaluationStatus(dto.getEvaluationStatus());
+                entity.setEvaluatedByCoach(coachProxy);
+            }
+
+            // Update Ghi chú (Dùng Objects.equals để an toàn với null)
+            if (!Objects.equals(dto.getNote(), entity.getNote())) {
+                entity.setNote(dto.getNote());
+            }
+        }
+
+        // 6. KHÔNG CẦN studentAttendanceRepository.saveAll(...)
+        // Nhờ @Transactional, Hibernate sẽ tự động (Dirty Checking) phát hiện Entity nào bị thay đổi
+        // và gộp chúng vào các câu lệnh UPDATE (Batch Updates) khi kết thúc Transaction.
+
+        return studentAttendanceMapper.toResponseList(existingRecords);
+    }
 
     public List<StudentAttendance> getAttendancesByUserIdAndSessionDate(UUID studentUserId, LocalDate sessionDate) {
         return studentAttendanceRepository
@@ -438,19 +505,19 @@ public class StudentAttendanceService {
      * 4. N+1 Query được xử lý bằng @EntityGraph trong Repository
      * 5. Clean Code: Dễ đọc, dễ maintain
      *
-     * @param search             Tìm kiếm theo tên/mã/SĐT học viên
-     * @param sessionDate        Ngày học
-     * @param attendanceStatuses Danh sách trạng thái điểm danh
-     * @param evaluationStatuses Danh sách trạng thái đánh giá
-     * @param belts              Danh sách đai (belt)
-     * @param branchIds          Danh sách chi nhánh
-     * @param levels             Danh sách cấp độ lớp
-     * @param scheduleId         Mã lớp học
-     * @param pageable           Thông tin phân trang
+     * @param search                 Tìm kiếm theo tên/mã/SĐT học viên
+     * @param sessionDate            Ngày học
+     * @param attendanceStatuses     Danh sách trạng thái điểm danh
+     * @param evaluationStatuses     Danh sách trạng thái đánh giá
+     * @param belts                  Danh sách đai (belt)
+     * @param branchIds              Danh sách chi nhánh
+     * @param levels                 Danh sách cấp độ lớp
+     * @param enrollmentHistoryItems Danh sách lịch sử đăng ký học viên (để lọc theo lịch sử enrollment)
+     * @param pageable               Thông tin phân trang
      * @return PageResponse chứa danh sách StudentAttendanceDTO
      */
     @Transactional(readOnly = true)
-    public PageResponse<StudentAttendanceDTO.Response> getStudentAttendancesWithStats(
+    public StudentAttendanceDTO.AttendanceListResponse getStudentAttendancesWithStats(
             String search,
             LocalDate sessionDate,
             List<AttendanceStatus> attendanceStatuses,
@@ -458,7 +525,7 @@ public class StudentAttendanceService {
             List<Belt> belts,
             List<Integer> branchIds,
             List<ScheduleLevel> levels,
-            List<String> scheduleId,
+            List<StudentEnrollmentResDTO.EnrollmentHistoryItem> enrollmentHistoryItems,
             Pageable pageable
     ) {
         // Chuẩn hóa tham số search (tránh trường hợp null gây lỗi)
@@ -473,7 +540,7 @@ public class StudentAttendanceService {
                 belts,
                 branchIds,
                 levels,
-                scheduleId
+                enrollmentHistoryItems
         );
 
         // Gọi Repository với Specification + Named EntityGraph (tránh N+1 query)
@@ -487,8 +554,10 @@ public class StudentAttendanceService {
         // Chuyển đổi sang DTO
         Page<StudentAttendanceDTO.Response> responsePage = attendances.map(studentAttendanceMapper::toResponse);
 
-        // Đóng gói vào PageResponse
-        return PageResponse.<StudentAttendanceDTO.Response>builder()
+        StudentAttendanceDTO.AttendanceStats stats = studentAttendanceRepository.getStatistics(spec);
+
+        //4. Đóng gói vào PageResponse chuẩn
+        PageResponse<StudentAttendanceDTO.Response> pageData = PageResponse.<StudentAttendanceDTO.Response>builder()
                 .content(responsePage.getContent())
                 .pageNumber(responsePage.getNumber())
                 .pageSize(responsePage.getSize())
@@ -497,6 +566,12 @@ public class StudentAttendanceService {
                 .first(responsePage.isFirst())
                 .last(responsePage.isLast())
                 .empty(responsePage.isEmpty())
+                .build();
+
+        // 5. Trả về DTO tổng chứa cả List và Stats
+        return StudentAttendanceDTO.AttendanceListResponse.builder()
+                .stats(stats)
+                .attendances(pageData)
                 .build();
     }
 

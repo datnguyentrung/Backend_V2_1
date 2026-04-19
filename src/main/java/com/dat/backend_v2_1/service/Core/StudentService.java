@@ -283,17 +283,18 @@ public class StudentService {
      */
     public StudentResDTO.StudentListResponse getStudentsWithStats(String search, StudentStatus status, Pageable pageable, List<String> scheduleIds) {
         // 1. Chuẩn bị tham số
-        String searchParam = "%" + (search == null ? "" : search.toLowerCase()) + "%";
+        String searchParam = "%" + (search == null ? "" : search.trim().toLowerCase()) + "%";
         boolean isFilterSchedule = (scheduleIds != null && !scheduleIds.isEmpty());
+        List<String> safeScheduleIds = isFilterSchedule ? scheduleIds : null;
 
         // 2. Lấy danh sách học viên (Page)
         // SỬA LỖI 2: Truyền searchParam vào thay vì search
         Page<Student> studentsPage = studentRepository.findStudentsWithFilter(
-                searchParam, status, scheduleIds, isFilterSchedule, pageable);
+                searchParam, status, safeScheduleIds, isFilterSchedule, pageable);
 
         // 3. Lấy số lượng thống kê THEO FILTER (Chỉ cần 1 hàm này thôi)
         List<StudentRepository.StudentStatusCount> filteredCounts = studentRepository.countStudentsByStatusWithFilter(
-                searchParam, scheduleIds, isFilterSchedule);
+                searchParam, safeScheduleIds, isFilterSchedule);
 
         // 4. Map kết quả thống kê ra Map cho dễ lấy
         // SỬA LỖI 1: Áp dụng list lấy ở Bước 3, không gọi DB thêm lần nữa

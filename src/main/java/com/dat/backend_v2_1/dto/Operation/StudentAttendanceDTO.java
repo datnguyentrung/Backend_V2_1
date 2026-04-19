@@ -1,5 +1,6 @@
 package com.dat.backend_v2_1.dto.Operation;
 
+import com.dat.backend_v2_1.dto.PageResponse;
 import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
 import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -14,6 +15,40 @@ import java.util.UUID;
 
 @Data
 public class StudentAttendanceDTO {
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class AttendanceListResponse {
+        AttendanceStats stats;
+
+        PageResponse<Response> attendances;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class AttendanceStats {
+        // --- TỔNG QUAN ---
+        long totalRecords;       // Tổng số bản ghi (tương đương sĩ số)
+        double attendanceRate;   // Tỷ lệ đi học (%) = (PRESENT + MAKEUP + LATE) / totalRecords
+
+        // --- ĐIỂM DANH ---
+        long presentCount;       // Có mặt
+        long absentCount;        // Vắng không phép
+        long excusedCount;       // Vắng có phép
+        long makeupCount;        // Học bù
+        long lateCount;          // Đi muộn
+
+        // --- ĐÁNH GIÁ ---
+        long evalGoodCount;      // Tốt
+        long evalAverageCount;   // Trung bình
+        long evalWeakCount;      // Yếu
+        long evalPendingCount;   // Chờ đánh giá (Rất quan trọng để nhắc HLV)
+    }
 
     @Data
     @Builder
@@ -39,7 +74,7 @@ public class StudentAttendanceDTO {
         // Trạng thái điểm danh
         AttendanceStatus attendanceStatus;
         LocalDateTime checkInTime;
-//        String recordedByCoachName; // Tên HLV đã điểm danh
+        String recordedByCoachName; // Tên HLV đã điểm danh
 
         // Đánh giá
         EvaluationStatus evaluationStatus;
@@ -59,6 +94,7 @@ public class StudentAttendanceDTO {
         UUID enrollmentId;
         UUID studentId;
         AttendanceStatus attendanceStatus;
+        String recordedByCoachName;
         LocalDateTime checkInTime;
 
         EvaluationStatus evaluationStatus;

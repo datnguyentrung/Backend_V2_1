@@ -5,8 +5,8 @@ import com.dat.backend_v2_1.domain.Core.Coach;
 import com.dat.backend_v2_1.domain.Operation.CoachAssignment;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentReqDTO;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
-import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import com.dat.backend_v2_1.enums.ErrorCode;
+import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import com.dat.backend_v2_1.mapper.Operation.CoachAssignmentMapper;
 import com.dat.backend_v2_1.repository.Operation.CoachAssignmentRepository;
 import com.dat.backend_v2_1.service.Core.ClassScheduleService;
@@ -17,7 +17,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -81,7 +84,7 @@ public class CoachAssignmentService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void deleteCoachAssignment(UUID coachAssignmentId){
+    public void deleteCoachAssignment(UUID coachAssignmentId) {
         CoachAssignment coachAssignment = coachAssignmentRepository.findById(coachAssignmentId)
                 .orElseThrow(() -> new IllegalArgumentException("CoachAssignment with id " + coachAssignmentId + " not found"));
 
@@ -95,23 +98,24 @@ public class CoachAssignmentService {
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_ASSIGNMENT_NOT_FOUND));
 
         // 2. Cập nhật các trường nếu có trong request
-        coachAssignmentMapper.updateEntityFromDto(request,coachAssignment);
+        coachAssignmentMapper.updateEntityFromDto(request, coachAssignment);
     }
 
     /**
      * Tìm tất cả phân công HLV (CoachAssignment) theo ID HLV
+     *
      * @param userId ID HLV
      * @return Danh sách phân công HLV đang active dưới dạng SimpleResponse
      */
-    public List<CoachAssignmentResDTO.SimpleResponse> findStudentEnrollmentsByCoachId(UUID userId){
+    public List<CoachAssignmentResDTO.SimpleResponse> findStudentEnrollmentsByCoachId(UUID userId, CoachAssignmentStatus status) {
         // Validation: Kiểm tra HLV tồn tại
         coachService.getCoachById(userId);
 
         List<CoachAssignment> assignments = coachAssignmentRepository.findByCoach_UserIdAndStatusWithClassSchedule(
                 userId,
-                CoachAssignmentStatus.ACTIVE
+                status
         );
-        if (assignments.isEmpty()){
+        if (assignments.isEmpty()) {
             log.info("No active CoachAssignments found for Coach ID: {}", userId);
         }
 
@@ -122,18 +126,19 @@ public class CoachAssignmentService {
 
     /**
      * Tìm tất cả phân công HLV (CoachAssignment) theo ID HLV - Response đầy đủ
+     *
      * @param userId ID HLV
      * @return Danh sách phân công HLV đang active dưới dạng Response đầy đủ
      */
-    public List<CoachAssignmentResDTO.Response> findDetailedCoachAssignmentsByUserId(UUID userId){
+    public List<CoachAssignmentResDTO.Response> findDetailedCoachAssignmentsByUserId(UUID userId, CoachAssignmentStatus status) {
         // Validation: Kiểm tra HLV tồn tại
         coachService.getCoachById(userId);
 
         List<CoachAssignment> assignments = coachAssignmentRepository.findByCoach_UserIdAndStatusWithClassSchedule(
                 userId,
-                CoachAssignmentStatus.ACTIVE
+                status
         );
-        if (assignments.isEmpty()){
+        if (assignments.isEmpty()) {
             log.info("No active CoachAssignments found for Coach ID: {}", userId);
         }
 

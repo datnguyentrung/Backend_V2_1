@@ -72,4 +72,13 @@ public class StudentEnrollmentResDTO {
         LocalDate joinDate;
         StudentEnrollmentStatus status;
     }
+
+    @Data
+    @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class EnrollmentHistoryItem {
+        String scheduleId;
+        LocalDate joinDate;
+        LocalDate leaveDate;
+    }
 }

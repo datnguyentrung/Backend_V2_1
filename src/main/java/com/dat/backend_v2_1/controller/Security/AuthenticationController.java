@@ -12,6 +12,7 @@ import com.dat.backend_v2_1.util.error.IdInvalidException;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -134,19 +135,30 @@ public class AuthenticationController {
         // 1. DÙNG DATABASE ĐỂ TRA CỨU THAY VÌ DECODE JWT
         AuthToken currentUserDB = authTokenService.getUserTokenByRefreshToken(refreshToken);
 
-        if (currentUserDB == null) {
-            throw new AuthenticationException("Token không hợp lệ hoặc thiết bị không khớp");
-        }
+        ResponseCookie deleteCookie = ResponseCookie
+                .from("refresh_token", "")
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(0)
+                .build();
 
-        // 2. Kiểm tra token đã hết hạn hay chưa
-        if (currentUserDB.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new AuthenticationException("Token đã hết hạn");
-        }
-        if (currentUserDB.isRevoked()) {
-            authTokenService.logoutUserTokens(
-                    currentUserDB.getUser().getUserId().toString(),
-                    currentUserDB.getDeviceInfo());
-            throw new AuthenticationException("Phát hiện truy cập bất thường. Phiên đăng nhập bị khóa.");
+        if (currentUserDB == null ||
+                currentUserDB.getExpiresAt().isBefore(LocalDateTime.now()) ||
+                currentUserDB.isRevoked()) {
+
+            // Nếu token có trong DB nhưng lỗi, ta tiến hành xóa token khỏi DB
+            if (currentUserDB != null) {
+                authTokenService.logoutUserTokens(
+                        currentUserDB.getUser().getUserId().toString(),
+                        currentUserDB.getDeviceInfo()
+                );
+            }
+
+            // Trả về lỗi 401 kèm theo header ra lệnh trình duyệt XÓA COOKIE
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
+                    .build();
         }
 
         String idUser = currentUserDB.getUser().getUserId().toString();
@@ -188,7 +200,6 @@ public class AuthenticationController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, responseCookie.toString())
                 .body(loginRes);
-//        return ResponseEntity.ok(loginRes);
     }
 
     @PreAuthorize("isAuthenticated()")

@@ -1,6 +1,7 @@
 package com.dat.backend_v2_1.repository.Operation;
 
 import com.dat.backend_v2_1.domain.Operation.StudentAttendance;
+import com.dat.backend_v2_1.dto.Operation.StudentAttendanceDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -19,5 +20,7 @@ public interface StudentAttendanceRepositoryCustom {
      * @return Page chứa danh sách StudentAttendance với eager loaded relationships
      */
     Page<StudentAttendance> findAllWithEntityGraph(Specification<StudentAttendance> spec, Pageable pageable);
+
+    StudentAttendanceDTO.AttendanceStats getStatistics(Specification<StudentAttendance> spec);
 }
 

@@ -48,7 +48,11 @@ public class CoachAssignmentResDTO {
         private UUID assignmentId;
         private CoachResDTO.CoachSummary coach;
         private ClassScheduleResDTO.ClassScheduleSummary classSchedule;
+        @JsonFormat(pattern = "yyyy-MM-dd")
         private LocalDate assignedDate;
+
+        @JsonFormat(pattern = "yyyy-MM-dd")
+        private LocalDate endDate;
         private CoachAssignmentStatus status;
     }
 }

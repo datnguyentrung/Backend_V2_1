@@ -2,6 +2,7 @@ package com.dat.backend_v2_1.controller.Operation;
 
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentReqDTO;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
+import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import com.dat.backend_v2_1.service.Operation.CoachAssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -112,11 +113,12 @@ public class CoachAssignmentController {
     @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping("/coach/{coachId}")
     public ResponseEntity<List<CoachAssignmentResDTO.Response>> getCoachAssignments(
-            @PathVariable UUID coachId) {
+            @PathVariable UUID coachId,
+            @RequestParam(defaultValue = "ACTIVE") CoachAssignmentStatus status) {
         log.info("Request get assignments for coach: {}", coachId);
 
         List<CoachAssignmentResDTO.Response> assignments =
-                coachAssignmentService.findDetailedCoachAssignmentsByUserId(coachId);
+                coachAssignmentService.findDetailedCoachAssignmentsByUserId(coachId, status);
 
         return ResponseEntity.ok(assignments);
     }

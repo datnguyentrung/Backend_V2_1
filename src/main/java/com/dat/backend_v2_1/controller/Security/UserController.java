@@ -8,6 +8,7 @@ import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.dto.RestResponse;
 import com.dat.backend_v2_1.dto.Security.ChangePasswordReq;
 import com.dat.backend_v2_1.dto.Security.UserRes;
+import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import com.dat.backend_v2_1.mapper.Core.CoachMapper;
 import com.dat.backend_v2_1.mapper.Core.StudentMapper;
 import com.dat.backend_v2_1.mapper.Security.UserMapper;
@@ -23,7 +24,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -75,15 +75,11 @@ public class UserController {
         // Xử lý phân quyền: Set assignedClasses cho COACH
         if (securityRule.isCoach(authentication) && !securityRule.isManagerSenior(authentication)) {
             // Chỉ là COACH (không phải MANAGER hay HEAD_COACH)
-            List<CoachAssignmentResDTO.SimpleResponse> coachAssignments =
-                    coachAssignmentService.findStudentEnrollmentsByCoachId(UUID.fromString(idUser));
-
-            List<String> classNames = coachAssignments.stream()
-                    .map(assignment -> assignment.getClassSchedule().getScheduleId())
-                    .collect(Collectors.toList());
+            List<CoachAssignmentResDTO.Response> coachAssignments =
+                    coachAssignmentService.findDetailedCoachAssignmentsByUserId(UUID.fromString(idUser), CoachAssignmentStatus.ACTIVE);
 
             if (userRes.getUserInfo() != null) {
-                userRes.getUserInfo().setAssignedClasses(classNames);
+                userRes.getUserInfo().setAssignedClasses(coachAssignments);
             }
         }
 

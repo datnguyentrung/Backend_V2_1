@@ -27,42 +27,41 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
 
     @Query(value = """
             
-                    SELECT DISTINCT s FROM Student s
+                SELECT DISTINCT s FROM Student s
             LEFT JOIN FETCH s.branch
             LEFT JOIN FETCH s.role
             LEFT JOIN StudentEnrollment se ON se.student = s
             WHERE (:isFilterSchedule = false OR se.classSchedule.scheduleId IN :scheduleIds)
-              AND (s.fullName LIKE :search 
-                   OR s.studentCode LIKE :search 
-                   OR s.phoneNumber LIKE :search)
+              AND (LOWER(s.fullName) LIKE :search
+                   OR LOWER(s.studentCode) LIKE :search
+                   OR LOWER(s.phoneNumber) LIKE :search)
               AND (:status IS NULL OR s.studentStatus = :status)
             """,
             countQuery = """
                     SELECT COUNT(DISTINCT s) FROM Student s
                     LEFT JOIN StudentEnrollment se ON se.student = s
                     WHERE (:isFilterSchedule = false OR se.classSchedule.scheduleId IN :scheduleIds)
-                      AND (s.fullName LIKE :search 
-                           OR s.studentCode LIKE :search 
-                           OR s.phoneNumber LIKE :search)
+                      AND (LOWER(s.fullName) LIKE :search
+                           OR LOWER(s.studentCode) LIKE :search
+                           OR LOWER(s.phoneNumber) LIKE :search)
                       AND (:status IS NULL OR s.studentStatus = :status)
                     """)
     Page<Student> findStudentsWithFilter(
             @Param("search") String search,
             @Param("status") StudentStatus status,
             @Param("scheduleIds") List<String> scheduleIds,
-            @Param("isFilterSchedule") boolean isFilterSchedule, // Thêm cờ này để check null/empty dễ hơn
+            @Param("isFilterSchedule") boolean isFilterSchedule,
             Pageable pageable
     );
 
     @Query("""
-            
-                SELECT s.studentStatus AS status, COUNT(DISTINCT s) AS count
+            SELECT s.studentStatus AS status, COUNT(DISTINCT s) AS count
             FROM Student s
             LEFT JOIN StudentEnrollment se ON se.student = s
             WHERE (:isFilterSchedule = false OR se.classSchedule.scheduleId IN :scheduleIds)
-              AND (s.fullName LIKE :search
-                   OR s.studentCode LIKE :search
-                   OR s.phoneNumber LIKE :search)
+              AND (LOWER(s.fullName) LIKE :search
+                   OR LOWER(s.studentCode) LIKE :search
+                   OR LOWER(s.phoneNumber) LIKE :search)
             GROUP BY s.studentStatus
             """)
     List<StudentStatusCount> countStudentsByStatusWithFilter(

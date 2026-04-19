@@ -1,5 +1,6 @@
 package com.dat.backend_v2_1.dto.Security;
 
+import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.enums.Core.Belt;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -23,7 +24,7 @@ public class UserRes {
         private UUID idUser;
         private String userCode;
         private String idRole;
-        private List<String> assignedClasses; // Dành riêng cho HLV, có thể là null hoặc rỗng nếu không phải HLV
+        private List<CoachAssignmentResDTO.Response> assignedClasses; // Dành riêng cho HLV, có thể là null hoặc rỗng nếu không phải HLV
     }
 
     @Data

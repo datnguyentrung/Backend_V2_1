@@ -3,11 +3,12 @@ package com.dat.backend_v2_1.controller.Operation;
 import com.dat.backend_v2_1.config.SecurityRule;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentAttendanceDTO;
+import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDetailDTO;
-import com.dat.backend_v2_1.dto.PageResponse;
 import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.ScheduleLevel;
 import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
+import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
 import com.dat.backend_v2_1.service.Operation.CoachAssignmentService;
 import com.dat.backend_v2_1.service.Operation.StudentAttendanceService;
@@ -27,9 +28,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -40,6 +41,33 @@ public class StudentAttendanceController {
     private final TuitionPaymentService tuitionPaymentService;
     private final SecurityRule securityRule;
     private final CoachAssignmentService coachAssignmentService;
+
+    /*
+     * API Cập nhật điểm danh hàng loạt cho nhiều học viên trong cùng 1 buổi học.
+     * Logic:
+     * - Nhận vào List<StudentAttendanceDTO.SimpleResponse> chứa attendanceId và các trường cần cập nhật (status, note, evaluationStatus).
+     * - Duyệt qua từng item, kiểm tra quyền hạn (chỉ Coach phụ trách lớp đó mới được cập nhật).
+     * - Cập nhật từng bản ghi tương ứng trong database.
+     * - Trả về List<StudentAttendanceDTO.Response> mới nhất sau khi cập nhật để Frontend đồng bộ UI ngay lập tức.
+     * Lưu ý: Không nên trả về 204 No Content vì FE cần dữ liệu mới nhất để hiển thị, tránh phải gọi GET thêm 1 lần nữa.
+     */
+    @PreAuthorize("@securityRule.isCoach(authentication)")
+    @PutMapping
+    public ResponseEntity<List<StudentAttendanceDTO.Response>> updateAttendanceRecords(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody @Valid List<StudentAttendanceDTO.SimpleResponse> request
+    ) {
+        // Chỉ nên log size của request, log toàn bộ data sẽ làm phình file log rất nhanh
+        log.info("updateAttendanceRecords called by coach: {} for {} records", jwt.getSubject(), request.size());
+
+        String coachId = jwt.getSubject();
+
+        // Gọi thẳng vào Service, truyền ID
+        List<StudentAttendanceDTO.Response> updatedData = studentAttendanceService.updateStudentAttendance(request, coachId);
+
+        // Trả về 200 OK kèm dữ liệu mới nhất để Frontend đồng bộ UI
+        return ResponseEntity.ok(updatedData);
+    }
 
     @PreAuthorize("@securityRule.isCoach(authentication)")
     @PatchMapping("/{attendanceId}/status")
@@ -161,7 +189,7 @@ public class StudentAttendanceController {
      */
     @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping
-    public ResponseEntity<PageResponse<StudentAttendanceDTO.Response>> filterAttendanceRecords(
+    public ResponseEntity<StudentAttendanceDTO.AttendanceListResponse> filterAttendanceRecords(
             Authentication authentication,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) LocalDate sessionDate,
@@ -182,6 +210,15 @@ public class StudentAttendanceController {
                 ? Sort.by(sortBy).ascending()
                 : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
+        List<StudentEnrollmentResDTO.EnrollmentHistoryItem> items = new ArrayList<>();
+        // 2. Xử lý scheduleIds từ tham số truyền vào
+        if (scheduleIds != null && !scheduleIds.isEmpty()) {
+            items.addAll(scheduleIds.stream()
+                    .map(id -> StudentEnrollmentResDTO.EnrollmentHistoryItem.builder()
+                            .scheduleId(id)
+                            .build())
+                    .toList());
+        }
 
         if (securityRule.isHeadCoach(authentication)) {
             // Xử lý riêng nếu là HEAD_COACH / ADMIN
@@ -195,23 +232,29 @@ public class StudentAttendanceController {
             if (scheduleIds == null || scheduleIds.isEmpty()) {
                 // Nếu không có filter theo scheduleId, lấy danh sách các lớp do Coach này phụ trách
                 List<CoachAssignmentResDTO.SimpleResponse> coachAssignments =
-                        coachAssignmentService.findStudentEnrollmentsByCoachId(UUID.fromString(authentication.getName()));
+                        coachAssignmentService.findStudentEnrollmentsByCoachId(UUID.fromString(authentication.getName()), CoachAssignmentStatus.ACTIVE);
 
-                // Map danh sách lớp học sang List<String> (giả sử lấy tên lớp hoặc ID lớp)
-                scheduleIds = coachAssignments.stream()
-                        .map(assignment -> assignment.getClassSchedule().getScheduleId()) // Thay bằng getter thực tế của bạn
-                        .collect(Collectors.toList());
+                // Map danh sách lớp học sang List<EnrollmentHistoryItem>
+                List<StudentEnrollmentResDTO.EnrollmentHistoryItem> itemList = coachAssignments.stream()
+                        .map(assignment -> StudentEnrollmentResDTO.EnrollmentHistoryItem.builder()
+                                // Lấy ID từ object classSchedule (bạn nhớ điều chỉnh phương thức get...() cho khớp với class ClassScheduleSummary của bạn)
+                                .scheduleId(assignment.getClassSchedule().getScheduleId())
+                                .joinDate(assignment.getAssignedDate()) // Gán assignedDate vào joinDate
+                                .leaveDate(assignment.getEndDate())     // Gán endDate vào leaveDate
+                                .build())
+                        .toList(); // Hoặc .collect(Collectors.toList()) nếu dùng Java < 16
+
+                items.addAll(itemList);
             }
-
         } else {
             // Xử lý cho các Role còn lại (như STUDENT)
             // Không làm gì thêm, chỉ trả về thông tin UserRes cơ bản đã map ở trên
         }
 
-        PageResponse<StudentAttendanceDTO.Response> response = studentAttendanceService
+        StudentAttendanceDTO.AttendanceListResponse response = studentAttendanceService
                 .getStudentAttendancesWithStats(
                         search, sessionDate, attendanceStatuses, evaluationStatuses,
-                        belts, branchIds, scheduleLevels, scheduleIds, pageable
+                        belts, branchIds, scheduleLevels, items, pageable
                 );
 
         return ResponseEntity.ok(response);

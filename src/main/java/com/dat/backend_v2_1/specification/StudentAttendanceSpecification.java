@@ -5,6 +5,7 @@ import com.dat.backend_v2_1.domain.Core.ClassSchedule;
 import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.domain.Operation.StudentAttendance;
 import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
+import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.ScheduleLevel;
 import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
@@ -38,14 +39,14 @@ public class StudentAttendanceSpecification {
     /**
      * Main method: Kết hợp tất cả các điều kiện filter
      *
-     * @param search             Tìm kiếm theo tên/mã/SĐT học viên
-     * @param sessionDate        Ngày học
-     * @param attendanceStatuses Danh sách trạng thái điểm danh
-     * @param evaluationStatuses Danh sách trạng thái đánh giá
-     * @param belts              Danh sách đai (belt)
-     * @param branchIds          Danh sách chi nhánh
-     * @param scheduleLevels     Danh sách cấp độ lớp
-     * @param scheduleIds        Danh sách mã lớp học cụ thể
+     * @param search                 Tìm kiếm theo tên/mã/SĐT học viên
+     * @param sessionDate            Ngày học
+     * @param attendanceStatuses     Danh sách trạng thái điểm danh
+     * @param evaluationStatuses     Danh sách trạng thái đánh giá
+     * @param belts                  Danh sách đai (belt)
+     * @param branchIds              Danh sách chi nhánh
+     * @param scheduleLevels         Danh sách cấp độ lớp
+     * @param enrollmentHistoryItems Danh sách lịch sử enrollment (dùng để filter theo mã lớp học và thời gian)
      * @return Specification kết hợp
      */
     public static Specification<StudentAttendance> filterBy(
@@ -56,7 +57,7 @@ public class StudentAttendanceSpecification {
             List<Belt> belts,
             List<Integer> branchIds,
             List<ScheduleLevel> scheduleLevels,
-            List<String> scheduleIds
+            List<StudentEnrollmentResDTO.EnrollmentHistoryItem> enrollmentHistoryItems
     ) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -117,14 +118,44 @@ public class StudentAttendanceSpecification {
                 predicates.add(scheduleJoin.get("level").in(scheduleLevels));
             }
 
-            // 8. Filter theo mã lớp học cụ thể
-            if (scheduleIds != null && !scheduleIds.isEmpty()) {
-                predicates.add(scheduleJoin.get("scheduleId").in(scheduleIds));
+            // 8. Filter theo Lịch sử phân công
+            if (enrollmentHistoryItems != null && !enrollmentHistoryItems.isEmpty()) {
+                List<Predicate> historyPredicates = new ArrayList<>();
+
+                for (StudentEnrollmentResDTO.EnrollmentHistoryItem item : enrollmentHistoryItems) {
+                    List<Predicate> singleItemPredicates = new ArrayList<>();
+
+                    // Điều kiện 1: Khớp scheduleId
+                    singleItemPredicates.add(criteriaBuilder.equal(
+                            scheduleJoin.get("scheduleId"),
+                            item.getScheduleId()
+                    ));
+
+                    // Điều kiện 2: Ngày học (sessionDate) >= Ngày vào lớp (joinDate)
+                    if (item.getJoinDate() != null) {
+                        singleItemPredicates.add(criteriaBuilder.greaterThanOrEqualTo(
+                                root.get("sessionDate"),
+                                item.getJoinDate()
+                        ));
+                    }
+
+                    // Điều kiện 3: Ngày học (sessionDate) <= Ngày rời lớp (leaveDate)
+                    if (item.getLeaveDate() != null) {
+                        singleItemPredicates.add(criteriaBuilder.lessThanOrEqualTo(
+                                root.get("sessionDate"),
+                                item.getLeaveDate()
+                        ));
+                    }
+
+                    // Gom 3 điều kiện con lại bằng AND
+                    historyPredicates.add(criteriaBuilder.and(singleItemPredicates.toArray(new Predicate[0])));
+                }
+
+                // Gom tất cả các khối lịch sử lại bằng OR và đẩy vào danh sách predicate chính
+                predicates.add(criteriaBuilder.or(historyPredicates.toArray(new Predicate[0])));
             }
 
-            log.debug("Built {} predicates for StudentAttendance filtering", predicates.size());
-
-            // Kết hợp tất cả các điều kiện bằng AND
+            // TRẢ VỀ KẾT QUẢ CUỐI CÙNG (Gom tất cả 8 khối lại bằng AND)
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
         };
     }

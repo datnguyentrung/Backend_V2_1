@@ -77,7 +77,7 @@ public class StudentAttendanceRepositoryCustomImpl implements StudentAttendanceR
     }
 
     @Override
-    public StudentAttendanceDTO.AttendanceStats getStatistics(Specification<StudentAttendance> spec) {
+    public StudentAttendanceDTO.AttendanceStats getStatistics(Specification<StudentAttendance> spec, List<String> myAssignedScheduleIds) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
         Root<StudentAttendance> root = query.from(StudentAttendance.class);
@@ -105,11 +105,28 @@ public class StudentAttendanceRepositoryCustomImpl implements StudentAttendanceR
 
         // Logic "Chưa đánh giá" (Chỉ tính người đi học: Present, Makeup, Late)
         List<AttendanceStatus> attendedStatuses = List.of(AttendanceStatus.PRESENT, AttendanceStatus.MAKEUP, AttendanceStatus.LATE);
+        List<Predicate> pendingPredicates = new ArrayList<>();
+
+        pendingPredicates.add(root.get("attendanceStatus").in(attendedStatuses));
+        pendingPredicates.add(cb.or(
+                cb.equal(root.get("evaluationStatus"), EvaluationStatus.PENDING),
+                cb.isNull(root.get("evaluationStatus"))
+        ));
+
+        if (myAssignedScheduleIds != null) {
+            if (myAssignedScheduleIds.isEmpty()) {
+                // Nếu là Coach nhưng không được phân công lớp nào -> Ép biểu thức sai để count = 0
+                pendingPredicates.add(cb.disjunction());
+            } else {
+                // LƯU Ý: Thay "classSchedule.id" bằng đường dẫn thực tế đến field scheduleId trong Entity của bạn
+                // Ví dụ: getPath(root, "studentEnrollment.classSchedule.id")
+                Path<Object> scheduleIdPath = getPath(root, "studentEnrollment.classSchedule.scheduleId");
+                pendingPredicates.add(scheduleIdPath.in(myAssignedScheduleIds));
+            }
+        }
+
         Expression<Integer> pendingCase = cb.<Integer>selectCase()
-                .when(cb.and(
-                        root.get("attendanceStatus").in(attendedStatuses),
-                        cb.or(cb.equal(root.get("evaluationStatus"), EvaluationStatus.PENDING), cb.isNull(root.get("evaluationStatus")))
-                ), 1)
+                .when(cb.and(pendingPredicates.toArray(new Predicate[0])), 1)
                 .otherwise(0);
 
         // Select tất cả trong 1 Tuple

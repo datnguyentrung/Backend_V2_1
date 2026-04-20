@@ -554,7 +554,11 @@ public class StudentAttendanceService {
         // Chuyển đổi sang DTO
         Page<StudentAttendanceDTO.Response> responsePage = attendances.map(studentAttendanceMapper::toResponse);
 
-        StudentAttendanceDTO.AttendanceStats stats = studentAttendanceRepository.getStatistics(spec);
+        List<String> myAssignedScheduleIds = enrollmentHistoryItems.stream()
+                .map(StudentEnrollmentResDTO.EnrollmentHistoryItem::getScheduleId)
+                .toList();
+
+        StudentAttendanceDTO.AttendanceStats stats = studentAttendanceRepository.getStatistics(spec, myAssignedScheduleIds);
 
         //4. Đóng gói vào PageResponse chuẩn
         PageResponse<StudentAttendanceDTO.Response> pageData = PageResponse.<StudentAttendanceDTO.Response>builder()

@@ -3,6 +3,7 @@ package com.dat.backend_v2_1.controller.Core;
 import com.dat.backend_v2_1.dto.Core.CoachReqDTO;
 import com.dat.backend_v2_1.dto.Core.CoachResDTO;
 import com.dat.backend_v2_1.service.Core.CoachService;
+import com.dat.backend_v2_1.service.Operation.CoachAssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import java.util.UUID;
 public class CoachController {
 
     private final CoachService coachService;
+    private final CoachAssignmentService coachAssignmentService;
 
     /**
      * Tạo huấn luyện viên mới
@@ -32,9 +34,9 @@ public class CoachController {
             @RequestBody @Valid CoachReqDTO.CoachCreate createDTO) {
         log.info("Request create coach: {}", createDTO.getFullName());
 
-        CoachResDTO.CoachDetail newCoachCode = coachService.createCoach(createDTO);
+        CoachResDTO.CoachDetail newCoach = coachService.createCoach(createDTO);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(newCoachCode);
+        return ResponseEntity.status(HttpStatus.CREATED).body(newCoach);
     }
 
     /**

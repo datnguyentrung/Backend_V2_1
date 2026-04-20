@@ -3,6 +3,7 @@ package com.dat.backend_v2_1.mapper.Core;
 import com.dat.backend_v2_1.domain.Core.Coach;
 import com.dat.backend_v2_1.domain.Security.Role;
 import com.dat.backend_v2_1.dto.Core.CoachResDTO;
+import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.dto.Security.UserRes;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
 import org.mapstruct.Mapper;
@@ -55,9 +56,20 @@ public interface CoachMapper {
         return role.getCode(); // Đảm bảo class Role có hàm getCode()
     }
 
+    // 1. Hàm map CHỈ CÓ 1 THAM SỐ (Dùng cho List hoặc khi không có assignment)
+    // MapStruct sẽ tự động dùng hàm này cho vòng lặp của toCoachDetailList
     @Mapping(target = "roleName", source = "role", qualifiedByName = "getRoleName")
-//    @Mapping(target = "email", source = "email")
+    @Mapping(target = "currentAssignments", ignore = true)
+    // Bỏ qua field này vì không có data truyền vào
     CoachResDTO.CoachDetail toCoachDetail(Coach coach);
 
+    // 2. Hàm map CÓ 2 THAM SỐ (Dùng riêng cho hàm createCoach hoặc getCoachDetail)
+    // Đổi tên hàm một chút để MapStruct không bị nhầm lẫn
+    @Mapping(target = "roleName", source = "coach.role", qualifiedByName = "getRoleName")
+    @Mapping(target = "currentAssignments", source = "coachAssignmentCurrent")
+    CoachResDTO.CoachDetail toCoachDetailWithAssignments(Coach coach, List<CoachAssignmentResDTO.SimpleResponse> coachAssignmentCurrent);
+
+    // 3. Hàm map List
+    // Lúc này MapStruct sẽ tự động biết gọi hàm số (1) ở trên để map.
     List<CoachResDTO.CoachDetail> toCoachDetailList(List<Coach> coaches);
 }

@@ -65,6 +65,8 @@ public class AuthenticationController {
         User currentUserDB = userService.getUserByPhoneNumber(loginReq.getPhoneNumber());
 
         if (currentUserDB != null) {
+            userService.updateLastLogin(currentUserDB.getUserId());
+
             LoginRes.UserLogin userLogin = new LoginRes.UserLogin(
                     // .get phải thứ tự UserLogin
                     currentUserDB.getUserId(),

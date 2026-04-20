@@ -1,7 +1,7 @@
 package com.dat.backend_v2_1.service.Security;
 
-import com.dat.backend_v2_1.domain.Security.User;
 import com.dat.backend_v2_1.domain.Security.Role;
+import com.dat.backend_v2_1.domain.Security.User;
 import com.dat.backend_v2_1.dto.Security.ChangePasswordReq;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
 import com.dat.backend_v2_1.repository.Security.UserRepository;
@@ -9,10 +9,12 @@ import com.dat.backend_v2_1.util.error.InvalidPasswordException;
 import com.dat.backend_v2_1.util.error.UserNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
@@ -48,9 +50,18 @@ public class UserService {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User not found with idUser: " + userId));
     }
+
     public User getUserByPhoneNumber(String phoneNumber) throws UserNotFoundException {
-        return (User) userRepository.findByPhoneNumber(phoneNumber)
+        return userRepository.findByPhoneNumber(phoneNumber)
                 .orElseThrow(() -> new UserNotFoundException("User not found with phone number: " + phoneNumber));
+    }
+
+    @Transactional
+    @Async
+    public void updateLastLogin(UUID userId) {
+        User user = getUserById(userId);
+        user.setLastLoginAt(LocalDateTime.now());
+        userRepository.save(user);
     }
 
     public void changePassword(String phoneNumber, ChangePasswordReq passwordReq) {

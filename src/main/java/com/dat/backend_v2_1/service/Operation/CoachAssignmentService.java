@@ -8,9 +8,9 @@ import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.enums.ErrorCode;
 import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import com.dat.backend_v2_1.mapper.Operation.CoachAssignmentMapper;
+import com.dat.backend_v2_1.repository.Core.CoachRepository;
 import com.dat.backend_v2_1.repository.Operation.CoachAssignmentRepository;
 import com.dat.backend_v2_1.service.Core.ClassScheduleService;
-import com.dat.backend_v2_1.service.Core.CoachService;
 import com.dat.backend_v2_1.util.error.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,14 +29,19 @@ import java.util.stream.Collectors;
 public class CoachAssignmentService {
     private final CoachAssignmentRepository coachAssignmentRepository;
 
-    private final CoachService coachService;
+    private final CoachRepository coachRepository;
     private final ClassScheduleService classScheduleService;
     private final CoachAssignmentMapper coachAssignmentMapper;
 
+    public List<CoachAssignment> getAllCoachAssignmentsByListCoachIds(List<UUID> coachIds, CoachAssignmentStatus status) {
+        return coachAssignmentRepository.findByCoachIdInAndStatusWithClassSchedule(coachIds, status);
+    }
+
     @Transactional(rollbackFor = Exception.class)
-    public void createdCoachAssignment(CoachAssignmentReqDTO.CreateRequest request) {
+    public List<CoachAssignment> createCoachAssignment(CoachAssignmentReqDTO.CreateRequest request) {
         // 1. Lấy thông tin HLV
-        Coach coach = coachService.getCoachById(request.getCoachId());
+        Coach coach = coachRepository.findById(UUID.fromString(request.getCoachId()))
+                .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
 
         // 2. Lấy tất cả ClassSchedule theo danh sách ID
         List<ClassSchedule> schedules = classScheduleService.findByScheduleIds(request.getScheduleIds());
@@ -77,10 +82,10 @@ public class CoachAssignmentService {
             coachAssignmentsToSave.add(coachAssignment);
         }
 
-        // 5. Lưu tất cả phân công HLV cùng lúc
-        coachAssignmentRepository.saveAll(coachAssignmentsToSave);
-
         log.info("Assigned Coach {} to {} classes", coach.getUserId(), coachAssignmentsToSave.size());
+
+        // 5. Lưu tất cả phân công HLV cùng lúc
+        return coachAssignmentRepository.saveAll(coachAssignmentsToSave);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -109,7 +114,8 @@ public class CoachAssignmentService {
      */
     public List<CoachAssignmentResDTO.SimpleResponse> findStudentEnrollmentsByCoachId(UUID userId, CoachAssignmentStatus status) {
         // Validation: Kiểm tra HLV tồn tại
-        coachService.getCoachById(userId);
+        coachRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
 
         List<CoachAssignment> assignments = coachAssignmentRepository.findByCoach_UserIdAndStatusWithClassSchedule(
                 userId,
@@ -132,7 +138,9 @@ public class CoachAssignmentService {
      */
     public List<CoachAssignmentResDTO.Response> findDetailedCoachAssignmentsByUserId(UUID userId, CoachAssignmentStatus status) {
         // Validation: Kiểm tra HLV tồn tại
-        coachService.getCoachById(userId);
+        coachRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
+
 
         List<CoachAssignment> assignments = coachAssignmentRepository.findByCoach_UserIdAndStatusWithClassSchedule(
                 userId,

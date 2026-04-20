@@ -1,16 +1,16 @@
 package com.dat.backend_v2_1.dto.Core;
 
+import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.CoachStatus;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -24,38 +24,41 @@ public class CoachResDTO {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class CoachDetail {
         // === Thông tin từ User (Base Entity) ===
-        private UUID userId;
+        UUID userId;
 
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
-        private LocalDate birthDate;
+        LocalDate birthDate;
 
-        private String phoneNumber;
+        String phoneNumber;
 
-        private Belt belt;
+        Belt belt;
 
-        private String email;
+        String email;
 
-        private UserStatus status; // Trạng thái tài khoản hệ thống (ACTIVE, BANNED, etc.)
-
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        private LocalDateTime createdAt;
+        UserStatus status; // Trạng thái tài khoản hệ thống (ACTIVE, BANNED, etc.)
 
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        private LocalDateTime updatedAt;
+        LocalDateTime createdAt;
 
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        private LocalDateTime lastLoginAt;
+        LocalDateTime updatedAt;
 
-        private String roleName; // Tên role (COACH, ADMIN, etc.)
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
+        LocalDateTime lastLoginAt;
+
+        String roleName; // Tên role (COACH, ADMIN, etc.)
 
         // === Thông tin từ Coach (Child Entity) ===
-        private String staffCode;
+        String staffCode;
 
-        private String fullName;
+        String fullName;
 
-        private CoachStatus coachStatus; // Trạng thái công việc (ACTIVE, ON_LEAVE, etc.)
+        CoachStatus coachStatus; // Trạng thái công việc (ACTIVE, ON_LEAVE, etc.)
+
+        List<CoachAssignmentResDTO.SimpleResponse> currentAssignments; // Thông tin phân công hiện tại (nếu có)
     }
 
     /**
@@ -63,10 +66,11 @@ public class CoachResDTO {
      */
     @Data
     @Builder
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class CoachSummary {
-        private UUID userId;
-        private String fullName;
-        private String staffCode;
-        private String email;
+        UUID userId;
+        String fullName;
+        String staffCode;
+        String email;
     }
 }

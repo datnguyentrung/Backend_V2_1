@@ -14,11 +14,11 @@ import java.util.UUID;
 public interface CoachAssignmentRepository extends JpaRepository<CoachAssignment, UUID> {
 
     @Query("""
-        SELECT ca FROM CoachAssignment ca
-        WHERE ca.coach.userId = :coachId
-        AND ca.classSchedule.scheduleId IN :scheduleIds
-        AND ca.status = :status
-    """)
+                SELECT ca FROM CoachAssignment ca
+                WHERE ca.coach.userId = :coachId
+                AND ca.classSchedule.scheduleId IN :scheduleIds
+                AND ca.status = :status
+            """)
     List<CoachAssignment> findByCoachAndScheduleIdsAndStatus(
             @Param("coachId") UUID coachId,
             @Param("scheduleIds") List<String> scheduleIds,
@@ -26,13 +26,19 @@ public interface CoachAssignmentRepository extends JpaRepository<CoachAssignment
     );
 
     @Query("""
-        SELECT ca FROM CoachAssignment ca
-        JOIN FETCH ca.classSchedule cs
-        JOIN FETCH cs.branch
-        WHERE ca.coach.userId = :coachId AND ca.status = :status
-    """)
+                SELECT ca FROM CoachAssignment ca
+                JOIN FETCH ca.classSchedule cs
+                JOIN FETCH cs.branch
+                WHERE ca.coach.userId = :coachId AND ca.status = :status
+            """)
     List<CoachAssignment> findByCoach_UserIdAndStatusWithClassSchedule(
             @Param("coachId") UUID coachId,
+            @Param("status") CoachAssignmentStatus status
+    );
+
+    @Query("SELECT ca FROM CoachAssignment ca JOIN FETCH ca.classSchedule WHERE ca.coach.userId IN :coachIds AND ca.status = :status")
+    List<CoachAssignment> findByCoachIdInAndStatusWithClassSchedule(
+            @Param("coachIds") List<UUID> coachIds,
             @Param("status") CoachAssignmentStatus status
     );
 

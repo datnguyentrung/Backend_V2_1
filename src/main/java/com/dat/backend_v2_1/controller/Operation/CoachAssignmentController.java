@@ -1,8 +1,10 @@
 package com.dat.backend_v2_1.controller.Operation;
 
+import com.dat.backend_v2_1.domain.Operation.CoachAssignment;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentReqDTO;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
+import com.dat.backend_v2_1.mapper.Operation.CoachAssignmentMapper;
 import com.dat.backend_v2_1.service.Operation.CoachAssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ import java.util.UUID;
 public class CoachAssignmentController {
 
     private final CoachAssignmentService coachAssignmentService;
+    private final CoachAssignmentMapper coachAssignmentMapper;
 
     /**
      * Phân công huấn luyện viên vào lớp học
@@ -42,15 +45,20 @@ public class CoachAssignmentController {
      */
     @PostMapping
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
-    public ResponseEntity<String> createCoachAssignment(
+    public ResponseEntity<List<CoachAssignmentResDTO.SimpleResponse>> createCoachAssignment(
             @RequestBody @Valid CoachAssignmentReqDTO.CreateRequest request) {
         log.info("Request create coach assignment for coach: {} to {} classes",
                 request.getCoachId(), request.getScheduleIds().size());
 
-        coachAssignmentService.createdCoachAssignment(request);
+        List<CoachAssignment> coachAssignments = coachAssignmentService.createCoachAssignment(request);
+
+        // Map sang DTO (Đảm bảo bạn đã inject coachAssignmentMapper vào file Service này)
+        List<CoachAssignmentResDTO.SimpleResponse> assignmentResponses = coachAssignments.stream()
+                .map(coachAssignmentMapper::toSimpleResponse)
+                .toList();
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body("Phân công huấn luyện viên thành công");
+                .body(assignmentResponses);
     }
 
     /**

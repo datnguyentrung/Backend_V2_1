@@ -41,7 +41,7 @@ public class AccountUtil {
         String birthDateStr = birthDate.format(DateTimeFormatter.ofPattern("ddMMyy"));
 
         // BƯỚC 6: Ghép chuỗi theo format HV_tenhodem_ngaysinh
-        // Kết quả: "HV_" + "dat" + "nt" + "_" + "311005"
+        // Kết quả: "VQ_" + "dat" + "nt" + "_" + "311005"
         return "VQ_" + firstName + initials + "_" + birthDateStr;
     }
 

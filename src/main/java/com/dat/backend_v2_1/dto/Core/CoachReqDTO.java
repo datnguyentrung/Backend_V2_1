@@ -1,5 +1,6 @@
 package com.dat.backend_v2_1.dto.Core;
 
+import com.dat.backend_v2_1.dto.Operation.CoachAssignmentReqDTO;
 import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.CoachStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -39,6 +40,8 @@ public class CoachReqDTO {
         private String email;
 
         private String roleCode;
+
+        private CoachAssignmentReqDTO.CreateRequest assignmentRequest; // Thông tin phân công HLV (nếu có)
     }
 
     @Data

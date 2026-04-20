@@ -1,11 +1,16 @@
 package com.dat.backend_v2_1.service.Core;
 
 import com.dat.backend_v2_1.domain.Core.Coach;
+import com.dat.backend_v2_1.domain.Operation.CoachAssignment;
 import com.dat.backend_v2_1.dto.Core.CoachReqDTO;
 import com.dat.backend_v2_1.dto.Core.CoachResDTO;
+import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.enums.Core.CoachStatus;
+import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import com.dat.backend_v2_1.mapper.Core.CoachMapper;
+import com.dat.backend_v2_1.mapper.Operation.CoachAssignmentMapper;
 import com.dat.backend_v2_1.repository.Core.CoachRepository;
+import com.dat.backend_v2_1.service.Operation.CoachAssignmentService;
 import com.dat.backend_v2_1.service.Security.UserService;
 import com.dat.backend_v2_1.util.AccountUtil;
 import com.dat.backend_v2_1.util.converter.NameConverter;
@@ -18,9 +23,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -29,6 +33,8 @@ public class CoachService {
     private final CoachRepository coachRepository;
     private final CoachMapper coachMapper;
     private final UserService userService;
+    private final CoachAssignmentService coachAssignmentService;
+    private final CoachAssignmentMapper coachAssignmentMapper;
 
     /**
      * Validates coach exists and is in ACTIVE status.
@@ -70,7 +76,10 @@ public class CoachService {
      */
     public CoachResDTO.CoachDetail getCoachDetail(UUID userId) {
         Coach coach = getCoachById(userId);
-        return coachMapper.toCoachDetail(coach);
+
+        List<CoachAssignmentResDTO.SimpleResponse> coachAssignmentCurrent = coachAssignmentService.findStudentEnrollmentsByCoachId(userId, CoachAssignmentStatus.ACTIVE);
+
+        return coachMapper.toCoachDetailWithAssignments(coach, coachAssignmentCurrent);
     }
 
     /**
@@ -85,44 +94,61 @@ public class CoachService {
      */
     @Transactional(rollbackFor = Exception.class)
     public CoachResDTO.CoachDetail createCoach(CoachReqDTO.CoachCreate createDTO) {
-        // BƯỚC 1: Validate Business (Check trùng lặp)
+        // BƯỚC 1: Validate Business
         if (coachRepository.existsByPhoneNumber(createDTO.getPhoneNumber())) {
             throw new BusinessException("Số điện thoại này đã được đăng ký!");
         }
 
         // BƯỚC 2: Mapping DTO -> Entity
         Coach newCoach = new Coach();
-
-        // --- Thông tin cơ bản ---
         newCoach.setFullName(NameConverter.formatVietnameseName(createDTO.getFullName()));
         newCoach.setPhoneNumber(createDTO.getPhoneNumber());
         newCoach.setBirthDate(createDTO.getBirthDate());
         newCoach.setBelt(createDTO.getBelt());
         newCoach.setEmail(createDTO.getEmail());
-
-        // --- Thông tin chuyên môn ---
         newCoach.setCoachStatus(createDTO.getCoachStatus() != null ? createDTO.getCoachStatus() : CoachStatus.ACTIVE);
 
-        // BƯỚC 3: Enrich Data (Tự động sinh dữ liệu hệ thống)
-        // Tạo mã nhân viên: VQ_datnt_311005
+        // BƯỚC 3: Enrich Data
         String generatedCode = AccountUtil.getUserCode(createDTO.getFullName(), createDTO.getBirthDate());
-
-        // Check trùng mã sinh ra (Trường hợp hiếm gặp 2 người trùng tên trùng ngày sinh)
-        if (coachRepository.existsByStaffCode(generatedCode)) {
-            generatedCode = generatedCode + "_" + RandomStringUtils.secure().nextNumeric(2);
+        while (coachRepository.existsByStaffCode(generatedCode)) {
+            generatedCode = AccountUtil.getUserCode(createDTO.getFullName(), createDTO.getBirthDate())
+                    + "_" + RandomStringUtils.secure().nextNumeric(2);
         }
         newCoach.setStaffCode(generatedCode);
 
-        // BƯỚC 4: Thiết lập User Base (Tài khoản đăng nhập)
-        // Logic này sẽ encode password, set Role COACH
+        // BƯỚC 4: Thiết lập User Base
         String roleCode = StringUtils.hasText(createDTO.getRoleCode()) ? createDTO.getRoleCode() : "COACH_TRAINEE";
         userService.setupBaseUser(newCoach, roleCode);
 
         // BƯỚC 5: Save
-        coachRepository.save(newCoach);
+        newCoach = coachRepository.save(newCoach);
+
+        // ================= SỬA TẠI ĐÂY =================
+        // Khai báo biến list rỗng ở ngoài khối if
+        List<CoachAssignmentResDTO.SimpleResponse> assignmentResponses = new ArrayList<>();
+
+        // BƯỚC 6: Xử lý phân công
+        if (createDTO.getAssignmentRequest() != null
+                && createDTO.getAssignmentRequest().getScheduleIds() != null
+                && !createDTO.getAssignmentRequest().getScheduleIds().isEmpty()) {
+
+            // Gán ID vừa tạo vào request phân công
+            createDTO.getAssignmentRequest().setCoachId(String.valueOf(newCoach.getUserId()));
+
+            // Gọi Service phân công
+            List<CoachAssignment> coachAssignments = coachAssignmentService.createCoachAssignment(createDTO.getAssignmentRequest());
+
+            // Map sang DTO (Đảm bảo bạn đã inject coachAssignmentMapper vào file Service này)
+            assignmentResponses = coachAssignments.stream()
+                    .map(coachAssignmentMapper::toSimpleResponse)
+                    .toList();
+        }
 
         log.info("Created coach successfully with code: {}", generatedCode);
-        return coachMapper.toCoachDetail(newCoach);
+
+        // Bây giờ assignmentResponses luôn tồn tại (rỗng nếu không có phân công, có data nếu có phân công)
+        // Gọi đúng tên hàm mới có 2 tham số
+        return coachMapper.toCoachDetailWithAssignments(newCoach, assignmentResponses);
     }
 
     /**
@@ -242,7 +268,38 @@ public class CoachService {
     }
 
     public List<CoachResDTO.CoachDetail> getAllCoaches() {
+        // 1. Query Lần 1: Lấy danh sách toàn bộ HLV
         List<Coach> coaches = coachRepository.findAll();
-        return coachMapper.toCoachDetailList(coaches);
+
+        if (coaches.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // 2. Lấy ra một danh sách (List) các ID của HLV
+        List<UUID> coachIds = coaches.stream()
+                .map(Coach::getUserId)
+                .toList();
+
+        // 3. Query Lần 2: Lấy TOÀN BỘ phân công của tất cả các HLV này cùng 1 lúc
+        List<CoachAssignment> allActiveAssignments = coachAssignmentService.getAllCoachAssignmentsByListCoachIds(coachIds, CoachAssignmentStatus.ACTIVE);
+
+        // 4. Nhóm các phân công lại theo từng ID HLV (Sử dụng Map để tra cứu O(1))
+        // Cấu trúc Map: { Coach_UUID_1 : [Lớp A, Lớp B], Coach_UUID_2 : [Lớp C] }
+        Map<UUID, List<CoachAssignment>> assignmentsByCoachId = allActiveAssignments.stream()
+                .collect(Collectors.groupingBy(ca -> ca.getCoach().getUserId()));
+
+        // 5. Map sang DTO
+        return coaches.stream().map(coach -> {
+            // Lấy danh sách assignment từ Map (Nếu không có thì trả về list rỗng)
+            List<CoachAssignment> myAssignments = assignmentsByCoachId.getOrDefault(coach.getUserId(), new ArrayList<>());
+
+            // Map sang SimpleResponse DTO
+            List<CoachAssignmentResDTO.SimpleResponse> assignmentResponses = myAssignments.stream()
+                    .map(coachAssignmentMapper::toSimpleResponse)
+                    .toList();
+
+            // Gọi hàm mapper 2 tham số (đã tạo ở bài trước)
+            return coachMapper.toCoachDetailWithAssignments(coach, assignmentResponses);
+        }).toList();
     }
 }

@@ -8,6 +8,7 @@ import lombok.Getter;
 public enum ErrorCode {
     STUDENT_ALREADY_ENROLLED(409, "Học viên đang theo học lớp này, không thể đăng ký thêm"),
     STUDENT_NOT_FOUND(404, "Không tìm thấy thông tin học viên"),
+    COACH_NOT_FOUND(404, "Không tìm thấy thông tin huấn luyện viên"),
     CLASS_NOT_FOUND(404, "Lớp học không tồn tại"),
     CLASS_ALREADY_EXISTS(409, "Mã lịch học đã tồn tại"),
     CLASS_HAS_STUDENTS(400, "Không thể xóa lớp học vì còn học viên đang theo học"),

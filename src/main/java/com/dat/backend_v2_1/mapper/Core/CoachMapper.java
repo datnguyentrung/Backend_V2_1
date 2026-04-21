@@ -1,7 +1,6 @@
 package com.dat.backend_v2_1.mapper.Core;
 
 import com.dat.backend_v2_1.domain.Core.Coach;
-import com.dat.backend_v2_1.domain.Security.Role;
 import com.dat.backend_v2_1.dto.Core.CoachResDTO;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.dto.Security.UserRes;
@@ -9,10 +8,14 @@ import com.dat.backend_v2_1.enums.Security.UserStatus;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
+import org.mapstruct.ReportingPolicy;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring")
+@Mapper(
+        componentModel = "spring",
+        unmappedTargetPolicy = ReportingPolicy.IGNORE
+)
 public interface CoachMapper {
     // 1. Sửa tham số đầu vào từ Student -> Coach
     // source = "coach" phải khớp với tên biến tham số (Coach coach)
@@ -22,8 +25,8 @@ public interface CoachMapper {
 
     // 2. Mapping cho UserInfo
     @Mapping(target = "idUser", source = "userId")
-    @Mapping(target = "userCode", source = "coach", qualifiedByName = "getUserCode")
-    @Mapping(target = "idRole", source = "role", qualifiedByName = "getRoleName")
+    @Mapping(target = "userCode", source = "staffCode")
+    @Mapping(target = "idRole", source = "role.code")
     UserRes.UserInfo toUserInfo(Coach coach);
 
     // 3. Mapping cho UserProfile
@@ -44,28 +47,22 @@ public interface CoachMapper {
         return status == UserStatus.ACTIVE;
     }
 
-    @Named("getUserCode")
-    default String getUserCode(Coach coach) {
-        if (coach == null) return null;
-        return coach.getStaffCode(); // Hoặc có thể map sang một giá trị khác nếu cần
-    }
-
-    @Named("getRoleName")
-    default String getRoleName(Role role) {
-        if (role == null) return null;
-        return role.getCode(); // Đảm bảo class Role có hàm getCode()
-    }
-
     // 1. Hàm map CHỈ CÓ 1 THAM SỐ (Dùng cho List hoặc khi không có assignment)
     // MapStruct sẽ tự động dùng hàm này cho vòng lặp của toCoachDetailList
-    @Mapping(target = "roleName", source = "role", qualifiedByName = "getRoleName")
+    @Mapping(target = "role", source = "role.code")
+    @Mapping(target = "email", source = "email")
+    @Mapping(target = "staffCode", source = "staffCode")
+    @Mapping(target = "coachStatus", source = "coachStatus")
     @Mapping(target = "currentAssignments", ignore = true)
     // Bỏ qua field này vì không có data truyền vào
     CoachResDTO.CoachDetail toCoachDetail(Coach coach);
 
     // 2. Hàm map CÓ 2 THAM SỐ (Dùng riêng cho hàm createCoach hoặc getCoachDetail)
     // Đổi tên hàm một chút để MapStruct không bị nhầm lẫn
-    @Mapping(target = "roleName", source = "coach.role", qualifiedByName = "getRoleName")
+    @Mapping(target = "role", source = "coach.role.code")
+    @Mapping(target = "email", source = "coach.email")
+    @Mapping(target = "staffCode", source = "coach.staffCode")
+    @Mapping(target = "coachStatus", source = "coach.coachStatus")
     @Mapping(target = "currentAssignments", source = "coachAssignmentCurrent")
     CoachResDTO.CoachDetail toCoachDetailWithAssignments(Coach coach, List<CoachAssignmentResDTO.SimpleResponse> coachAssignmentCurrent);
 

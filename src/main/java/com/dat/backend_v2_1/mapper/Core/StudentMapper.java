@@ -1,121 +1,81 @@
 package com.dat.backend_v2_1.mapper.Core;
 
-import com.dat.backend_v2_1.domain.Core.Branch;
 import com.dat.backend_v2_1.domain.Core.Student;
-import com.dat.backend_v2_1.domain.Security.Role;
 import com.dat.backend_v2_1.dto.Core.StudentResDTO;
+import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.dto.Security.UserRes;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
+import org.mapstruct.ReportingPolicy;
 
-@Mapper(componentModel = "spring")
+import java.util.List;
+
+@Mapper(
+        componentModel = "spring",
+        unmappedTargetPolicy = ReportingPolicy.IGNORE
+)
 public interface StudentMapper {
+
     @Mapping(target = "userInfo", source = "student")
     @Mapping(target = "userProfile", source = "student")
     UserRes toUserRes(Student student);
 
-    @Mapping(target = "idUser", source = "userId") // Lấy từ User (cha)
-    @Mapping(target = "userCode", source = "student", qualifiedByName = "getUserCode")
-    // Lấy từ Student (con) hoặc để null
-    @Mapping(target = "idRole", source = "role", qualifiedByName = "getRoleName")
-        // Xử lý object Role ra String
+    // ĐÃ TỐI ƯU: Map thẳng field thay vì dùng hàm @Named
+    @Mapping(target = "idUser", source = "userId")
+    @Mapping(target = "userCode", source = "studentCode")
+    @Mapping(target = "idRole", source = "role.code")
     UserRes.UserInfo toUserInfo(Student student);
 
-    @Mapping(target = "name", source = "fullName") // Mapping khác tên: fullName -> name
-    @Mapping(target = "phone", source = "phoneNumber") // Mapping khác tên
+    @Mapping(target = "name", source = "fullName")
+    @Mapping(target = "phone", source = "phoneNumber")
     @Mapping(target = "isActive", source = "status", qualifiedByName = "mapActiveStatus")
-        // Convert Enum -> Boolean
     UserRes.UserProfile toUserProfile(Student student);
+
+    /**
+     * Map Student -> StudentDetail
+     * ĐÃ TỐI ƯU: Dùng Nested Mapping (dấu chấm) thay vì manual builder.
+     * MapStruct tự động check null cho branch và role.
+     * Lưu ý: roleCode được kế thừa từ UserRes.UserDetail, Lombok Builder tự động handle.
+     */
+    @Mapping(target = "role", source = "role.code")
+    @Mapping(target = "branchId", source = "branch.branchId")
+    @Mapping(target = "branchName", source = "branch.branchName")
+    @Mapping(target = "branchAddress", source = "branch.address")
+    @Mapping(target = "enrollments", ignore = true)
+    // Ignore để không bị cảnh báo lúc compile
+    StudentResDTO.StudentDetail toStudentDetail(Student student);
+
+    /**
+     * Map Student + Enrollments -> StudentDetail
+     * ĐÃ TỐI ƯU: Truyền nhiều parameter vào Mapper.
+     * Lưu ý: roleCode được kế thừa từ UserRes.UserDetail, Lombok Builder tự động handle.
+     */
+    @Mapping(target = "role", source = "student.role.code")
+    @Mapping(target = "branchId", source = "student.branch.branchId")
+    @Mapping(target = "branchName", source = "student.branch.branchName")
+    @Mapping(target = "branchAddress", source = "student.branch.address")
+    @Mapping(target = "enrollments", source = "enrollments")
+    // Map list truyền vào
+    StudentResDTO.StudentDetail toStudentDetailWithEnrollments(
+            Student student,
+            List<StudentEnrollmentResDTO.SimpleResponse> enrollments);
+
+    /**
+     * Map Student -> StudentOverview
+     */
+    @Mapping(target = "branchName", source = "branch.branchName")
+    @Mapping(target = "classSchedules", ignore = true)
+    // Ignore vì service layer sẽ tự set
+    StudentResDTO.StudentOverview toStudentOverview(Student student);
+
+    // ================= HELPER METHODS =================
 
     @Named("mapActiveStatus")
     default Boolean mapActiveStatus(UserStatus status) {
-        if (status == null) return false;
         return status == UserStatus.ACTIVE;
     }
 
-    // Logic: Lấy code Role từ Object Role
-    @Named("getRoleName")
-    default String getRoleName(Role role) {
-        if (role == null) return null;
-        // Role.code là khóa chính (VD: ROLE_STUDENT, ROLE_COACH)
-        return role.getCode();
-    }
-
-    @Named("getUserCode")
-    default String getUserCode(Student student) {
-        if (student == null) return null;
-        // Student không có userCode riêng, có thể lấy từ studentCode hoặc để null
-        return student.getStudentCode(); // Hoặc có thể để null nếu không muốn map
-    }
-
-    /**
-     * Map Student entity sang StudentDetail DTO
-     * Bao gồm thông tin từ User (parent), Student (child), và Branch (related)
-     *
-     * @param student Student entity
-     * @return StudentDetail DTO với đầy đủ thông tin
-     */
-    default StudentResDTO.StudentDetail toStudentDetail(Student student) {
-        if (student == null) {
-            return null;
-        }
-
-        Branch branch = student.getBranch();
-        Role role = student.getRole();
-
-        return StudentResDTO.StudentDetail.builder()
-                // Thông tin từ User (Parent)
-                .userId(student.getUserId())
-                .birthDate(student.getBirthDate())
-                .phoneNumber(student.getPhoneNumber())
-                .belt(student.getBelt())
-                .status(student.getStatus())
-                .createdAt(student.getCreatedAt())
-                .updatedAt(student.getUpdatedAt())
-                .lastLoginAt(student.getLastLoginAt())
-                .roleName(role != null ? role.getName() : null)
-                // Thông tin từ Student (Child)
-                .studentCode(student.getStudentCode())
-                .nationalCode(student.getNationalCode())
-                .fullName(student.getFullName())
-                .startDate(student.getStartDate())
-                .studentStatus(student.getStudentStatus())
-                // Thông tin từ Branch (Related)
-                .branchId(branch != null ? branch.getBranchId() : null)
-                .branchName(branch != null ? branch.getBranchName() : null)
-                .branchAddress(branch != null ? branch.getAddress() : null)
-                .build();
-    }
-
-    /**
-     * Map Student entity sang StudentOverview DTO
-     * Bao gồm thông tin cơ bản cho danh sách tổng quan
-     * Lưu ý: classSchedules cần được set riêng từ service layer
-     *
-     * @param student Student entity
-     * @return StudentOverview DTO
-     */
-    default StudentResDTO.StudentOverview toStudentOverview(Student student) {
-        if (student == null) {
-            return null;
-        }
-
-        Branch branch = student.getBranch();
-        Role role = student.getRole();
-
-        return StudentResDTO.StudentOverview.builder()
-                .studentCode(student.getStudentCode())
-                .nationalCode(student.getNationalCode())
-                .fullName(student.getFullName())
-                .birthDate(student.getBirthDate())
-                .phoneNumber(student.getPhoneNumber())
-                .belt(student.getBelt())
-                .roleName(role != null ? role.getName() : null)
-                .studentStatus(student.getStudentStatus())
-                .branchName(branch != null ? branch.getBranchName() : null)
-                .classSchedules(null) // Cần được populate từ service layer
-                .build();
-    }
+    // ĐÃ XÓA: getRoleName() và getUserCode() vì MapStruct có thể truy cập thẳng qua dấu "." (ví dụ: role.code, studentCode)
 }

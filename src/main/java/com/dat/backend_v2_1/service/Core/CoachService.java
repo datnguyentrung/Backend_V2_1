@@ -83,6 +83,20 @@ public class CoachService {
     }
 
     /**
+     * Lấy thông tin chi tiết Coach theo staffCode (mã nhân viên)
+     *
+     * @param staffCode Mã nhân viên của huấn luyện viên
+     * @return CoachDetail DTO chứa đầy đủ thông tin
+     */
+    public CoachResDTO.CoachDetail getCoachDetail(String staffCode) {
+        Coach coach = getCoachById(staffCode);
+
+        List<CoachAssignmentResDTO.SimpleResponse> coachAssignmentCurrent = coachAssignmentService.findStudentEnrollmentsByCoachId(coach.getUserId(), CoachAssignmentStatus.ACTIVE);
+
+        return coachMapper.toCoachDetailWithAssignments(coach, coachAssignmentCurrent);
+    }
+
+    /**
      * Tạo huấn luyện viên mới
      * - Validate dữ liệu đầu vào
      * - Kiểm tra trùng lặp
@@ -109,10 +123,9 @@ public class CoachService {
         newCoach.setCoachStatus(createDTO.getCoachStatus() != null ? createDTO.getCoachStatus() : CoachStatus.ACTIVE);
 
         // BƯỚC 3: Enrich Data
-        String generatedCode = AccountUtil.getUserCode(createDTO.getFullName(), createDTO.getBirthDate());
+        String generatedCode = AccountUtil.getUserCode(createDTO.getFullName(), createDTO.getBirthDate(), "VQT");
         while (coachRepository.existsByStaffCode(generatedCode)) {
-            generatedCode = AccountUtil.getUserCode(createDTO.getFullName(), createDTO.getBirthDate())
-                    + "_" + RandomStringUtils.secure().nextNumeric(2);
+            generatedCode = generatedCode + "_" + RandomStringUtils.secure().nextNumeric(2);
         }
         newCoach.setStaffCode(generatedCode);
 

@@ -44,12 +44,12 @@ public class CoachController {
      * GET /api/v1/coaches/{userId}
      */
     @PreAuthorize("@securityRule.isCoach(authentication)")
-    @GetMapping("/{userId}")
+    @GetMapping("/{staffCode}")
     public ResponseEntity<CoachResDTO.CoachDetail> getCoachDetail(
-            @PathVariable UUID userId) {
-        log.info("Request get coach detail: {}", userId);
+            @PathVariable String staffCode) {
+        log.info("Request get coach detail: {}", staffCode);
 
-        CoachResDTO.CoachDetail coachDetail = coachService.getCoachDetail(userId);
+        CoachResDTO.CoachDetail coachDetail = coachService.getCoachDetail(staffCode);
 
         return ResponseEntity.ok(coachDetail);
     }

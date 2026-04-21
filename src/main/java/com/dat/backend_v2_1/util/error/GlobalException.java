@@ -103,6 +103,8 @@ public class GlobalException {
         res.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
         res.setError("InternalServerError");
         res.setMessage(ex.getMessage());
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .header("Content-Type", "application/json")
+                .body(res);
     }
 }

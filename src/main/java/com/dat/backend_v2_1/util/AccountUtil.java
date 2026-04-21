@@ -8,7 +8,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.regex.Pattern;
 
 public class AccountUtil {
-    public static String getUserCode(String fullName, LocalDate birthDate) {
+    public static String getUserCode(String fullName, LocalDate birthDate, String prefix) {
+        if (prefix == null) prefix = "VQ"; // Mặc định nếu prefix null
+
         if (fullName == null || birthDate == null) return "";
 
         // BƯỚC 1: Xử lý Tiếng Việt (Xóa dấu + chuyển đ/Đ thành d)
@@ -42,7 +44,7 @@ public class AccountUtil {
 
         // BƯỚC 6: Ghép chuỗi theo format HV_tenhodem_ngaysinh
         // Kết quả: "VQ_" + "dat" + "nt" + "_" + "311005"
-        return "VQ_" + firstName + initials + "_" + birthDateStr;
+        return prefix + "_" + firstName + initials + "_" + birthDateStr;
     }
 
     public static String getRoleKey(Role role) {

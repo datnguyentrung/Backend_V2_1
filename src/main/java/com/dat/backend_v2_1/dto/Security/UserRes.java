@@ -2,39 +2,81 @@ package com.dat.backend_v2_1.dto.Security;
 
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.enums.Core.Belt;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import com.dat.backend_v2_1.enums.Security.UserStatus;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
+import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Data
-@AllArgsConstructor
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class UserRes {
-    private UserInfo userInfo;
-    private UserProfile userProfile;
+    UserInfo userInfo;
+    UserProfile userProfile;
 
     @Data
+    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class UserInfo {
-        private UUID idUser;
-        private String userCode;
-        private String idRole;
-        private List<CoachAssignmentResDTO.Response> assignedClasses; // Dành riêng cho HLV, có thể là null hoặc rỗng nếu không phải HLV
+        UUID idUser;
+        String userCode;
+        String idRole;
+        List<CoachAssignmentResDTO.Response> assignedClasses; // Dành riêng cho HLV, có thể là null hoặc rỗng nếu không phải HLV
     }
 
     @Data
+    @Builder
     @NoArgsConstructor
     @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class UserProfile {
-        private LocalDate birthDate;
-        private Boolean isActive;
-        private String name;
-        private String phone;
-        private Belt belt;
+        LocalDate birthDate;
+        Boolean isActive;
+        String name;
+        String phone;
+        Belt belt;
+    }
+
+    @Data
+    @SuperBuilder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class UserDetail {
+        UUID userId;
+
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+        LocalDate birthDate;
+
+        String phoneNumber;
+
+        Belt belt;
+
+        UserStatus status;
+
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
+        LocalDateTime createdAt;
+
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
+        LocalDateTime updatedAt;
+
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
+        LocalDateTime lastLoginAt;
+
+        String role;
+
+        String fullName;
+
+        Boolean gender; // true = nam, false = nữ
     }
 }

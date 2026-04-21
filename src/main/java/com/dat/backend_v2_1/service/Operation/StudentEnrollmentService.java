@@ -7,10 +7,11 @@ import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentReqDTO;
 import com.dat.backend_v2_1.enums.ErrorCode;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
 import com.dat.backend_v2_1.mapper.Operation.StudentEnrollmentMapper;
+import com.dat.backend_v2_1.repository.Core.StudentRepository;
 import com.dat.backend_v2_1.repository.Operation.StudentEnrollmentRepository;
 import com.dat.backend_v2_1.service.Core.ClassScheduleService;
-import com.dat.backend_v2_1.service.Core.StudentService;
 import com.dat.backend_v2_1.util.error.AppException;
+import com.dat.backend_v2_1.util.error.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,18 +27,17 @@ import java.util.UUID;
 public class StudentEnrollmentService {
     private final StudentEnrollmentRepository studentEnrollmentRepository;
 
-    private final StudentService studentService;
+    private final StudentRepository studentRepository;
 
     private final ClassScheduleService classScheduleService;
 
     private final StudentEnrollmentMapper studentEnrollmentMapper;
 
     @Transactional(rollbackFor = Exception.class)
-    // 1. Đổi tên method cho chuẩn (sửa lỗi chính tả Enrollent -> Enrollment)
-    // 2. Thay vì trả về String, hãy trả về void (hoặc ID của bản ghi mới tạo)
-    public void createStudentEnrollment(StudentEnrollmentReqDTO.CreateRequest request) {
+    public List<StudentEnrollment> createStudentEnrollment(StudentEnrollmentReqDTO.CreateRequest request) {
         // 1. Tìm Student (1 lần)
-        Student student = studentService.getStudentById(request.getStudentId());
+        Student student = studentRepository.findById(UUID.fromString(request.getStudentId()))
+                .orElseThrow(() -> new BusinessException("Không tìm thấy học viên với ID: " + request.getStudentId()));
 
         // 2. Tìm tất cả ClassSchedule theo danh sách ID (1 query thay vì N query)
         List<ClassSchedule> schedules = classScheduleService.findByScheduleIds(request.getScheduleIds());
@@ -80,9 +80,11 @@ public class StudentEnrollmentService {
         }
 
         // 4. Lưu tất cả một lúc (Bulk Insert)
-        studentEnrollmentRepository.saveAll(enrollmentsToSave);
+        List<StudentEnrollment> savedEnrollments = studentEnrollmentRepository.saveAll(enrollmentsToSave);
 
-        log.info("Successfully enrolled student {} to {} classes", student.getUserId(), enrollmentsToSave.size());
+        log.info("Successfully enrolled student {} to {} classes", student.getUserId(), savedEnrollments.size());
+
+        return savedEnrollments;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -112,7 +114,8 @@ public class StudentEnrollmentService {
      */
     public List<StudentEnrollment> findStudentEnrollmentsByStudentCode(String studentCode) {
         // Validate student exists
-        studentService.getStudentByStudentCode(studentCode);
+        studentRepository.findByStudentCode(studentCode)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy học viên với mã: " + studentCode));
 
         List<StudentEnrollment> enrollments = studentEnrollmentRepository.findByStudent_StudentCodeAndStatusWithClassSchedule(
                 studentCode,
@@ -134,7 +137,8 @@ public class StudentEnrollmentService {
      */
     public List<StudentEnrollment> findStudentEnrollmentsByStudentId(UUID userId) {
         // Validate student exists
-        studentService.getStudentById(userId);
+        studentRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException("Không tìm thấy học viên với mã: " + userId));
 
         List<StudentEnrollment> enrollments = studentEnrollmentRepository.findByStudent_UserIdAndStatusWithClassSchedule(
                 userId,

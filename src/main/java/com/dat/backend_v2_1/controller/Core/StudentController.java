@@ -29,16 +29,19 @@ public class StudentController {
     /**
      * Tạo học viên mới
      * POST /api/v1/students
+     *
+     * @param createDTO Thông tin tạo mới học viên (bao gồm cả enrollment nếu muốn)
+     * @return 201 Created - Thông tin chi tiết học viên vừa tạo
      */
     @PostMapping
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
-    public ResponseEntity<String> createStudent(
+    public ResponseEntity<StudentResDTO.StudentDetail> createStudent(
             @RequestBody @Valid StudentReqDTO.StudentCreate createDTO) {
         log.info("Request create student: {}", createDTO.getFullName());
 
-        String newStudentCode = studentService.createStudent(createDTO);
+        StudentResDTO.StudentDetail newStudent = studentService.createStudent(createDTO);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(newStudentCode);
+        return ResponseEntity.status(HttpStatus.CREATED).body(newStudent);
     }
 
     @PreAuthorize("@securityRule.isCoach(authentication)")
@@ -69,13 +72,13 @@ public class StudentController {
      * Lấy thông tin chi tiết học viên
      * GET /api/v1/students/{userId}
      */
-    @PreAuthorize("@securityRule.isCoach(authentication)")
-    @GetMapping("/{userId}")
+//    @PreAuthorize("@securityRule.isS(authentication)")
+    @GetMapping("/{studentCode}")
     public ResponseEntity<StudentResDTO.StudentDetail> getStudentDetail(
-            @PathVariable UUID userId) {
-        log.info("Request get student detail: {}", userId);
+            @PathVariable String studentCode) {
+        log.info("Request get student detail: {}", studentCode);
 
-        StudentResDTO.StudentDetail studentDetail = studentService.getStudentDetail(userId);
+        StudentResDTO.StudentDetail studentDetail = studentService.getStudentDetail(studentCode);
 
         return ResponseEntity.ok(studentDetail);
     }

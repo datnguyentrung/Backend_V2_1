@@ -1,15 +1,16 @@
 package com.dat.backend_v2_1.dto.Core;
 
+import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.dto.PageResponse;
+import com.dat.backend_v2_1.dto.Security.UserRes;
 import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
-import com.dat.backend_v2_1.enums.Security.UserStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,40 +43,15 @@ public class StudentResDTO {
      * DTO trả về thông tin chi tiết Student
      * Bao gồm thông tin từ Student và User (parent class)
      */
+    @EqualsAndHashCode(callSuper = true)
     @Data
-    @Builder
+    @SuperBuilder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class StudentDetail {
-        // === Thông tin từ User (Base Entity) ===
-        private UUID userId;
-
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
-        private LocalDate birthDate;
-
-        private String phoneNumber;
-
-        private Belt belt;
-
-        private UserStatus status; // Trạng thái tài khoản hệ thống (ACTIVE, BANNED, etc.)
-
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        private LocalDateTime createdAt;
-
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        private LocalDateTime updatedAt;
-
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        private LocalDateTime lastLoginAt;
-
-        private String roleName; // Tên role (STUDENT, TEACHER, ADMIN, etc.)
-
-        // === Thông tin từ Student (Child Entity) ===
+    public static class StudentDetail extends UserRes.UserDetail {
         private String studentCode;
 
         private String nationalCode; // CCCD/CMND
-
-        private String fullName;
 
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
         private LocalDate startDate;
@@ -88,6 +64,9 @@ public class StudentResDTO {
         private String branchName;
 
         private String branchAddress;
+
+        // === Thông tin Enrollment (Related Entities) ===
+        private List<StudentEnrollmentResDTO.SimpleResponse> enrollments;
     }
 
     @Data

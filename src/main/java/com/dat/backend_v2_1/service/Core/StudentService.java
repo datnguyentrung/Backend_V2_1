@@ -14,6 +14,7 @@ import com.dat.backend_v2_1.mapper.Core.StudentMapper;
 import com.dat.backend_v2_1.mapper.Operation.StudentEnrollmentMapper;
 import com.dat.backend_v2_1.repository.Core.StudentRepository;
 import com.dat.backend_v2_1.repository.Operation.StudentEnrollmentRepository;
+import com.dat.backend_v2_1.service.Operation.StudentEnrollmentService;
 import com.dat.backend_v2_1.service.Security.UserService;
 import com.dat.backend_v2_1.util.AccountUtil;
 import com.dat.backend_v2_1.util.converter.NameConverter;
@@ -27,10 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -43,6 +41,7 @@ public class StudentService {
     private final StudentMapper studentMapper;
     private final StudentEnrollmentMapper studentEnrollmentMapper;
     private final StudentEnrollmentRepository studentEnrollmentRepository;
+    private final StudentEnrollmentService studentEnrollmentService;
 
     public Student getStudentById(String idUser) {
         return studentRepository.findById(UUID.fromString(idUser))
@@ -67,6 +66,17 @@ public class StudentService {
      */
     public StudentResDTO.StudentDetail getStudentDetail(UUID userId) {
         Student student = getStudentById(userId);
+        return studentMapper.toStudentDetail(student);
+    }
+
+    /**
+     * Lấy thông tin chi tiết Student theo studentCode (mã học viên)
+     *
+     * @param studentCode Mã học viên
+     * @return StudentDetail DTO chứa đầy đủ thông tin
+     */
+    public StudentResDTO.StudentDetail getStudentDetail(String studentCode) {
+        Student student = getStudentByStudentCode(studentCode);
         return studentMapper.toStudentDetail(student);
     }
 
@@ -165,8 +175,19 @@ public class StudentService {
         return getStudentDetail(updatedStudent.getUserId());
     }
 
+    /**
+     * Tạo học viên mới
+     * - Validate dữ liệu đầu vào
+     * - Kiểm tra trùng lặp
+     * - Tự động sinh mã học viên
+     * - Thiết lập tài khoản đăng nhập
+     * - Xử lý đăng ký lớp học (nếu có)
+     *
+     * @param createDTO DTO chứa thông tin tạo mới
+     * @return StudentDetail DTO đầy đủ thông tin học viên vừa tạo kèm enrollment
+     */
     @Transactional(rollbackFor = Exception.class)
-    public String createStudent(StudentReqDTO.StudentCreate createDTO) {
+    public StudentResDTO.StudentDetail createStudent(StudentReqDTO.StudentCreate createDTO) {
         // BƯỚC 1: Validate Business (Check trùng lặp)
         if (studentRepository.existsByPhoneNumber(createDTO.getPhoneNumber())) {
             throw new BusinessException("Số điện thoại này đã được đăng ký!");
@@ -177,44 +198,54 @@ public class StudentService {
         }
 
         // BƯỚC 2: Lấy dữ liệu liên quan (Branch)
-        // Hàm getBranchById nên tự throw Exception nếu không tìm thấy
         Branch branch = branchService.getBranchById(createDTO.getBranchId());
 
         // BƯỚC 3: Mapping DTO -> Entity
         Student newStudent = new Student();
-
-        // --- Thông tin cơ bản ---
-        // Lưu ý: Nên lưu tên chuẩn (Nguyễn Văn A) để hiển thị, không lưu slug vào field fullName
         newStudent.setFullName(NameConverter.formatVietnameseName(createDTO.getFullName()));
         newStudent.setPhoneNumber(createDTO.getPhoneNumber());
         newStudent.setBirthDate(createDTO.getBirthDate());
         newStudent.setNationalCode(createDTO.getNationalCode());
         newStudent.setStartDate(createDTO.getStartDate() != null ? createDTO.getStartDate() : LocalDate.now());
-
-        // --- Thông tin chuyên môn ---
         newStudent.setStudentStatus(createDTO.getStudentStatus() != null ? createDTO.getStudentStatus() : StudentStatus.ACTIVE);
         newStudent.setBelt(createDTO.getBelt());
         newStudent.setBranch(branch);
 
-        // BƯỚC 4: Enrich Data (Tự động sinh dữ liệu hệ thống)
-        // Tạo mã học viên: HV_datnt_311005
-        String generatedCode = AccountUtil.getUserCode(createDTO.getFullName(), createDTO.getBirthDate());
-
-        // Check trùng mã sinh ra (Trường hợp hiếm gặp 2 người trùng tên trùng ngày sinh)
+        // BƯỚC 4: Enrich Data (Tự động sinh mã học viên)
+        String generatedCode = AccountUtil.getUserCode(createDTO.getFullName(), createDTO.getBirthDate(), null);
         if (studentRepository.existsByStudentCode(generatedCode)) {
             generatedCode = generatedCode + "_" + RandomStringUtils.secure().nextNumeric(2);
         }
         newStudent.setStudentCode(generatedCode);
 
         // BƯỚC 5: Thiết lập User Base (Tài khoản đăng nhập)
-        // Logic này sẽ encode password, set Role STUDENT
         userService.setupBaseUser(newStudent, "STUDENT");
 
         // BƯỚC 6: Save
-        studentRepository.save(newStudent);
+        newStudent = studentRepository.save(newStudent);
+
+        // BƯỚC 7: Xử lý enrollment (nếu có)
+        List<StudentEnrollmentResDTO.SimpleResponse> enrollmentResponses = new ArrayList<>();
+        if (createDTO.getEnrollmentRequest() != null
+                && createDTO.getEnrollmentRequest().getScheduleIds() != null
+                && !createDTO.getEnrollmentRequest().getScheduleIds().isEmpty()) {
+
+            // Gán ID vừa tạo vào request enrollment
+            createDTO.getEnrollmentRequest().setStudentId(String.valueOf(newStudent.getUserId()));
+
+            // Gọi Service enrollment
+            List<StudentEnrollment> studentEnrollments = studentEnrollmentService.createStudentEnrollment(createDTO.getEnrollmentRequest());
+
+            // Map sang DTO
+            enrollmentResponses = studentEnrollments.stream()
+                    .map(studentEnrollmentMapper::toSimpleResponse)
+                    .toList();
+        }
 
         log.info("Created student successfully with code: {}", generatedCode);
-        return generatedCode;
+
+        // BƯỚC 8: Trả về StudentDetail kèm enrollment
+        return studentMapper.toStudentDetailWithEnrollments(newStudent, enrollmentResponses);
     }
 
     /**

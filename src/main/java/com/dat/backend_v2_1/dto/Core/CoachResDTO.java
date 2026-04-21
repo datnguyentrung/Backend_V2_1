@@ -1,15 +1,12 @@
 package com.dat.backend_v2_1.dto.Core;
 
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
-import com.dat.backend_v2_1.enums.Core.Belt;
+import com.dat.backend_v2_1.dto.Security.UserRes;
 import com.dat.backend_v2_1.enums.Core.CoachStatus;
-import com.dat.backend_v2_1.enums.Security.UserStatus;
-import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.SuperBuilder;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -20,41 +17,17 @@ public class CoachResDTO {
      * DTO trả về thông tin chi tiết Coach
      * Bao gồm thông tin từ Coach và User (parent class)
      */
+    @EqualsAndHashCode(callSuper = true)
     @Data
-    @Builder
+    @SuperBuilder
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class CoachDetail {
-        // === Thông tin từ User (Base Entity) ===
-        UUID userId;
-
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
-        LocalDate birthDate;
-
-        String phoneNumber;
-
-        Belt belt;
-
+    public static class CoachDetail extends UserRes.UserDetail {
         String email;
-
-        UserStatus status; // Trạng thái tài khoản hệ thống (ACTIVE, BANNED, etc.)
-
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        LocalDateTime createdAt;
-
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        LocalDateTime updatedAt;
-
-        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
-        LocalDateTime lastLoginAt;
-
-        String roleName; // Tên role (COACH, ADMIN, etc.)
 
         // === Thông tin từ Coach (Child Entity) ===
         String staffCode;
-
-        String fullName;
 
         CoachStatus coachStatus; // Trạng thái công việc (ACTIVE, ON_LEAVE, etc.)
 

@@ -16,9 +16,14 @@ import com.dat.backend_v2_1.repository.Core.ClassScheduleRepository;
 import com.dat.backend_v2_1.repository.Operation.CoachAssignmentRepository;
 import com.dat.backend_v2_1.repository.Operation.StudentEnrollmentRepository;
 import com.dat.backend_v2_1.util.error.AppException;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.nimbusds.oauth2.sdk.util.CollectionUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,8 +44,13 @@ public class ClassScheduleService {
     private final StudentEnrollmentRepository studentEnrollmentRepository;
     private final BranchService branchService;
 
+    @Autowired
+    @Lazy
+    private ClassScheduleService self;
+
     // ========== READ OPERATIONS ==========
 
+    // ❌ ĐÃ XÓA @Cacheable ở đây: KHÔNG ĐƯỢC CACHE ENTITY!
     public ClassSchedule getClassScheduleById(String scheduleId) {
         return classScheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> {
@@ -49,7 +59,10 @@ public class ClassScheduleService {
                 });
     }
 
+    // ✅ CHUYỂN @Cacheable XUỐNG ĐÂY: CHỈ CACHE DTO!
+    @Cacheable(value = "classScheduleDetail", key = "#scheduleId")
     public ClassScheduleResDTO.ClassScheduleDetail getClassScheduleDetail(String scheduleId) {
+        // Dùng thẳng hàm bình thường, không qua self vì hàm gốc đã bỏ cache
         ClassSchedule schedule = getClassScheduleById(scheduleId);
         List<CoachAssignment> coachAssignments = coachAssignmentRepository
                 .findByClassSchedule_ScheduleIdAndStatus(scheduleId, CoachAssignmentStatus.ACTIVE);
@@ -144,9 +157,13 @@ public class ClassScheduleService {
 
     // ========== UPDATE OPERATION ==========
 
+    // ✅ Đổi key xóa cache thành classScheduleDetail
+    @CacheEvict(value = "classScheduleDetail", key = "#scheduleId")
     @Transactional(rollbackFor = Exception.class)
-    public ClassScheduleResDTO.ClassScheduleDetail updateClassSchedule(String scheduleId, ClassScheduleReqDTO.UpdateRequest request) {
-        ClassSchedule classSchedule = getClassScheduleById(scheduleId);
+    public ClassScheduleResDTO.ClassScheduleDetail updateClassSchedule(String scheduleId, ClassScheduleReqDTO.UpdateRequest request) throws JsonProcessingException {
+        // ✅ CỐ TÌNH GỌI THẲNG DB để đảm bảo lấy Entity toàn vẹn nhất (không bị sứt mẻ gì) trước khi update
+        ClassSchedule classSchedule = classScheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
 
         if (request.getBranchId() != null) {
             Branch branch = branchService.getBranchById(request.getBranchId());
@@ -164,14 +181,18 @@ public class ClassScheduleService {
         classScheduleRepository.save(classSchedule);
         log.info("Updated class schedule: {}", scheduleId);
 
-        return getClassScheduleDetail(scheduleId);
+        // Trả về DTO và nạp lại vào cache (thông qua self để kích hoạt proxy @Cacheable của hàm này)
+        return self.getClassScheduleDetail(scheduleId);
     }
 
     // ========== DELETE OPERATION ==========
 
+    @CacheEvict(value = "classScheduleDetail", key = "#scheduleId")
     @Transactional(rollbackFor = Exception.class)
-    public void deleteClassSchedule(String scheduleId) {
-        ClassSchedule classSchedule = getClassScheduleById(scheduleId);
+    public void deleteClassSchedule(String scheduleId) throws JsonProcessingException {
+        // ✅ Gọi thẳng Repo
+        ClassSchedule classSchedule = classScheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
 
         long enrollmentCount = studentEnrollmentRepository.countByClassSchedule_ScheduleIdAndStatus(
                 scheduleId, StudentEnrollmentStatus.ACTIVE);
@@ -189,12 +210,16 @@ public class ClassScheduleService {
         log.info("Deleted class schedule: {}", scheduleId);
     }
 
-    // Service
+    // ========== UPDATE STATUS ==========
+
+    @CacheEvict(value = "classScheduleDetail", key = "#scheduleId")
     @Transactional(rollbackFor = Exception.class)
     public void updateStatus(String scheduleId, ScheduleStatus status) {
-        ClassSchedule classSchedule = getClassScheduleById(scheduleId);
+        // ✅ Gọi thẳng Repo
+        ClassSchedule classSchedule = classScheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
+
         classSchedule.setScheduleStatus(status);
         log.info("Updated status of class schedule {} to {}", scheduleId, status);
-        // Kết thúc hàm, Hibernate tự update, không cần return gì cả
     }
 }

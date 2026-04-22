@@ -14,6 +14,9 @@ import com.dat.backend_v2_1.service.Core.ClassScheduleService;
 import com.dat.backend_v2_1.util.error.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +31,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CoachAssignmentService {
     private final CoachAssignmentRepository coachAssignmentRepository;
-
     private final CoachRepository coachRepository;
     private final ClassScheduleService classScheduleService;
     private final CoachAssignmentMapper coachAssignmentMapper;
@@ -38,20 +40,23 @@ public class CoachAssignmentService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    @Caching(evict = {
+            @CacheEvict(value = "coachAssignments", key = "#request.coachId + '_' + T(com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus).ACTIVE"),
+            @CacheEvict(value = "detailedCoachAssignments", key = "#request.coachId + '_' + T(com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus).ACTIVE"),
+            @CacheEvict(value = "coachDetail", key = "#request.coachId"),
+            // ✅ QUAN TRỌNG: Xóa cache chi tiết lớp học vì danh sách HLV của lớp vừa bị thay đổi
+            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+    })
     public List<CoachAssignment> createCoachAssignment(CoachAssignmentReqDTO.CreateRequest request) {
-        // 1. Lấy thông tin HLV
         Coach coach = coachRepository.findById(UUID.fromString(request.getCoachId()))
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
 
-        // 2. Lấy tất cả ClassSchedule theo danh sách ID
         List<ClassSchedule> schedules = classScheduleService.findByScheduleIds(request.getScheduleIds());
 
-        // Validation: Kiểm tra xem có lớp nào ID sai không
         if (schedules.size() != request.getScheduleIds().size()) {
             throw new IllegalArgumentException("One or more ClassSchedule IDs are invalid");
         }
 
-        // 3. Kiểm tra phân công đã tồn tại - FIX N+1: Lấy tất cả assignments trong 1 query
         List<CoachAssignment> existingAssignments = coachAssignmentRepository
                 .findByCoachAndScheduleIdsAndStatus(
                         coach.getUserId(),
@@ -59,23 +64,19 @@ public class CoachAssignmentService {
                         CoachAssignmentStatus.ACTIVE
                 );
 
-        // Tạo Set chứa scheduleId đã được phân công để tra cứu nhanh O(1)
         Set<String> assignedScheduleIds = existingAssignments.stream()
                 .map(ca -> ca.getClassSchedule().getScheduleId())
                 .collect(Collectors.toSet());
 
         List<CoachAssignment> coachAssignmentsToSave = new ArrayList<>();
 
-        // 4. Duyệt qua từng lớp để tạo CoachAssignment
         for (ClassSchedule schedule : schedules) {
-            // Kiểm tra xem schedule đã được phân công chưa
             if (assignedScheduleIds.contains(schedule.getScheduleId())) {
                 log.warn("Coach {} already assigned to class {}", coach.getUserId(), schedule.getScheduleId());
                 throw new AppException(ErrorCode.COACH_ALREADY_ASSIGNED);
             }
 
             CoachAssignment coachAssignment = coachAssignmentMapper.toEntity(request);
-
             coachAssignment.setCoach(coach);
             coachAssignment.setClassSchedule(schedule);
 
@@ -83,12 +84,17 @@ public class CoachAssignmentService {
         }
 
         log.info("Assigned Coach {} to {} classes", coach.getUserId(), coachAssignmentsToSave.size());
-
-        // 5. Lưu tất cả phân công HLV cùng lúc
         return coachAssignmentRepository.saveAll(coachAssignmentsToSave);
     }
 
     @Transactional(rollbackFor = Exception.class)
+    @Caching(evict = {
+            @CacheEvict(value = "coachAssignments", allEntries = true),
+            @CacheEvict(value = "detailedCoachAssignments", allEntries = true),
+            @CacheEvict(value = "coachDetail", allEntries = true),
+            // ✅ QUAN TRỌNG: Xóa cache chi tiết lớp học
+            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+    })
     public void deleteCoachAssignment(UUID coachAssignmentId) {
         CoachAssignment coachAssignment = coachAssignmentRepository.findById(coachAssignmentId)
                 .orElseThrow(() -> new IllegalArgumentException("CoachAssignment with id " + coachAssignmentId + " not found"));
@@ -97,12 +103,18 @@ public class CoachAssignmentService {
         log.info("Deleted CoachAssignment with id {}", coachAssignmentId);
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    @Caching(evict = {
+            @CacheEvict(value = "coachAssignments", allEntries = true),
+            @CacheEvict(value = "detailedCoachAssignments", allEntries = true),
+            @CacheEvict(value = "coachDetail", allEntries = true),
+            // ✅ QUAN TRỌNG: Xóa cache chi tiết lớp học
+            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+    })
     public void updateCoachAssignment(UUID coachAssignmentId, CoachAssignmentReqDTO.UpdateRequest request) {
-        // 1. Tìm CoachAssignment
         CoachAssignment coachAssignment = coachAssignmentRepository.findById(coachAssignmentId)
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_ASSIGNMENT_NOT_FOUND));
 
-        // 2. Cập nhật các trường nếu có trong request
         coachAssignmentMapper.updateEntityFromDto(request, coachAssignment);
     }
 
@@ -112,8 +124,8 @@ public class CoachAssignmentService {
      * @param userId ID HLV
      * @return Danh sách phân công HLV đang active dưới dạng SimpleResponse
      */
-    public List<CoachAssignmentResDTO.SimpleResponse> findStudentEnrollmentsByCoachId(UUID userId, CoachAssignmentStatus status) {
-        // Validation: Kiểm tra HLV tồn tại
+    @Cacheable(value = "coachAssignments", key = "#userId.toString() + '_' + #status")
+    public List<CoachAssignmentResDTO.SimpleResponse> findCoachAssignmentsByCoachId(UUID userId, CoachAssignmentStatus status) {
         coachRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
 
@@ -136,11 +148,10 @@ public class CoachAssignmentService {
      * @param userId ID HLV
      * @return Danh sách phân công HLV đang active dưới dạng Response đầy đủ
      */
+    @Cacheable(value = "detailedCoachAssignments", key = "#userId.toString() + '_' + #status")
     public List<CoachAssignmentResDTO.Response> findDetailedCoachAssignmentsByUserId(UUID userId, CoachAssignmentStatus status) {
-        // Validation: Kiểm tra HLV tồn tại
         coachRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
-
 
         List<CoachAssignment> assignments = coachAssignmentRepository.findByCoach_UserIdAndStatusWithClassSchedule(
                 userId,
@@ -155,6 +166,7 @@ public class CoachAssignmentService {
                 .toList();
     }
 
+    // Hàm này không cần Cache vì nó lấy TOÀN BỘ assignments, thường dùng cho internal logic hoặc admin export.
     public List<CoachAssignmentResDTO.SimpleResponse> getAllCoachAssignmentsByStatus(CoachAssignmentStatus status) {
         List<CoachAssignment> assignments = coachAssignmentRepository.findByStatus(status);
 

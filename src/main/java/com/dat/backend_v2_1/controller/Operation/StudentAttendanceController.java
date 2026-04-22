@@ -129,7 +129,7 @@ public class StudentAttendanceController {
      *
      * @return 201 CREATED + Response DTO chứa thông tin bản ghi vừa tạo
      */
-    @PreAuthorize("@securityRule.isCoach(authentication)")
+//    @PreAuthorize("@securityRule.isCoach(authentication)")
     @PostMapping("/check-in") // URL rõ ràng hành động
     public ResponseEntity<StudentAttendanceDTO.Response> createAttendanceRecordByStudent(
             @Valid @RequestBody StudentAttendanceDTO.CreateRequest request
@@ -232,7 +232,7 @@ public class StudentAttendanceController {
             if (scheduleIds == null || scheduleIds.isEmpty()) {
                 // Nếu không có filter theo scheduleId, lấy danh sách các lớp do Coach này phụ trách
                 List<CoachAssignmentResDTO.SimpleResponse> coachAssignments =
-                        coachAssignmentService.findStudentEnrollmentsByCoachId(UUID.fromString(authentication.getName()), CoachAssignmentStatus.ACTIVE);
+                        coachAssignmentService.findCoachAssignmentsByCoachId(UUID.fromString(authentication.getName()), CoachAssignmentStatus.ACTIVE);
 
                 // Map danh sách lớp học sang List<EnrollmentHistoryItem>
                 List<StudentEnrollmentResDTO.EnrollmentHistoryItem> itemList = coachAssignments.stream()

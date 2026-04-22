@@ -1,10 +1,10 @@
 package com.dat.backend_v2_1.config;
 
-import com.dat.backend_v2_1.dto.RestResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
@@ -12,7 +12,8 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint {
@@ -25,20 +26,20 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
     }
 
     @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response,
-                         AuthenticationException authException) throws IOException, ServletException {
+    public void commence(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response,
+                         @NonNull AuthenticationException authException) throws IOException, ServletException {
         this.delegate.commence(request, response, authException);
+
         response.setContentType("application/json; charset=utf-8");
+        response.setStatus(HttpStatus.UNAUTHORIZED.value());
 
-        RestResponse<Object> res = new RestResponse<Object>();
-        res.setStatusCode(HttpStatus.UNAUTHORIZED.value());
+        Map<String, Object> errorDetails = new HashMap<>();
+        errorDetails.put("status", HttpStatus.UNAUTHORIZED.value());
+        errorDetails.put("error", "Unauthorized");
+        errorDetails.put("message", "Token không hợp lệ (hết hạn, không đúng định dạng, hoặc không truyền JWT header)...");
+        errorDetails.put("detail", authException.getMessage());
+        errorDetails.put("path", request.getRequestURI());
 
-        String errorMessage = Optional.ofNullable(authException)
-                .map(AuthenticationException::getMessage)
-                .orElse("");
-        res.setError(errorMessage);
-        res.setMessage("Token không hợp lệ (hết hạn, không đúng định dạng, hoặc không truyền JWT  header)...");
-
-        mapper.writeValue(response.getWriter(), res);
+        mapper.writeValue(response.getWriter(), errorDetails);
     }
 }

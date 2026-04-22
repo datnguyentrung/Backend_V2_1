@@ -20,6 +20,8 @@ import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 
 @Configuration
 @EnableCaching
@@ -109,14 +111,7 @@ public class RedisConfig implements CachingConfigurer {
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer));
     }
-
-    @Bean
-    public CacheManager cacheManager() {
-        return RedisCacheManager.builder(lettuceConnectionFactory())
-                .cacheDefaults(cacheConfiguration())
-                .build();
-    }
-
+    
     @Override
     public CacheErrorHandler errorHandler() {
         return new CacheErrorHandler() {
@@ -144,5 +139,36 @@ public class RedisConfig implements CachingConfigurer {
                 log.error("⚠️ Redis CLEAR error: {}", exception.getMessage());
             }
         };
+    }
+
+    @Bean
+    public CacheManager cacheManager(LettuceConnectionFactory connectionFactory, CacheTtlConfig ttlConfig) {
+
+        // 1. Lấy cấu hình mặc định (dùng JSON serializer và TTL 7 ngày mà bạn đã setup)
+        RedisCacheConfiguration defaultConfig = cacheConfiguration();
+
+        // 2. Map riêng từng TTL cho từng loại Tên Cache (Tên khai báo trong @Cacheable)
+        Map<String, RedisCacheConfiguration> specificCacheConfigs = new HashMap<>();
+
+        // ===== NHÓM 1: DỮ LIỆU ĐỘNG (Thay đổi liên tục) -> TTL: 1 NGÀY =====
+        // Các detail thường chứa Sĩ số, Phân công... nên cho chết sớm để update
+        specificCacheConfigs.put("coachDetail", defaultConfig.entryTtl(ttlConfig.randomOneDay()));
+        specificCacheConfigs.put("coachDetailByCode", defaultConfig.entryTtl(ttlConfig.randomOneDay()));
+        specificCacheConfigs.put("classScheduleDetail", defaultConfig.entryTtl(ttlConfig.randomOneDay()));
+        specificCacheConfigs.put("studentEnrollmentsById", defaultConfig.entryTtl(ttlConfig.randomOneDay()));
+        specificCacheConfigs.put("studentEnrollmentsByCode", defaultConfig.entryTtl(ttlConfig.randomOneDay()));
+        specificCacheConfigs.put("studentEnrollmentsByClass", defaultConfig.entryTtl(ttlConfig.randomOneDay()));
+        specificCacheConfigs.put("singleEnrollment", defaultConfig.entryTtl(ttlConfig.randomOneDay()));
+
+        // ===== NHÓM 2: DỮ LIỆU ÍT ĐỔI (Thông tin cơ bản) -> TTL: 1 TUẦN =====
+        specificCacheConfigs.put("coach", defaultConfig.entryTtl(ttlConfig.randomOneWeek()));
+        specificCacheConfigs.put("coachByCode", defaultConfig.entryTtl(ttlConfig.randomOneWeek()));
+        specificCacheConfigs.put("classSchedule", defaultConfig.entryTtl(ttlConfig.randomOneWeek()));
+
+        // 3. Build CacheManager
+        return RedisCacheManager.builder(connectionFactory)
+                .cacheDefaults(defaultConfig) // Nếu quên cấu hình tên nào, nó sẽ dùng mặc định 7 ngày
+                .withInitialCacheConfigurations(specificCacheConfigs) // Nạp cấu hình riêng vào
+                .build();
     }
 }

@@ -1,7 +1,6 @@
 package com.dat.backend_v2_1.controller.Operation;
 
 import com.dat.backend_v2_1.domain.Core.ClassSchedule;
-import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentReqDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.mapper.Core.ClassScheduleMapper;
@@ -175,16 +174,12 @@ public class StudentEnrollmentController {
     @PreAuthorize("@securityRule.isCoach(authentication)")
     public ResponseEntity<StudentEnrollmentResDTO.EnrollmentsByScheduleResponse> getStudentEnrollmentsByClassScheduleId(
             @PathVariable String classScheduleId) {
-        log.info("Request get enrollments for class schedule: {}", classScheduleId);
 
-        List<StudentEnrollment> enrollments = studentEnrollmentService.getStudentEnrollmentsByClassScheduleId(classScheduleId);
+        // Lấy thẳng DTO từ Cache, an toàn tuyệt đối 100% không bao giờ mất data
+        List<StudentEnrollmentResDTO.EnrolledStudentItem> enrolledStudentItems =
+                studentEnrollmentService.getEnrolledStudentItemsByClass(classScheduleId);
 
-        List<StudentEnrollmentResDTO.EnrolledStudentItem> enrolledStudentItems = enrollments.stream()
-                .map(studentEnrollmentMapper::toEnrolledStudentItem)
-                .toList();
-
-        ClassSchedule schedule = !enrollments.isEmpty() ? enrollments.getFirst().getClassSchedule()
-                : classScheduleService.getClassScheduleById(classScheduleId);
+        ClassSchedule schedule = classScheduleService.getClassScheduleById(classScheduleId);
 
         StudentEnrollmentResDTO.EnrollmentsByScheduleResponse response = StudentEnrollmentResDTO.EnrollmentsByScheduleResponse.builder()
                 .classScheduleSummary(classScheduleMapper.toClassScheduleSummary(schedule))

@@ -57,10 +57,15 @@ public class StudentAttendanceService {
     private final StudentService studentService;
     private final CoachRepository coachRepository;
 
-    @Value("${ATTENDANCE_GRACE_PERIOD_MINUTES}")
+    @Value("${ATTENDANCE_GRACE_PERIOD_MINUTES:30}")
     private int attendanceGracePeriodMinutes;
 
     @Transactional
+//    @Caching(evict = {
+//            // Khi điểm danh thay đổi, nếu có thống kê đi học trong chi tiết Học viên/Lớp thì phải xóa
+//            @CacheEvict(value = "studentDetail", allEntries = true),
+//            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+//    })
     public List<StudentAttendanceDTO.Response> updateStudentAttendance(
             List<StudentAttendanceDTO.SimpleResponse> requests,
             String coachId) { // Nhận trực tiếp ID thay vì Object
@@ -155,14 +160,23 @@ public class StudentAttendanceService {
                 .map(attendance -> attendance.getStudentEnrollment().getEnrollmentId())
                 .toList();
 
-        System.out.println("hello");
+        System.out.println("Biến Grace Period đang nhận giá trị là: " + attendanceGracePeriodMinutes);
 
         // 4. Kiểm tra từng enrollment xem có lớp nào phù hợp với thời gian hiện tại để tạo điểm danh tự động
         for (StudentEnrollment studentEnrollment : studentEnrollments) {
+            LocalTime classStartTime = studentEnrollment.getClassSchedule().getStartTime();
+
+            // =============== THÊM BLOCK NÀY ===============
+            System.out.println("--- Đang xét lớp: " + studentEnrollment.getClassSchedule().getScheduleId());
+            System.out.println("Giờ hệ thống (now): " + LocalTime.from(now));
+            System.out.println("Giờ học Java đọc từ DB: " + classStartTime);
+            System.out.println("Khung cho phép: " + classStartTime.minusMinutes(attendanceGracePeriodMinutes) + " ĐẾN " + classStartTime.plusMinutes(attendanceGracePeriodMinutes));
+            // ==============================================
+
             if (enrollmentHasAttendanceOnToday.contains(studentEnrollment.getEnrollmentId())) {
                 continue;
             }
-            LocalTime classStartTime = studentEnrollment.getClassSchedule().getStartTime();
+//            LocalTime classStartTime = studentEnrollment.getClassSchedule().getStartTime();
             if (LocalTime.from(now).isAfter(classStartTime.minusMinutes(attendanceGracePeriodMinutes)) &&
                     LocalTime.from(now).isBefore(classStartTime.plusMinutes(attendanceGracePeriodMinutes))) {
                 StudentAttendance savedAttendance = studentAttendanceRepository.save(StudentAttendance.builder()
@@ -182,6 +196,11 @@ public class StudentAttendanceService {
 
     @Scheduled(cron = "0 */5 * * * *")
     @Transactional(rollbackFor = Exception.class)
+//    @Caching(evict = {
+//            // Chốt tự động cũng phải xóa cache vì data thay đổi ngầm
+//            @CacheEvict(value = "studentDetail", allEntries = true),
+//            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+//    })
     public void autoCloseAttendanceJob() {
         LocalDateTime now = LocalDateTime.now();
 
@@ -235,6 +254,10 @@ public class StudentAttendanceService {
      * @throws AccessDeniedException  nếu HLV không ở trạng thái ACTIVE
      */
     @Transactional(rollbackFor = Exception.class)
+//    @Caching(evict = {
+//            @CacheEvict(value = "studentDetail", allEntries = true),
+//            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+//    })
     public void updateAttendanceStatus(
             String coachId,
             StudentAttendanceDTO.UpdateStatusRequest request,
@@ -464,6 +487,10 @@ public class StudentAttendanceService {
      * @throws AccessDeniedException  nếu HLV không ở trạng thái ACTIVE
      */
     @Transactional(rollbackFor = Exception.class)
+//    @Caching(evict = {
+//            @CacheEvict(value = "studentDetail", allEntries = true),
+//            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+//    })
     public void updateAttendanceEvaluation(
             String coachId,
             StudentAttendanceDTO.UpdateEvaluationRequest request,
@@ -593,6 +620,10 @@ public class StudentAttendanceService {
      * @return Danh sách điểm danh đầy đủ (Full state) để update UI.
      */
     @Transactional(rollbackFor = Exception.class)
+//    @Caching(evict = {
+//            @CacheEvict(value = "studentDetail", allEntries = true),
+//            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+//    })
     public List<StudentAttendanceDTO.Response> markAsAbsentByScheduleId(
             StudentAttendanceDTO.BatchCreateRequest request) {
         // Lấy danh sách "sĩ số lớp" hiện tại (Chỉ lấy học viên đang Active)
@@ -660,6 +691,10 @@ public class StudentAttendanceService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+//    @Caching(evict = {
+//            @CacheEvict(value = "studentDetail", allEntries = true),
+//            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+//    })
     public StudentAttendanceDTO.Response createAttendanceRecord(
             StudentAttendanceDTO.ManualLogRequest request) {
         // 1. GỘP: Validate Student, ClassSchedule và Enrollment trong 1 lần gọi

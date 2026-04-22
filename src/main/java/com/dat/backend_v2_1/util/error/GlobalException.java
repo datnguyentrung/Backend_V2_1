@@ -1,11 +1,10 @@
 package com.dat.backend_v2_1.util.error;
 
-import com.dat.backend_v2_1.dto.RestResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -19,92 +18,71 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalException {
 
-    // Nhóm exception liên quan đến authentication, credential
     @ExceptionHandler({
             UsernameNotFoundException.class,
             BadCredentialsException.class,
             IdInvalidException.class,
             InvalidPasswordException.class
     })
-    public ResponseEntity<RestResponse<Object>> handleAuthException(Exception ex) {
-        RestResponse<Object> res = new RestResponse<>();
-        res.setStatusCode(HttpStatus.BAD_REQUEST.value());
-        res.setError(ex.getClass().getSimpleName());
-        res.setMessage(ex.getMessage());
-        return ResponseEntity.badRequest().body(res);
+    public ResponseEntity<ProblemDetail> handleAuthException(Exception ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        return buildResponse(problemDetail, HttpStatus.BAD_REQUEST);
     }
 
-    // Validation error cho DTO (có @Valid)
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<RestResponse<Object>> validationError(MethodArgumentNotValidException ex) {
-        BindingResult result = ex.getBindingResult();
-        List<FieldError> fieldErrors = result.getFieldErrors();
-
-        RestResponse<Object> res = new RestResponse<>();
-        res.setStatusCode(HttpStatus.BAD_REQUEST.value());
-        res.setError("ValidationError");
-
-        List<String> errors = fieldErrors.stream()
+    public ResponseEntity<ProblemDetail> validationError(MethodArgumentNotValidException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Validation Error");
+        List<String> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.toList());
-
-        res.setMessage(errors.size() > 1 ? errors : errors.get(0));
-
-        return ResponseEntity.badRequest().body(res);
+        problemDetail.setProperty("errors", errors.size() > 1 ? errors : errors.get(0));
+        return buildResponse(problemDetail, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(UserNotFoundException.class)
-    public ResponseEntity<RestResponse<Object>> handleUserNotFound(UserNotFoundException ex) {
-        RestResponse<Object> res = new RestResponse<>();
-        res.setStatusCode(HttpStatus.NOT_FOUND.value());
-        res.setError(ex.getClass().getSimpleName());
-        res.setMessage(ex.getMessage());
-        res.setData(null);
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(res);
+    public ResponseEntity<ProblemDetail> handleUserNotFound(UserNotFoundException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        return buildResponse(problemDetail, HttpStatus.NOT_FOUND);
     }
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<RestResponse<Object>> handleBusinessException(BusinessException ex) {
-        RestResponse<Object> res = new RestResponse<>();
-        res.setStatusCode(HttpStatus.BAD_REQUEST.value());
-        res.setError(ex.getClass().getSimpleName());
-        res.setMessage(ex.getMessage());
-        res.setData(null);
-        return ResponseEntity.badRequest().body(res);
+    public ResponseEntity<ProblemDetail> handleBusinessException(BusinessException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        return buildResponse(problemDetail, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<RestResponse<Object>> handleResponseStatus(ResponseStatusException ex) {
-        RestResponse<Object> res = new RestResponse<>();
-        res.setStatusCode(ex.getStatusCode().value());
-        res.setError("ResponseStatusException");
-        res.setMessage(ex.getReason());
-        res.setData(null);
-        return ResponseEntity.status(ex.getStatusCode()).body(res);
+    public ResponseEntity<ProblemDetail> handleResponseStatus(ResponseStatusException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(ex.getStatusCode(), ex.getReason());
+        return buildResponse(problemDetail, HttpStatus.valueOf(ex.getStatusCode().value()));
     }
 
-    // Tránh vòng lặp vô hạn khi Spring không tìm được MediaType phù hợp
     @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
-    public ResponseEntity<RestResponse<Object>> handleMediaTypeNotAcceptable(HttpMediaTypeNotAcceptableException ex) {
-        RestResponse<Object> res = new RestResponse<>();
-        res.setStatusCode(HttpStatus.NOT_ACCEPTABLE.value());
-        res.setError("HttpMediaTypeNotAcceptableException");
-        res.setMessage(ex.getMessage());
-        res.setData(null);
-        return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
-                .header("Content-Type", "application/json")
-                .body(res);
+    public ResponseEntity<ProblemDetail> handleMediaTypeNotAcceptable(HttpMediaTypeNotAcceptableException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_ACCEPTABLE, ex.getMessage());
+        return buildResponse(problemDetail, HttpStatus.NOT_ACCEPTABLE);
     }
 
-    // Fallback handler cho các lỗi chưa định nghĩa - phải đặt CUỐI CÙNG
+    // Xử lý lỗi NoSuchElementException ở đây, hoặc gom chung vào Generic
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<RestResponse<Object>> handleGeneric(Exception ex) {
-        RestResponse<Object> res = new RestResponse<>();
-        res.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
-        res.setError("InternalServerError");
-        res.setMessage(ex.getMessage());
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .header("Content-Type", "application/json")
-                .body(res);
+    public ResponseEntity<ProblemDetail> handleGeneric(Exception ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+        problemDetail.setTitle("Lỗi hệ thống hoặc lỗi chưa được định nghĩa");
+
+        // Nếu lỗi là do NoSuchElementException (như trường hợp điểm danh)
+        if (ex instanceof java.util.NoSuchElementException) {
+            problemDetail.setStatus(HttpStatus.BAD_REQUEST.value());
+            problemDetail.setTitle("Dữ liệu không hợp lệ");
+            return buildResponse(problemDetail, HttpStatus.BAD_REQUEST);
+        }
+
+        return buildResponse(problemDetail, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // Hàm helper để code gọn hơn, luôn ép về application/json
+    private ResponseEntity<ProblemDetail> buildResponse(ProblemDetail problemDetail, HttpStatus status) {
+        return ResponseEntity.status(status)
+//                .contentType(MediaType.APPLICATION_JSON)
+                .body(problemDetail);
     }
 }

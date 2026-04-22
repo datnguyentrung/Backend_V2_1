@@ -23,7 +23,7 @@ public class ClassSessionService {
     private final ClassSessionRepository classSessionRepository;
     private final ClassScheduleRepository classScheduleRepository;
 
-    @Scheduled(cron = "0 47 16 * * *")
+    @Scheduled(cron = "0 10 0 * * *")
     @Transactional(rollbackFor = Exception.class)
     public void generateClassSessions() {
         LocalDate today = LocalDate.now();

@@ -4,6 +4,7 @@ import com.dat.backend_v2_1.dto.Core.ClassScheduleReqDTO;
 import com.dat.backend_v2_1.dto.Core.ClassScheduleResDTO;
 import com.dat.backend_v2_1.enums.Core.*;
 import com.dat.backend_v2_1.service.Core.ClassScheduleService;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -74,7 +75,7 @@ public class ClassScheduleController {
     @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping("/{scheduleId}")
     public ResponseEntity<ClassScheduleResDTO.ClassScheduleDetail> getClassScheduleDetail(
-            @PathVariable String scheduleId) {
+            @PathVariable String scheduleId) throws JsonProcessingException {
         log.info("Request to get class schedule detail: {}", scheduleId);
 
         ClassScheduleResDTO.ClassScheduleDetail schedule = classScheduleService.getClassScheduleDetail(scheduleId);
@@ -119,7 +120,7 @@ public class ClassScheduleController {
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<ClassScheduleResDTO.ClassScheduleDetail> updateClassSchedule(
             @PathVariable String scheduleId,
-            @Valid @RequestBody ClassScheduleReqDTO.UpdateRequest request) {
+            @Valid @RequestBody ClassScheduleReqDTO.UpdateRequest request) throws JsonProcessingException {
         log.info("Request to update class schedule: {}", scheduleId);
 
         ClassScheduleResDTO.ClassScheduleDetail updatedSchedule =
@@ -143,7 +144,7 @@ public class ClassScheduleController {
      */
     @DeleteMapping("/{scheduleId}")
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
-    public ResponseEntity<Void> deleteClassSchedule(@PathVariable String scheduleId) {
+    public ResponseEntity<Void> deleteClassSchedule(@PathVariable String scheduleId) throws JsonProcessingException {
         log.info("Request to delete class schedule: {}", scheduleId);
 
         classScheduleService.deleteClassSchedule(scheduleId);

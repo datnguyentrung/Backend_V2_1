@@ -99,12 +99,12 @@ public class CoachAssignmentController {
      */
     @DeleteMapping("/{coachAssignmentId}")
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
-    public ResponseEntity<String> deleteCoachAssignment(@PathVariable UUID coachAssignmentId) {
+    public ResponseEntity<Void> deleteCoachAssignment(@PathVariable UUID coachAssignmentId) {
         log.info("Request delete coach assignment: {}", coachAssignmentId);
 
         coachAssignmentService.deleteCoachAssignment(coachAssignmentId);
 
-        return ResponseEntity.ok("Xóa phân công thành công");
+        return ResponseEntity.noContent().build();
     }
 
     /**

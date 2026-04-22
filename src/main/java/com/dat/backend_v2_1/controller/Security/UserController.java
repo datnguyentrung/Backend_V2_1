@@ -5,7 +5,6 @@ import com.dat.backend_v2_1.domain.Core.Coach;
 import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.domain.Security.User;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
-import com.dat.backend_v2_1.dto.RestResponse;
 import com.dat.backend_v2_1.dto.Security.ChangePasswordReq;
 import com.dat.backend_v2_1.dto.Security.UserRes;
 import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
@@ -16,7 +15,6 @@ import com.dat.backend_v2_1.service.Operation.CoachAssignmentService;
 import com.dat.backend_v2_1.service.Security.UserService;
 import com.dat.backend_v2_1.util.error.IdInvalidException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -39,18 +37,13 @@ public class UserController {
 
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/me/change-password")
-    public ResponseEntity<RestResponse<String>> changePassword(
+    public ResponseEntity<String> changePassword(
             @RequestBody ChangePasswordReq request,
             Authentication authentication) {
         String idUser = authentication.getName();
         usersService.changePassword(idUser, request);
 
-        RestResponse<String> res = new RestResponse<>();
-        res.setStatusCode(HttpStatus.OK.value());
-        res.setMessage("Đổi mật khẩu thành công");
-        res.setData(null);
-
-        return ResponseEntity.ok(res);
+        return ResponseEntity.ok("Đổi mật khẩu thành công");
     }
 
     @PreAuthorize("isAuthenticated()")

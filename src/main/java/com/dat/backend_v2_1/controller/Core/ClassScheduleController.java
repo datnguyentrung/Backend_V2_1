@@ -98,6 +98,9 @@ public class ClassScheduleController {
             @Valid @RequestBody ClassScheduleReqDTO.CreateRequest request) {
         log.info("Request to create class schedule: {}", request.getScheduleId());
 
+        // THÊM DÒNG NÀY ĐỂ KIỂM TRA:
+        log.info("Dữ liệu học phí nhận được từ Frontend: {}", request.getMonthlyFee());
+
         ClassScheduleResDTO.ClassScheduleDetail createdSchedule = classScheduleService.createClassSchedule(request);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(createdSchedule);

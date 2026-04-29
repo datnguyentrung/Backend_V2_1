@@ -187,7 +187,7 @@ public class StudentAttendanceController {
      * @param sortDir            Hướng sắp xếp ("asc" hoặc "desc")
      * @return 200 OK + Danh sách bản ghi điểm danh
      */
-    @PreAuthorize("@securityRule.isCoach(authentication)")
+    @PreAuthorize("@securityRule.isCoach(authentication) || @securityRule.isParent(authentication) || @securityRule.isStudent(authentication)")
     @GetMapping
     public ResponseEntity<StudentAttendanceDTO.AttendanceListResponse> filterAttendanceRecords(
             Authentication authentication,

@@ -111,7 +111,7 @@ public class RedisConfig implements CachingConfigurer {
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer));
     }
-    
+
     @Override
     public CacheErrorHandler errorHandler() {
         return new CacheErrorHandler() {

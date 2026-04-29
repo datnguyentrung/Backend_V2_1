@@ -1,6 +1,7 @@
 package com.dat.backend_v2_1.domain.Core;
 
 import com.dat.backend_v2_1.domain.Security.User;
+import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
@@ -56,4 +57,22 @@ public class Student extends User {
     @JoinColumn(name = "branch_id", nullable = false) // FK trỏ sang bảng Branch
     @ToString.Exclude
     Branch branch;
+
+    @NotNull(message = "Đai không được để trống")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "belt", length = 20)
+    @Builder.Default
+    Belt belt = Belt.C10;
+
+    @Transient
+    float[] faceEmbedding;
+
+    //    @NotNull(message = "Người bảo hộ không được để trống")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_user_id", nullable = true) // FK trỏ sang bảng User (có thể là Coach hoặc Parent khác)
+            User parent; // Thêm trường parent để lưu thông tin người giới thiệu (có thể là Coach hoặc Student khác)
+
+    @Size(max = 50, message = "Mã hội viên tối đa 50 ký tự")
+    @Column(name = "national_code", unique = true, length = 50)
+    String nationalCode;
 }

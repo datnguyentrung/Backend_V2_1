@@ -77,7 +77,11 @@ public class StudentService {
      */
     public StudentResDTO.StudentDetail getStudentDetail(String studentCode) {
         Student student = getStudentByStudentCode(studentCode);
-        return studentMapper.toStudentDetail(student);
+        List<StudentEnrollmentResDTO.SimpleResponse> enrollments =
+                studentEnrollmentService.findStudentEnrollmentsByStudentCode(studentCode).stream()
+                        .map(studentEnrollmentMapper::toSimpleResponse)
+                        .toList();
+        return studentMapper.toStudentDetailWithEnrollments(student, enrollments);
     }
 
     /**
@@ -372,5 +376,9 @@ public class StudentService {
                 .droppedStudentCount(statusCountMap.getOrDefault(StudentStatus.DROPPED, 0L))
                 .students(PageResponse.of(studentOverviews))
                 .build();
+    }
+
+    public List<Student> getStudentByParentId(UUID parentId) {
+        return studentRepository.findByParent_UserId(parentId);
     }
 }

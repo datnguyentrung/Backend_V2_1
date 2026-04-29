@@ -71,8 +71,7 @@ public class AuthenticationController {
                     // .get phải thứ tự UserLogin
                     currentUserDB.getUserId(),
                     currentUserDB.getStatus(),
-                    currentUserDB.getRole().getCode(),
-                    currentUserDB.getCreatedAt().toString()
+                    currentUserDB.getRole().getCode()
             );
             loginRes.setUser(userLogin);
         }
@@ -174,8 +173,8 @@ public class AuthenticationController {
         LoginRes.UserLogin userLogin = new LoginRes.UserLogin(
                 userDB.getUserId(),
                 userDB.getStatus(),
-                userDB.getRole().getCode(),
-                userDB.getCreatedAt().toString()
+                userDB.getRole().getCode()
+//                userDB.getCreatedAt().toString()
         );
         loginRes.setUser(userLogin);
 

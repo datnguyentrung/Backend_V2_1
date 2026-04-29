@@ -4,14 +4,12 @@ import com.dat.backend_v2_1.domain.Security.Role;
 import com.dat.backend_v2_1.domain.Security.User;
 import com.dat.backend_v2_1.dto.Security.UserRes;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.Named;
-import org.mapstruct.ReportingPolicy;
+import org.mapstruct.*;
 
 @Mapper(
         componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE
+        unmappedTargetPolicy = ReportingPolicy.IGNORE,
+        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE
 )
 public interface UserMapper {
     @Mapping(target = "userInfo", source = "user")

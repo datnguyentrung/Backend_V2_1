@@ -70,6 +70,8 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
             @Param("isFilterSchedule") boolean isFilterSchedule
     );
 
+    List<Student> findByParent_UserId(UUID parentUserId);
+
     public interface StudentStatusCount {
         StudentStatus getStatus();
 

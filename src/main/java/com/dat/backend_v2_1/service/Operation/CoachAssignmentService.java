@@ -47,6 +47,7 @@ public class CoachAssignmentService {
             // ✅ QUAN TRỌNG: Xóa cache chi tiết lớp học vì danh sách HLV của lớp vừa bị thay đổi
             @CacheEvict(value = "classScheduleDetail", allEntries = true)
     })
+
     public List<CoachAssignment> createCoachAssignment(CoachAssignmentReqDTO.CreateRequest request) {
         Coach coach = coachRepository.findById(UUID.fromString(request.getCoachId()))
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
@@ -92,9 +93,10 @@ public class CoachAssignmentService {
             @CacheEvict(value = "coachAssignments", allEntries = true),
             @CacheEvict(value = "detailedCoachAssignments", allEntries = true),
             @CacheEvict(value = "coachDetail", allEntries = true),
-            // ✅ QUAN TRỌNG: Xóa cache chi tiết lớp học
+// ✅ QUAN TRỌNG: Xóa cache chi tiết lớp học
             @CacheEvict(value = "classScheduleDetail", allEntries = true)
     })
+
     public void deleteCoachAssignment(UUID coachAssignmentId) {
         CoachAssignment coachAssignment = coachAssignmentRepository.findById(coachAssignmentId)
                 .orElseThrow(() -> new IllegalArgumentException("CoachAssignment with id " + coachAssignmentId + " not found"));
@@ -108,9 +110,10 @@ public class CoachAssignmentService {
             @CacheEvict(value = "coachAssignments", allEntries = true),
             @CacheEvict(value = "detailedCoachAssignments", allEntries = true),
             @CacheEvict(value = "coachDetail", allEntries = true),
-            // ✅ QUAN TRỌNG: Xóa cache chi tiết lớp học
+// ✅ QUAN TRỌNG: Xóa cache chi tiết lớp học
             @CacheEvict(value = "classScheduleDetail", allEntries = true)
     })
+
     public void updateCoachAssignment(UUID coachAssignmentId, CoachAssignmentReqDTO.UpdateRequest request) {
         CoachAssignment coachAssignment = coachAssignmentRepository.findById(coachAssignmentId)
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_ASSIGNMENT_NOT_FOUND));

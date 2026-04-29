@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -103,7 +102,7 @@ public class SecurityConfiguration {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(
-                        authz -> authz
+                        auth -> auth
                                 .requestMatchers("/actuator/**").permitAll() // Thêm dòng này
                                 .requestMatchers(
                                         "/api/v1/auth/login",
@@ -111,10 +110,6 @@ public class SecurityConfiguration {
                                         "/api/v1/user"
                                 ).permitAll()
                                 // 👇 Chỉ GET là public
-                                .requestMatchers(HttpMethod.GET,
-                                        "/api/v1/tournament/**", "/api/v1/achievement/**",
-                                        "/api/v1/branches"
-                                ).permitAll()
                                 .anyRequest().authenticated()
 //                                .anyRequest().permitAll()
                 )

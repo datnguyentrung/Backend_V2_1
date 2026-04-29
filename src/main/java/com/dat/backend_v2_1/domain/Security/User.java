@@ -1,6 +1,5 @@
 package com.dat.backend_v2_1.domain.Security;
 
-import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
@@ -39,10 +38,6 @@ public class User {
     @Column(name = "user_id", updatable = false, nullable = false)
     UUID userId;
 
-    @Size(max = 50, message = "CCCD/CMND tối đa 12 ký tự")
-    @Column(name = "national_code", nullable = true, unique = true, length = 50)
-    String nationalCode;
-
     @NotBlank(message = "Họ tên không được để trống")
     @Size(max = 100, message = "Họ tên không quá 100 ký tự")
     @Column(name = "full_name", nullable = false, length = 100)
@@ -77,23 +72,13 @@ public class User {
     @ToString.Exclude
     Role role;
 
-    @NotBlank
-    @Pattern(regexp = "^(0|\\+84)(\\s|\\.)?((3[2-9])|(5[689])|(7[06-9])|(8[1-689])|(9[0-46-9]))(\\d)(\\s|\\.)?(\\d{3})(\\s|\\.)?(\\d{3})$",
+    @Pattern(regexp = "^$|^(0|\\+84)(\\s|\\.)?((3[2-9])|(5[689])|(7[06-9])|(8[1-689])|(9[0-46-9]))(\\d)(\\s|\\.)?(\\d{3})(\\s|\\.)?(\\d{3})$",
             message = "Số điện thoại không đúng định dạng VN")
-    @Column(name = "phone_number", length = 10)
+    @Column(name = "phone_number", length = 20)
     String phoneNumber;
-
+    
     @NotNull(message = "Ngày sinh không được để trống")
     @Past(message = "Ngày sinh không hợp lệ (Phải là ngày trong quá khứ)")
     @Column(name = "birth_date", nullable = false)
     LocalDate birthDate;
-
-    @NotNull(message = "Đai không được để trống")
-    @Enumerated(EnumType.STRING)
-    @Column(name = "belt", length = 20)
-    @Builder.Default
-    Belt belt = Belt.C10;
-
-    @Transient
-    float[] faceEmbedding;
 }

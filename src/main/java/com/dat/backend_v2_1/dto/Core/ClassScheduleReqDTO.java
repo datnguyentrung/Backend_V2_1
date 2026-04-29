@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalTime;
 
 @Data
@@ -46,6 +47,11 @@ public class ClassScheduleReqDTO {
 
         @NotNull(message = "Trạng thái không được để trống")
         private ScheduleStatus scheduleStatus;
+
+        @NotNull(message = "Học phí tháng không được để trống")
+        private BigDecimal monthlyFee;
+
+        private BigDecimal quarterlyFee; // Có thể dùng để giảm giá khi đóng 3 tháng
     }
 
     /**

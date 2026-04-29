@@ -1,7 +1,10 @@
 package com.dat.backend_v2_1.mapper.Operation;
 
+import com.dat.backend_v2_1.domain.Core.ClassSchedule;
+import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
 import com.dat.backend_v2_1.dto.Core.ClassScheduleResDTO;
+import com.dat.backend_v2_1.dto.Core.StudentResDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentReqDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import org.mapstruct.*;
@@ -47,8 +50,14 @@ public interface StudentEnrollmentMapper { // 1. Đổi thành interface
 
     List<StudentEnrollmentResDTO.EnrolledStudentItem> toEnrolledStudentItemList(List<StudentEnrollment> entities);
 
-    //    @Mapping(target = "classScheduleSummary", source = "classSchedule")
-    ClassScheduleResDTO.ClassScheduleSummary toClassScheduleSummary(StudentEnrollment entity);
+    @Mapping(target = "branchName", source = "branch.branchName") // Lấy field 'name' từ object Branch
+    @Mapping(target = "scheduleLocation", source = "location")
+    @Mapping(target = "scheduleLevel", source = "level")
+    @Mapping(target = "scheduleShift", source = "shift")
+    ClassScheduleResDTO.ClassScheduleSummary toClassScheduleSummary(ClassSchedule classSchedule);
 
     List<ClassScheduleResDTO.ClassScheduleSummary> toClassScheduleSummaryList(List<StudentEnrollment> entities);
+
+    @Mapping(target = "code", source = "studentCode")
+    StudentResDTO.StudentSummary toStudentSummary(Student student);
 }

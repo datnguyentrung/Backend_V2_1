@@ -26,7 +26,8 @@ public interface ClassScheduleMapper {
     @Mapping(target = "endTime", source = "endTime")
     @Mapping(target = "weekday", source = "weekday")
     @Mapping(target = "coaches", ignore = true) // Sẽ được set từ service
-    @Mapping(target = "totalStudents", ignore = true) // Sẽ được set từ service
+    @Mapping(target = "totalStudents", ignore = true)
+        // Sẽ được set từ service
     ClassScheduleResDTO.ClassScheduleDetail toClassScheduleDetail(ClassSchedule classSchedule);
 
     /**
@@ -70,6 +71,7 @@ public interface ClassScheduleMapper {
     @Mapping(target = "level", source = "level")
     @Mapping(target = "shift", source = "shift")
     @Mapping(target = "scheduleStatus", source = "scheduleStatus")
+    @Mapping(target = "monthlyFee", source = "monthlyFee")
     ClassSchedule toEntity(ClassScheduleReqDTO.CreateRequest request);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)

@@ -5,16 +5,14 @@ import com.dat.backend_v2_1.dto.Core.StudentResDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.dto.Security.UserRes;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.Named;
-import org.mapstruct.ReportingPolicy;
+import org.mapstruct.*;
 
 import java.util.List;
 
 @Mapper(
         componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE
+        unmappedTargetPolicy = ReportingPolicy.IGNORE,
+        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE
 )
 public interface StudentMapper {
 

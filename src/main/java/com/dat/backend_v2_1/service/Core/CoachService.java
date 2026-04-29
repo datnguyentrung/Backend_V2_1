@@ -148,7 +148,7 @@ public class CoachService {
 
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
-            // Đã xóa các key rác (coach, coachByCode), chỉ giữ lại DTO
+// Đã xóa các key rác (coach, coachByCode), chỉ giữ lại DTO
             @CacheEvict(value = "coachDetail", key = "#updateDTO.userId"),
             @CacheEvict(value = "coachDetailByCode", allEntries = true)
     })
@@ -206,6 +206,7 @@ public class CoachService {
             @CacheEvict(value = "coachDetail", key = "#userId"),
             @CacheEvict(value = "coachDetailByCode", allEntries = true)
     })
+
     public void deleteCoach(UUID userId) {
         Coach coach = coachRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy huấn luyện viên với ID: " + userId));
@@ -227,6 +228,7 @@ public class CoachService {
             @CacheEvict(value = "coachDetail", key = "#userId"),
             @CacheEvict(value = "coachDetailByCode", allEntries = true)
     })
+
     public void permanentlyDeleteCoach(UUID userId) {
         // ✅ ĐÃ SỬA: Lấy từ Repo thay vì self
         Coach coach = coachRepository.findById(userId)

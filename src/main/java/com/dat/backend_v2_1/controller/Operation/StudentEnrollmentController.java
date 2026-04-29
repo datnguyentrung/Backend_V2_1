@@ -1,6 +1,7 @@
 package com.dat.backend_v2_1.controller.Operation;
 
 import com.dat.backend_v2_1.domain.Core.ClassSchedule;
+import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentReqDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.mapper.Core.ClassScheduleMapper;
@@ -51,15 +52,15 @@ public class StudentEnrollmentController {
      */
     @PostMapping
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
-    public ResponseEntity<String> createStudentEnrollment(
+    public ResponseEntity<List<StudentEnrollment>> createStudentEnrollment(
             @RequestBody @Valid StudentEnrollmentReqDTO.CreateRequest request) {
         log.info("Request create enrollment for student: {} to {} classes",
                 request.getStudentId(), request.getScheduleIds().size());
 
-        studentEnrollmentService.createStudentEnrollment(request);
+        List<StudentEnrollment> studentEnrollments = studentEnrollmentService.createStudentEnrollment(request);
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body("Đăng ký học viên thành công");
+                .body(studentEnrollments);
     }
 
     /**
@@ -100,12 +101,12 @@ public class StudentEnrollmentController {
      */
     @DeleteMapping("/{enrollmentId}")
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
-    public ResponseEntity<String> deleteStudentEnrollment(@PathVariable UUID enrollmentId) {
+    public ResponseEntity<Void> deleteStudentEnrollment(@PathVariable UUID enrollmentId) {
         log.info("Request delete enrollment: {}", enrollmentId);
 
         studentEnrollmentService.deleteStudentEnrollment(enrollmentId);
 
-        return ResponseEntity.ok("Xóa đăng ký thành công");
+        return ResponseEntity.ok().build();
     }
 
     /**

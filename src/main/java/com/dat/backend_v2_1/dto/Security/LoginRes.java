@@ -23,7 +23,7 @@ public class LoginRes {
         private UUID userId;
         private UserStatus status;
         private String role;
-        private String startDate;
+//        private String startDate;
 
         @Override
         public String toString() {

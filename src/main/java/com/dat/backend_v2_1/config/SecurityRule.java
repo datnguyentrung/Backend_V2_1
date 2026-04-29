@@ -1,14 +1,17 @@
 package com.dat.backend_v2_1.config;
 
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
+
+import java.util.Objects;
 
 @Component("securityRule")
 public class SecurityRule {
     // 1. Cấp cao nhất: HEAD_COACH (Tôi thêm cả ADMIN để đề phòng hệ thống bạn có Admin tổng)
     public boolean isHeadCoach(Authentication authentication) {
         return checkContains(authentication, "HEAD_COACH")
-                || checkContains(authentication, "ADMIN");
+                || checkContains(authentication, "DEVELOPER");
     }
 
     // 2. Cấp trung: MANAGER
@@ -26,6 +29,14 @@ public class SecurityRule {
                 || isManagerSenior(authentication);
     }
 
+    public boolean isStudent(Authentication authentication) {
+        return checkContains(authentication, "STUDENT");
+    }
+
+    public boolean isParent(Authentication authentication) {
+        return checkContains(authentication, "PARENT");
+    }
+
     // --- Hàm Helper dùng chung để tránh lặp code ---
     private boolean checkContains(Authentication authentication, String keyword) {
         if (authentication == null) {
@@ -34,6 +45,8 @@ public class SecurityRule {
             authentication.getAuthorities();
         }
         return authentication.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority() != null && a.getAuthority().contains(keyword));
+                .map(GrantedAuthority::getAuthority)
+                .filter(Objects::nonNull)
+                .anyMatch(auth -> auth.contains(keyword)); // Hoặc .equals() tùy bạn
     }
 }

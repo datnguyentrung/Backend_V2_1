@@ -77,6 +77,7 @@ public class UserRes {
 
         String fullName;
 
-        Boolean gender; // true = nam, false = nữ
+        @Builder.Default
+        Boolean gender = Boolean.TRUE; // true = nam, false = nữ
     }
 }

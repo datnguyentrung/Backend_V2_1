@@ -124,8 +124,10 @@ public class SecurityUtil {
     public static Optional<String> getCurrentUserRole() {
         SecurityContext context = SecurityContextHolder.getContext();
         Authentication authentication = context.getAuthentication();
-        if (authentication == null || authentication.getAuthorities() == null) {
+        if (authentication == null) {
             return Optional.empty();
+        } else {
+            authentication.getAuthorities();
         }
 
         return authentication.getAuthorities().stream()

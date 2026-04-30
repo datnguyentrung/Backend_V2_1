@@ -27,13 +27,14 @@ import com.dat.backend_v2_1.service.Security.AuthTokenService;
 import com.dat.backend_v2_1.specification.StudentAttendanceSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -53,12 +54,13 @@ public class StudentAttendanceService {
     private final StudentEnrollmentService studentEnrollmentService;
     private final NotificationService notificationService;
     private final AuthTokenService authTokenService;
-    private final ClassSessionRepository classSessionRepository;
     private final StudentService studentService;
     private final CoachRepository coachRepository;
+    private final ClassSessionRepository classSessionRepository;
 
-    @Value("${ATTENDANCE_GRACE_PERIOD_MINUTES:30}")
-    private int attendanceGracePeriodMinutes;
+    @Autowired
+    @Lazy
+    private StudentAttendanceService self; // Self-injection để gọi method có @Transactional từ cùng class
 
     @Transactional
 //    @Caching(evict = {
@@ -134,106 +136,69 @@ public class StudentAttendanceService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public StudentAttendanceDTO.Response createAttendanceRecord(
-            StudentAttendanceDTO.CreateRequest request
-    ) {
-        // 1. Validate Student (Helper method đã tách ra)
+    public StudentAttendanceDTO.Response createAttendanceRecord(StudentAttendanceDTO.CreateRequest request) {
+        // 1. Validate Student
         Student student = studentService.getStudentById(request.getStudentId());
-        LocalDateTime now = LocalDateTime.now();
-
         if (student.getStudentStatus() != StudentStatus.ACTIVE) {
             throw new IllegalStateException("Học viên không ở trạng thái ACTIVE");
         }
 
-        // 2. Lấy danh sách đăng ký lớp của học viên
-        List<StudentEnrollment> studentEnrollments = studentEnrollmentService
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
+        LocalTime currentTime = now.toLocalTime();
+
+        // 2. Lấy danh sách đăng ký lớp
+        List<StudentEnrollment> enrollments = studentEnrollmentService
                 .findStudentEnrollmentsByStudentId(request.getStudentId());
 
-        if (studentEnrollments.isEmpty()) {
+        if (enrollments.isEmpty()) {
             throw new NoSuchElementException("Học viên không có đăng ký lớp nào");
         }
 
-        // 3. Lấy danh sách enrollmentId đã có điểm danh trong ngày hôm nay để tránh tạo trùng
-        List<UUID> enrollmentHasAttendanceOnToday = getAttendancesByUserIdAndSessionDate(
-                request.getStudentId(), LocalDate.from(now))
+        // 3. Lấy danh sách ID đã điểm danh hôm nay
+        List<UUID> attendedEnrollmentIds = getAttendancesByUserIdAndSessionDate(request.getStudentId(), today)
                 .stream()
-                .map(attendance -> attendance.getStudentEnrollment().getEnrollmentId())
+                .map(a -> a.getStudentEnrollment().getEnrollmentId())
                 .toList();
 
-        System.out.println("Biến Grace Period đang nhận giá trị là: " + attendanceGracePeriodMinutes);
-
-        // 4. Kiểm tra từng enrollment xem có lớp nào phù hợp với thời gian hiện tại để tạo điểm danh tự động
-        for (StudentEnrollment studentEnrollment : studentEnrollments) {
-            LocalTime classStartTime = studentEnrollment.getClassSchedule().getStartTime();
-
-            // =============== THÊM BLOCK NÀY ===============
-            System.out.println("--- Đang xét lớp: " + studentEnrollment.getClassSchedule().getScheduleId());
-            System.out.println("Giờ hệ thống (now): " + LocalTime.from(now));
-            System.out.println("Giờ học Java đọc từ DB: " + classStartTime);
-            System.out.println("Khung cho phép: " + classStartTime.minusMinutes(attendanceGracePeriodMinutes) + " ĐẾN " + classStartTime.plusMinutes(attendanceGracePeriodMinutes));
-            // ==============================================
-
-            if (enrollmentHasAttendanceOnToday.contains(studentEnrollment.getEnrollmentId())) {
+        // 4. Tìm buổi học ĐANG DIỄN RA (ACTIVE) để điểm danh
+        for (StudentEnrollment enrollment : enrollments) {
+            if (attendedEnrollmentIds.contains(enrollment.getEnrollmentId())) {
                 continue;
             }
-//            LocalTime classStartTime = studentEnrollment.getClassSchedule().getStartTime();
-            if (LocalTime.from(now).isAfter(classStartTime.minusMinutes(attendanceGracePeriodMinutes)) &&
-                    LocalTime.from(now).isBefore(classStartTime.plusMinutes(attendanceGracePeriodMinutes))) {
+
+            // TÌM BUỔI HỌC CỦA LỊCH NÀY TRONG NGÀY HÔM NAY
+            // Lưu ý: Bạn cần inject classSessionRepository vào Service này
+            Optional<ClassSession> currentSessionOpt = classSessionRepository
+                    .findByClassSchedule_ScheduleIdAndSessionDate(
+                            enrollment.getClassSchedule().getScheduleId(),
+                            today
+                    );
+
+            // KIỂM TRA DUY NHẤT 1 ĐIỀU KIỆN: SESSION ĐANG ACTIVE
+            if (currentSessionOpt.isPresent() &&
+                    "ACTIVE".equals(currentSessionOpt.get().getStatus().name())) {
+
+                LocalTime classStartTime = enrollment.getClassSchedule().getStartTime();
+
+                // Vẫn dùng classStartTime để phân loại Đúng giờ / Đi muộn
+                AttendanceStatus status = currentTime.isBefore(classStartTime)
+                        ? AttendanceStatus.PRESENT
+                        : AttendanceStatus.LATE;
+
                 StudentAttendance savedAttendance = studentAttendanceRepository.save(StudentAttendance.builder()
-                        .studentEnrollment(studentEnrollment)
-                        .sessionDate(LocalDate.from(now))
-                        .attendanceStatus(
-                                LocalTime.from(now).isBefore(classStartTime) ? AttendanceStatus.PRESENT : AttendanceStatus.LATE
-                        )
+                        .studentEnrollment(enrollment)
+                        .sessionDate(today)
+                        .attendanceStatus(status)
                         .checkInTime(now)
                         .note("Điểm danh tự động qua API")
                         .build());
+
                 return studentAttendanceMapper.toResponse(savedAttendance);
             }
         }
-        throw new NoSuchElementException("Không tìm thấy lớp học phù hợp với thời gian hiện tại");
-    }
 
-    @Scheduled(cron = "0 */5 * * * *")
-    @Transactional(rollbackFor = Exception.class)
-//    @Caching(evict = {
-//            // Chốt tự động cũng phải xóa cache vì data thay đổi ngầm
-//            @CacheEvict(value = "studentDetail", allEntries = true),
-//            @CacheEvict(value = "classScheduleDetail", allEntries = true)
-//    })
-    public void autoCloseAttendanceJob() {
-        LocalDateTime now = LocalDateTime.now();
-
-        LocalDateTime thresholdDateTime = now.minusMinutes(attendanceGracePeriodMinutes);
-        LocalDate thresholdDate = thresholdDateTime.toLocalDate();
-        LocalTime thresholdTime = thresholdDateTime.toLocalTime();
-
-        List<ClassSession> sessionsToClose = classSessionRepository
-                .findClassSessionToClose(thresholdDate, thresholdTime);
-
-        if (sessionsToClose.isEmpty()) {
-            log.info("No class sessions found that require attendance closure at {}", now);
-            return;
-        }
-
-        for (ClassSession session : sessionsToClose) {
-            try {
-                markAsAbsentByScheduleId(
-                        StudentAttendanceDTO.BatchCreateRequest.builder()
-                                .classScheduleId(session.getClassSchedule().getScheduleId())
-                                .sessionDate(session.getSessionDate())
-                                .build()
-                );
-
-                session.setAttendanceClosed(true);
-                classSessionRepository.save(session);
-                log.info("Closed attendance for class session {} on date {}",
-                        session.getSessionId(), session.getSessionDate());
-            } catch (Exception e) {
-                log.error("Failed to close attendance for class session {}: {}",
-                        session.getSessionId(), e.getMessage());
-            }
-        }
+        throw new NoSuchElementException("Không tìm thấy buổi học nào đang mở (ACTIVE) để điểm danh lúc này");
     }
 
     /**
@@ -606,87 +571,52 @@ public class StudentAttendanceService {
                 .build();
     }
 
-    /**
-     * Khởi tạo dữ liệu điểm danh cho một buổi học cụ thể.
-     * <p>
-     * Logic xử lý:
-     * 1. Validate trạng thái của HLV và Lớp học.
-     * 2. Lấy danh sách học viên đang active trong lớp.
-     * 3. Kiểm tra dữ liệu cũ: Nếu Admin đã tạo trước (ví dụ: Xin nghỉ phép, Học bù), hệ thống sẽ GIỮ NGUYÊN.
-     * 4. Chỉ tạo mới (status = ABSENT) cho những học viên chưa có dữ liệu.
-     * 5. Trả về danh sách đầy đủ (Cũ + Mới) để Frontend hiển thị ngay lập tức (UX Optimization).
-     *
-     * @param request Chứa classScheduleId và sessionDate.
-     * @return Danh sách điểm danh đầy đủ (Full state) để update UI.
-     */
-    @Transactional(rollbackFor = Exception.class)
-//    @Caching(evict = {
-//            @CacheEvict(value = "studentDetail", allEntries = true),
-//            @CacheEvict(value = "classScheduleDetail", allEntries = true)
-//    })
-    public List<StudentAttendanceDTO.Response> markAsAbsentByScheduleId(
-            StudentAttendanceDTO.BatchCreateRequest request) {
-        // Lấy danh sách "sĩ số lớp" hiện tại (Chỉ lấy học viên đang Active)
+    // 1. HÀM CORE: Chỉ làm nhiệm vụ xử lý logic và lưu DB (Dùng cho cả Cron và API)
+    // Dùng REQUIRES_NEW để nếu hàm này lỗi, nó không kéo theo Transaction của Job tổng bị rollback
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRES_NEW)
+    public void processMissingAttendances(String scheduleId, LocalDate sessionDate) {
         List<StudentEnrollment> activeStudents = studentEnrollmentService
-                .getStudentEnrollmentsByClassScheduleId(request.getClassScheduleId());
+                .getStudentEnrollmentsByClassScheduleId(scheduleId);
 
-        if (activeStudents.isEmpty()) return Collections.emptyList();
+        if (activeStudents.isEmpty()) return;
 
-        // Lấy danh sách điểm danh ĐÃ TỒN TẠI trong DB (Partial Data)
-        // Mục đích: Tránh ghi đè dữ liệu Admin đã nhập trước đó (Ví dụ: Trạng thái EXCUSED/PRESENT)
         List<UUID> existingStudentIds = studentAttendanceRepository
-                .findStudentIdsByScheduleAndSessionDate(
-                        request.getClassScheduleId(),
-                        request.getSessionDate()
-                );
-
-        // Tạo Set ID của những người đã có record để check cho nhanh (O(1))
+                .findStudentIdsByScheduleAndSessionDate(scheduleId, sessionDate);
         Set<UUID> existingStudentIdsSet = new HashSet<>(existingStudentIds);
-
-        // ========================================================================
-        // STEP 3: BATCH PROCESSING (IDENTIFY MISSING & CREATE)
-        // ========================================================================
 
         List<StudentAttendance> newAttendances = new ArrayList<>();
         for (StudentEnrollment enrollment : activeStudents) {
             if (!existingStudentIdsSet.contains(enrollment.getStudent().getUserId())) {
-                StudentAttendance attendance = StudentAttendance.builder()
+                newAttendances.add(StudentAttendance.builder()
                         .studentEnrollment(enrollment)
-                        .sessionDate(request.getSessionDate())
-                        .attendanceStatus(AttendanceStatus.ABSENT) // Mặc định là VẮNG
-                        .checkInTime(null)                         // Chưa có check-in
-                        .recordedByCoach(null)                     // Chưa có người ghi nhận (System init)
-                        .note(null)
-                        .build();
-                newAttendances.add(attendance);
-            } else {
-                log.info("Attendance record already exists for student {}, skipping...",
-                        enrollment.getStudent().getFullName());
+                        .sessionDate(sessionDate)
+                        .attendanceStatus(AttendanceStatus.ABSENT)
+                        .build());
             }
         }
 
-        // ========================================================================
-        // STEP 4: PERSISTENCE & RETURN
-        // ========================================================================
-
         if (!newAttendances.isEmpty()) {
             studentAttendanceRepository.saveAll(newAttendances);
-            log.info("Initialized {} new attendance records for schedule {}",
-                    newAttendances.size(), request.getClassScheduleId());
-        } else {
-            log.info("All students already have attendance records. No new records created.");
         }
+    }
 
-        // ========================================================================
-        // FETCH FULL STATE: Query all attendance records for this schedule & session
-        // This includes both existing and newly created records with full details
-        // ========================================================================
+    // 2. HÀM API: Frontend gọi (Giữ nguyên tên cũ của bạn)
+    @Transactional(readOnly = true) // Vì data đã được lưu ở hàm trên, hàm này chỉ cần đọc
+    public List<StudentAttendanceDTO.Response> markAsAbsentByScheduleId(
+            StudentAttendanceDTO.BatchCreateRequest request) {
+
+        // Gọi core logic để init data nếu thiếu
+        // Lưu ý: Để gọi hàm nội bộ mà vẫn ăn Transaction REQUIRES_NEW,
+        // bạn nên inject chính Service này vào chính nó (self-invocation)
+        // hoặc đưa processMissingAttendances ra một helper class.
+        self.processMissingAttendances(request.getClassScheduleId(), request.getSessionDate());
+
+        // Sau đó mới lấy Full State để trả về UI
         List<StudentAttendance> allAttendances = studentAttendanceRepository
                 .findByScheduleIdAndSessionDateWithDetails(
                         request.getClassScheduleId(),
                         request.getSessionDate()
                 );
-
         return studentAttendanceMapper.toResponseList(allAttendances);
     }
 

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
@@ -39,4 +40,17 @@ public interface ClassScheduleRepository extends JpaRepository<ClassSchedule, St
     );
 
     List<ClassSchedule> findByWeekdayAndScheduleStatus(Weekday weekday, ScheduleStatus scheduleStatus);
+
+    @Query("SELECT cs FROM ClassSchedule cs " +
+            "WHERE cs.weekday = :weekday " +
+            "AND cs.scheduleStatus = :status " +
+            "AND NOT EXISTS (" +
+            "   SELECT 1 FROM ClassSession sess " +
+            "   WHERE sess.classSchedule = cs AND sess.sessionDate = :today" +
+            ")")
+    List<ClassSchedule> findSchedulesNeedingSession(
+            @Param("weekday") Weekday weekday,
+            @Param("status") ScheduleStatus status,
+            @Param("today") LocalDate today
+    );
 }

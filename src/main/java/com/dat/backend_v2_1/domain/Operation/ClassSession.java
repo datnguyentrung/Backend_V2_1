@@ -11,6 +11,7 @@ import org.hibernate.type.SqlTypes;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Getter
@@ -20,7 +21,7 @@ import java.util.UUID;
 @AllArgsConstructor
 @Entity
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "class-session", schema = "operation") // Tên bảng snake_case
+@Table(name = "class_session", schema = "operation") // Tên bảng snake_case
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ClassSession {
     @Id
@@ -31,21 +32,47 @@ public class ClassSession {
     UUID sessionId;
 
     @Column(name = "session_date", nullable = false)
+    @Builder.Default
     LocalDate sessionDate = LocalDate.now(); // Mặc định là ngày hiện tại, có thể được cập nhật khi tạo mới hoặc chỉnh sửa buổi học
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY) // Nên thêm Lazy fetch để tối ưu hiệu suất
     @JoinColumn(name = "class_schedule_schedule_id")
-    ClassSchedule classSchedule; // Liên kết với ClassSchedule để biết ngày, giờ, trình độ, chi nhánh của buổi học
+    ClassSchedule classSchedule;
 
     @Column(name = "status", length = 20, nullable = false)
     @Builder.Default
     @Enumerated(EnumType.STRING)
-    SessionStatus status = SessionStatus.ACTIVE; // Ví dụ: SCHEDULED, COMPLETED, CANCELED
+    SessionStatus status = SessionStatus.SCHEDULED; // Ví dụ: SCHEDULED, COMPLETED, CANCELED
 
     @Column(name = "is_attendance_closed", nullable = false)
     @Builder.Default
     boolean isAttendanceClosed = false; // Mặc định là false, khi giáo viên đóng điểm danh sẽ chuyển thành true
 
+    @Column(name = "start_time", nullable = false)
+    LocalTime startTime; // Bỏ @Builder.Default và phép gán trống
+
+    @Column(name = "end_time")
+    LocalTime endTime;
+
     @Column(name = "note", length = 500)
     String note;
+
+    // --- Lifecycle Callbacks ---
+    @PrePersist
+    private void prePersist() {
+        // Đảm bảo sessionDate có giá trị
+        if (this.sessionDate == null) {
+            this.sessionDate = LocalDate.now();
+        }
+
+        // Chỉ cần lấy thẳng LocalTime từ ClassSchedule gán sang
+        if (this.classSchedule != null) {
+            if (this.startTime == null && this.classSchedule.getStartTime() != null) {
+                this.startTime = this.classSchedule.getStartTime();
+            }
+            if (this.endTime == null && this.classSchedule.getEndTime() != null) {
+                this.endTime = this.classSchedule.getEndTime();
+            }
+        }
+    }
 }

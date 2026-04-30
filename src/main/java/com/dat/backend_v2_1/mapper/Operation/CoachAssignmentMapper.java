@@ -1,5 +1,6 @@
 package com.dat.backend_v2_1.mapper.Operation;
 
+import com.dat.backend_v2_1.domain.Core.ClassSchedule;
 import com.dat.backend_v2_1.domain.Operation.CoachAssignment;
 import com.dat.backend_v2_1.dto.Core.ClassScheduleResDTO;
 import com.dat.backend_v2_1.dto.Core.CoachResDTO;
@@ -49,7 +50,7 @@ public interface CoachAssignmentMapper {
 
     // Named method to map ClassSchedule to ClassScheduleSummary
     @Named("toClassScheduleSummary")
-    default ClassScheduleResDTO.ClassScheduleSummary toClassScheduleSummary(com.dat.backend_v2_1.domain.Core.ClassSchedule classSchedule) {
+    default ClassScheduleResDTO.ClassScheduleSummary toClassScheduleSummary(ClassSchedule classSchedule) {
         if (classSchedule == null) {
             return null;
         }

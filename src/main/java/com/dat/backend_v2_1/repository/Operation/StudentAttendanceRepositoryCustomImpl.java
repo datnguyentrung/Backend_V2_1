@@ -77,7 +77,7 @@ public class StudentAttendanceRepositoryCustomImpl implements StudentAttendanceR
     }
 
     @Override
-    public StudentAttendanceDTO.AttendanceStats getStatistics(Specification<StudentAttendance> spec, List<String> myAssignedScheduleIds) {
+    public StudentAttendanceDTO.AttendanceStats getStatistics(Specification<StudentAttendance> spec) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
         Root<StudentAttendance> root = query.from(StudentAttendance.class);
@@ -87,65 +87,50 @@ public class StudentAttendanceRepositoryCustomImpl implements StudentAttendanceR
             if (predicate != null) query.where(predicate);
         }
 
-        // --- Định nghĩa các Expression ---
+        // --- Định nghĩa các Expression cơ bản ---
         Expression<Long> totalExp = cb.count(root);
 
-        // Helper function để tạo CASE WHEN SUM
-        // Attendance
+        // Attendance Cases
         Expression<Integer> presentCase = createCase(cb, root.get("attendanceStatus"), AttendanceStatus.PRESENT);
         Expression<Integer> absentCase = createCase(cb, root.get("attendanceStatus"), AttendanceStatus.ABSENT);
         Expression<Integer> excusedCase = createCase(cb, root.get("attendanceStatus"), AttendanceStatus.EXCUSED);
         Expression<Integer> makeupCase = createCase(cb, root.get("attendanceStatus"), AttendanceStatus.MAKEUP);
         Expression<Integer> lateCase = createCase(cb, root.get("attendanceStatus"), AttendanceStatus.LATE);
 
-        // Evaluation
+        // Evaluation Cases
         Expression<Integer> goodCase = createCase(cb, root.get("evaluationStatus"), EvaluationStatus.GOOD);
         Expression<Integer> avgCase = createCase(cb, root.get("evaluationStatus"), EvaluationStatus.AVERAGE);
         Expression<Integer> weakCase = createCase(cb, root.get("evaluationStatus"), EvaluationStatus.WEAK);
 
-        // Logic "Chưa đánh giá" (Chỉ tính người đi học: Present, Makeup, Late)
-        List<AttendanceStatus> attendedStatuses = List.of(AttendanceStatus.PRESENT, AttendanceStatus.MAKEUP, AttendanceStatus.LATE);
-        List<Predicate> pendingPredicates = new ArrayList<>();
+        // Logic "Chưa đánh giá" (Pending)
+        // Điều kiện 1: Đã đi học (Present, Makeup, Late)
+        CriteriaBuilder.In<AttendanceStatus> attendedIn = cb.in(root.get("attendanceStatus"));
+        attendedIn.value(AttendanceStatus.PRESENT)
+                .value(AttendanceStatus.MAKEUP)
+                .value(AttendanceStatus.LATE);
 
-        pendingPredicates.add(root.get("attendanceStatus").in(attendedStatuses));
-        pendingPredicates.add(cb.or(
+        // Điều kiện 2: Trạng thái đánh giá là PENDING hoặc NULL
+        Predicate evaluationIsPendingOrNull = cb.or(
                 cb.equal(root.get("evaluationStatus"), EvaluationStatus.PENDING),
                 cb.isNull(root.get("evaluationStatus"))
-        ));
+        );
 
-        if (myAssignedScheduleIds != null) {
-            if (myAssignedScheduleIds.isEmpty()) {
-                // Nếu là Coach nhưng không được phân công lớp nào -> Ép biểu thức sai để count = 0
-                pendingPredicates.add(cb.disjunction());
-            } else {
-                // LƯU Ý: Thay "classSchedule.id" bằng đường dẫn thực tế đến field scheduleId trong Entity của bạn
-                // Ví dụ: getPath(root, "studentEnrollment.classSchedule.id")
-                Path<Object> scheduleIdPath = getPath(root, "studentEnrollment.classSchedule.scheduleId");
-                pendingPredicates.add(scheduleIdPath.in(myAssignedScheduleIds));
-            }
-        }
-
+        // Gộp điều kiện Pending
         Expression<Integer> pendingCase = cb.<Integer>selectCase()
-                .when(cb.and(pendingPredicates.toArray(new Predicate[0])), 1)
+                .when(cb.and(attendedIn, evaluationIsPendingOrNull), 1)
                 .otherwise(0);
 
-        // Select tất cả trong 1 Tuple
+        // --- Select tất cả trong 1 query (Tối ưu I/O DB) ---
         query.select(cb.tuple(
-                totalExp,                       // 0
-                cb.sumAsLong(presentCase),      // 1
-                cb.sumAsLong(absentCase),       // 2
-                cb.sumAsLong(excusedCase),      // 3
-                cb.sumAsLong(makeupCase),       // 4
-                cb.sumAsLong(lateCase),         // 5
-                cb.sumAsLong(goodCase),         // 6
-                cb.sumAsLong(avgCase),          // 7
-                cb.sumAsLong(weakCase),         // 8
-                cb.sumAsLong(pendingCase)       // 9
+                totalExp, cb.sumAsLong(presentCase), cb.sumAsLong(absentCase),
+                cb.sumAsLong(excusedCase), cb.sumAsLong(makeupCase), cb.sumAsLong(lateCase),
+                cb.sumAsLong(goodCase), cb.sumAsLong(avgCase), cb.sumAsLong(weakCase),
+                cb.sumAsLong(pendingCase)
         ));
 
         Tuple result = entityManager.createQuery(query).getSingleResult();
 
-        // --- Bóc tách và gán giá trị (Null-safe) ---
+        // --- Bóc tách dữ liệu ---
         long total = getLong(result, 0);
         long present = getLong(result, 1);
         long absent = getLong(result, 2);

@@ -119,40 +119,47 @@ public class StudentAttendanceSpecification {
             }
 
             // 8. Filter theo Lịch sử phân công
-            if (enrollmentHistoryItems != null && !enrollmentHistoryItems.isEmpty()) {
-                List<Predicate> historyPredicates = new ArrayList<>();
+            if (enrollmentHistoryItems != null) {
+                // Nếu khác null tức là có phân quyền (Ví dụ: Role Coach)
 
-                for (StudentEnrollmentResDTO.EnrollmentHistoryItem item : enrollmentHistoryItems) {
-                    List<Predicate> singleItemPredicates = new ArrayList<>();
+                if (enrollmentHistoryItems.isEmpty()) {
+                    // Coach này chưa được phân công lớp nào -> Ép điều kiện sai (1=0) để không trả về data nào cả
+                    predicates.add(criteriaBuilder.disjunction());
+                } else {
+                    List<Predicate> historyPredicates = new ArrayList<>();
 
-                    // Điều kiện 1: Khớp scheduleId
-                    singleItemPredicates.add(criteriaBuilder.equal(
-                            scheduleJoin.get("scheduleId"),
-                            item.getScheduleId()
-                    ));
+                    for (StudentEnrollmentResDTO.EnrollmentHistoryItem item : enrollmentHistoryItems) {
+                        List<Predicate> singleItemPredicates = new ArrayList<>();
 
-                    // Điều kiện 2: Ngày học (sessionDate) >= Ngày vào lớp (joinDate)
-                    if (item.getJoinDate() != null) {
-                        singleItemPredicates.add(criteriaBuilder.greaterThanOrEqualTo(
-                                root.get("sessionDate"),
-                                item.getJoinDate()
+                        // Điều kiện 1: Khớp scheduleId
+                        singleItemPredicates.add(criteriaBuilder.equal(
+                                scheduleJoin.get("scheduleId"),
+                                item.getScheduleId()
                         ));
+
+                        // Điều kiện 2: Ngày học (sessionDate) >= Ngày vào lớp (joinDate)
+                        if (item.getJoinDate() != null) {
+                            singleItemPredicates.add(criteriaBuilder.greaterThanOrEqualTo(
+                                    root.get("sessionDate"),
+                                    item.getJoinDate()
+                            ));
+                        }
+
+                        // Điều kiện 3: Ngày học (sessionDate) <= Ngày rời lớp (leaveDate)
+                        if (item.getLeaveDate() != null) {
+                            singleItemPredicates.add(criteriaBuilder.lessThanOrEqualTo(
+                                    root.get("sessionDate"),
+                                    item.getLeaveDate()
+                            ));
+                        }
+
+                        // Gom 3 điều kiện con lại bằng AND
+                        historyPredicates.add(criteriaBuilder.and(singleItemPredicates.toArray(new Predicate[0])));
                     }
 
-                    // Điều kiện 3: Ngày học (sessionDate) <= Ngày rời lớp (leaveDate)
-                    if (item.getLeaveDate() != null) {
-                        singleItemPredicates.add(criteriaBuilder.lessThanOrEqualTo(
-                                root.get("sessionDate"),
-                                item.getLeaveDate()
-                        ));
-                    }
-
-                    // Gom 3 điều kiện con lại bằng AND
-                    historyPredicates.add(criteriaBuilder.and(singleItemPredicates.toArray(new Predicate[0])));
+                    // Gom tất cả các khối lịch sử lại bằng OR và đẩy vào danh sách predicate chính
+                    predicates.add(criteriaBuilder.or(historyPredicates.toArray(new Predicate[0])));
                 }
-
-                // Gom tất cả các khối lịch sử lại bằng OR và đẩy vào danh sách predicate chính
-                predicates.add(criteriaBuilder.or(historyPredicates.toArray(new Predicate[0])));
             }
 
             // TRẢ VỀ KẾT QUẢ CUỐI CÙNG (Gom tất cả 8 khối lại bằng AND)

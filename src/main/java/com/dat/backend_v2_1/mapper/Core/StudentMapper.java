@@ -65,6 +65,9 @@ public interface StudentMapper {
      */
     @Mapping(target = "branchName", source = "branch.branchName")
     @Mapping(target = "classSchedules", ignore = true)
+    @Mapping(target = "phoneNumber", source = "parent.phoneNumber")
+    @Mapping(target = "roleName", source = "role.name")
+    // Lấy số điện thoại từ Parent
     // Ignore vì service layer sẽ tự set
     StudentResDTO.StudentOverview toStudentOverview(Student student);
 

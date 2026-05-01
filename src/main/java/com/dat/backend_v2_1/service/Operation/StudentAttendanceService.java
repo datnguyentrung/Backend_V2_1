@@ -25,6 +25,7 @@ import com.dat.backend_v2_1.service.Core.StudentService;
 import com.dat.backend_v2_1.service.NotificationService;
 import com.dat.backend_v2_1.service.Security.AuthTokenService;
 import com.dat.backend_v2_1.specification.StudentAttendanceSpecification;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -546,11 +547,11 @@ public class StudentAttendanceService {
         // Chuyển đổi sang DTO
         Page<StudentAttendanceDTO.Response> responsePage = attendances.map(studentAttendanceMapper::toResponse);
 
-        List<String> myAssignedScheduleIds = enrollmentHistoryItems.stream()
-                .map(StudentEnrollmentResDTO.EnrollmentHistoryItem::getScheduleId)
-                .toList();
+//        List<String> myAssignedScheduleIds = enrollmentHistoryItems.stream()
+//                .map(StudentEnrollmentResDTO.EnrollmentHistoryItem::getScheduleId)
+//                .toList();
 
-        StudentAttendanceDTO.AttendanceStats stats = studentAttendanceRepository.getStatistics(spec, myAssignedScheduleIds);
+        StudentAttendanceDTO.AttendanceStats stats = studentAttendanceRepository.getStatistics(spec);
 
         //4. Đóng gói vào PageResponse chuẩn
         PageResponse<StudentAttendanceDTO.Response> pageData = PageResponse.<StudentAttendanceDTO.Response>builder()
@@ -657,5 +658,20 @@ public class StudentAttendanceService {
         StudentAttendance savedAttendance = studentAttendanceRepository.save(attendance);
 
         return studentAttendanceMapper.toResponse(savedAttendance);
+    }
+
+    @Transactional
+    public void deleteAttendanceRecords(@Valid List<UUID> attendanceIds) {
+        if (attendanceIds == null || attendanceIds.isEmpty()) {
+            throw new IllegalArgumentException("Danh sách ID điểm danh không được để trống");
+        }
+
+        List<StudentAttendance> attendancesToDelete = studentAttendanceRepository.findAllById(attendanceIds);
+
+        if (attendancesToDelete.size() != attendanceIds.size()) {
+            throw new NoSuchElementException("Một hoặc nhiều bản ghi điểm danh không tồn tại");
+        }
+
+        studentAttendanceRepository.deleteAll(attendancesToDelete);
     }
 }

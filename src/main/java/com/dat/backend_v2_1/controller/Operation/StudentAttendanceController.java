@@ -28,9 +28,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -210,14 +210,15 @@ public class StudentAttendanceController {
                 ? Sort.by(sortBy).ascending()
                 : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
-        List<StudentEnrollmentResDTO.EnrollmentHistoryItem> items = new ArrayList<>();
+        List<StudentEnrollmentResDTO.EnrollmentHistoryItem> items = null;
+
         // 2. Xử lý scheduleIds từ tham số truyền vào
         if (scheduleIds != null && !scheduleIds.isEmpty()) {
-            items.addAll(scheduleIds.stream()
+            items = scheduleIds.stream()
                     .map(id -> StudentEnrollmentResDTO.EnrollmentHistoryItem.builder()
                             .scheduleId(id)
                             .build())
-                    .toList());
+                    .collect(Collectors.toList()); // Tạo list mới gán vào items
         }
 
         if (securityRule.isHeadCoach(authentication)) {
@@ -234,17 +235,14 @@ public class StudentAttendanceController {
                 List<CoachAssignmentResDTO.SimpleResponse> coachAssignments =
                         coachAssignmentService.findCoachAssignmentsByCoachId(UUID.fromString(authentication.getName()), CoachAssignmentStatus.ACTIVE);
 
-                // Map danh sách lớp học sang List<EnrollmentHistoryItem>
-                List<StudentEnrollmentResDTO.EnrollmentHistoryItem> itemList = coachAssignments.stream()
+                // Tạo list từ assignments của Coach
+                items = coachAssignments.stream()
                         .map(assignment -> StudentEnrollmentResDTO.EnrollmentHistoryItem.builder()
-                                // Lấy ID từ object classSchedule (bạn nhớ điều chỉnh phương thức get...() cho khớp với class ClassScheduleSummary của bạn)
                                 .scheduleId(assignment.getClassSchedule().getScheduleId())
-                                .joinDate(assignment.getAssignedDate()) // Gán assignedDate vào joinDate
-                                .leaveDate(assignment.getEndDate())     // Gán endDate vào leaveDate
+                                .joinDate(assignment.getAssignedDate())
+                                .leaveDate(assignment.getEndDate())
                                 .build())
-                        .toList(); // Hoặc .collect(Collectors.toList()) nếu dùng Java < 16
-
-                items.addAll(itemList);
+                        .collect(Collectors.toList());
             }
         } else {
             // Xử lý cho các Role còn lại (như STUDENT)
@@ -258,5 +256,14 @@ public class StudentAttendanceController {
                 );
 
         return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
+    public ResponseEntity<Void> deleteAttendanceRecords(@RequestBody List<UUID> attendanceIds) {
+        log.info("Deleting attendance records: {}", attendanceIds);
+        studentAttendanceService.deleteAttendanceRecords(attendanceIds);
+
+        return ResponseEntity.noContent().build(); // Sửa chỗ này
     }
 }

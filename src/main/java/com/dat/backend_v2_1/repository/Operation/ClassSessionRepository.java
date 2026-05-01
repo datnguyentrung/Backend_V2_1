@@ -21,6 +21,7 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, UUID
 
     @Query("SELECT cs FROM ClassSession cs JOIN FETCH ClassSchedule sch ON cs.classSchedule.scheduleId = sch.scheduleId " +
             "WHERE cs.isAttendanceClosed = false " +
+            "AND cs.status IN ('ACTIVE', 'COMPLETED', 'TERMINATED') " +
             "AND cs.sessionDate = :thresholdDate " +
             "AND sch.startTime <= :thresholdTime")
     List<ClassSession> findClassSessionToClose(

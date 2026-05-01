@@ -1,6 +1,8 @@
 package com.dat.backend_v2_1.repository.Operation;
 
+import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.domain.Operation.StudentAttendance;
+import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
 import com.dat.backend_v2_1.dto.Operation.StudentAttendanceDTO;
 import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
 import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
@@ -14,8 +16,11 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Repository
@@ -159,6 +164,109 @@ public class StudentAttendanceRepositoryCustomImpl implements StudentAttendanceR
                 .evalWeakCount(weak)
                 .evalPendingCount(pending)
                 .build();
+    }
+
+    // File: StudentAttendanceRepositoryCustomImpl.java
+
+    @Override
+    public Map<String, StudentAttendanceDTO.AttendanceStats> getStatisticsGroupedByStudent(LocalDate startDate, LocalDate endDate) {
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tuple> query = cb.createTupleQuery();
+        Root<StudentAttendance> root = query.from(StudentAttendance.class);
+
+        // JOIN để lấy được mã học viên
+        Join<StudentAttendance, StudentEnrollment> enrollmentJoin = root.join("studentEnrollment", JoinType.INNER);
+        Join<StudentEnrollment, Student> studentJoin = enrollmentJoin.join("student", JoinType.INNER);
+
+        // Điều kiện: Lọc theo khoảng thời gian (Quý)
+        List<Predicate> predicates = new ArrayList<>();
+        if (startDate != null) predicates.add(cb.greaterThanOrEqualTo(root.get("sessionDate"), startDate));
+        if (endDate != null) predicates.add(cb.lessThanOrEqualTo(root.get("sessionDate"), endDate));
+
+        query.where(cb.and(predicates.toArray(new Predicate[0])));
+
+        // --- Định nghĩa các Expression ---
+        Expression<Long> totalExp = cb.count(root);
+
+        // Tái sử dụng lại các hàm createCase của bạn
+        Expression<Integer> presentCase = createCase(cb, root.get("attendanceStatus"), AttendanceStatus.PRESENT);
+        Expression<Integer> absentCase = createCase(cb, root.get("attendanceStatus"), AttendanceStatus.ABSENT);
+        Expression<Integer> excusedCase = createCase(cb, root.get("attendanceStatus"), AttendanceStatus.EXCUSED);
+        Expression<Integer> makeupCase = createCase(cb, root.get("attendanceStatus"), AttendanceStatus.MAKEUP);
+        Expression<Integer> lateCase = createCase(cb, root.get("attendanceStatus"), AttendanceStatus.LATE);
+
+        Expression<Integer> goodCase = createCase(cb, root.get("evaluationStatus"), EvaluationStatus.GOOD);
+        Expression<Integer> avgCase = createCase(cb, root.get("evaluationStatus"), EvaluationStatus.AVERAGE);
+        Expression<Integer> weakCase = createCase(cb, root.get("evaluationStatus"), EvaluationStatus.WEAK);
+
+        // Logic "Chưa đánh giá" (Pending)
+        CriteriaBuilder.In<AttendanceStatus> attendedIn = cb.in(root.get("attendanceStatus"));
+        attendedIn.value(AttendanceStatus.PRESENT)
+                .value(AttendanceStatus.MAKEUP)
+                .value(AttendanceStatus.LATE);
+
+        Predicate evaluationIsPendingOrNull = cb.or(
+                cb.equal(root.get("evaluationStatus"), EvaluationStatus.PENDING),
+                cb.isNull(root.get("evaluationStatus"))
+        );
+
+        Expression<Integer> pendingCase = cb.<Integer>selectCase()
+                .when(cb.and(attendedIn, evaluationIsPendingOrNull), 1)
+                .otherwise(0);
+
+        // --- Select GỒM CẢ studentCode VÀ GROUP BY ---
+        Path<String> studentCodePath = studentJoin.get("studentCode");
+
+        query.select(cb.tuple(
+                studentCodePath, // Index 0
+                totalExp, cb.sumAsLong(presentCase), cb.sumAsLong(absentCase),
+                cb.sumAsLong(excusedCase), cb.sumAsLong(makeupCase), cb.sumAsLong(lateCase),
+                cb.sumAsLong(goodCase), cb.sumAsLong(avgCase), cb.sumAsLong(weakCase),
+                cb.sumAsLong(pendingCase) // Index 10
+        ));
+
+        // GROUP BY TẠI ĐÂY
+        query.groupBy(studentCodePath);
+
+        List<Tuple> results = entityManager.createQuery(query).getResultList();
+
+        // --- Chuyển kết quả thành Map ---
+        Map<String, StudentAttendanceDTO.AttendanceStats> statsMap = new HashMap<>();
+
+        for (Tuple result : results) {
+            String studentCode = result.get(0, String.class);
+            long total = getLong(result, 1);
+            long present = getLong(result, 2);
+            long absent = getLong(result, 3);
+            long excused = getLong(result, 4);
+            long makeup = getLong(result, 5);
+            long late = getLong(result, 6);
+            long good = getLong(result, 7);
+            long avg = getLong(result, 8);
+            long weak = getLong(result, 9);
+            long pending = getLong(result, 10);
+
+            long totalAttended = present + late + makeup;
+            double rate = total == 0 ? 0.0 : Math.round(((double) totalAttended / total) * 1000.0) / 10.0;
+
+            StudentAttendanceDTO.AttendanceStats stats = StudentAttendanceDTO.AttendanceStats.builder()
+                    .totalRecords(total)
+                    .attendanceRate(rate)
+                    .presentCount(present)
+                    .absentCount(absent)
+                    .excusedCount(excused)
+                    .makeupCount(makeup)
+                    .lateCount(late)
+                    .evalGoodCount(good)
+                    .evalAverageCount(avg)
+                    .evalWeakCount(weak)
+                    .evalPendingCount(pending)
+                    .build();
+
+            statsMap.put(studentCode, stats);
+        }
+
+        return statsMap;
     }
 
     // --- HELPER METHODS ---

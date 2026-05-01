@@ -2,8 +2,10 @@ package com.dat.backend_v2_1.controller.Core;
 
 import com.dat.backend_v2_1.dto.Core.StudentReqDTO;
 import com.dat.backend_v2_1.dto.Core.StudentResDTO;
+import com.dat.backend_v2_1.dto.Report.YearlySummaryDTO;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import com.dat.backend_v2_1.service.Core.StudentService;
+import com.dat.backend_v2_1.service.Report.StudentSummaryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +27,7 @@ import java.util.UUID;
 public class StudentController {
 
     private final StudentService studentService;
+    private final StudentSummaryService studentSummaryService;
 
     /**
      * Tạo học viên mới
@@ -81,6 +84,17 @@ public class StudentController {
         StudentResDTO.StudentDetail studentDetail = studentService.getStudentDetail(studentCode);
 
         return ResponseEntity.ok(studentDetail);
+    }
+
+    @GetMapping("/{studentCode}/yearly-summary")
+    public ResponseEntity<YearlySummaryDTO.YearlySummaryResponse> getYearlySummary(
+            @PathVariable String studentCode,
+            @RequestParam int year) {
+        log.info("Request get yearly summary for student: {}, year: {}", studentCode, year);
+
+        YearlySummaryDTO.YearlySummaryResponse summary = studentSummaryService.getYearlySummary(studentCode, year);
+
+        return ResponseEntity.ok(summary);
     }
 
     /**

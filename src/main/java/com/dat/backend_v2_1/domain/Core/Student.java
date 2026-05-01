@@ -25,7 +25,8 @@ import java.time.LocalDate;
         schema = "core",
         indexes = {
                 @Index(name = "idx_student_status", columnList = "student_status"),
-                @Index(name = "idx_student_branch", columnList = "branch_id")
+                @Index(name = "idx_student_branch", columnList = "branch_id"),
+                @Index(name = "idx_student_parent", columnList = "parent_user_id") // BỔ SUNG DÒNG NÀY
         }
 )
 @PrimaryKeyJoinColumn(name = "user_id") // Khóa chính cũng là FK trỏ về bảng User

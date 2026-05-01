@@ -12,13 +12,10 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface ClassSessionRepository extends JpaRepository<ClassSession, UUID>, JpaSpecificationExecutor<ClassSession> {
-    boolean existsBySessionDate(LocalDate sessionDate);
-
     @Query("SELECT cs FROM ClassSession cs JOIN FETCH ClassSchedule sch ON cs.classSchedule.scheduleId = sch.scheduleId " +
             "WHERE cs.isAttendanceClosed = false " +
             "AND cs.status IN ('ACTIVE', 'COMPLETED', 'TERMINATED') " +
@@ -52,5 +49,5 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, UUID
     @EntityGraph(attributePaths = {"classSchedule", "classSchedule.branch"})
     Page<ClassSession> findAll(@NonNull Specification<ClassSession> spec, @NonNull Pageable pageable);
 
-    Optional<ClassSession> findByClassSchedule_ScheduleIdAndSessionDate(String classScheduleScheduleId, LocalDate sessionDate);
+    List<ClassSession> findBySessionDateAndClassSchedule_ScheduleIdIn(LocalDate today, List<String> enrolledScheduleIds);
 }

@@ -57,7 +57,9 @@ public class StudentAttendanceSpecification {
             List<Belt> belts,
             List<Integer> branchIds,
             List<ScheduleLevel> scheduleLevels,
-            List<StudentEnrollmentResDTO.EnrollmentHistoryItem> enrollmentHistoryItems
+            List<StudentEnrollmentResDTO.EnrollmentHistoryItem> enrollmentHistoryItems,
+            LocalDate startDate, // Ngày bắt đầu của khoảng thời gian (dùng để filter sessionDate >= startDate)
+            LocalDate endDate    // Ngày kết thúc của khoảng thời gian (dùng để filter sessionDate <= endDate)
     ) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -71,7 +73,7 @@ public class StudentAttendanceSpecification {
             // 1. Tìm kiếm chuỗi (Case-insensitive LIKE)
             if (search != null && !search.trim().isEmpty()) {
                 String searchPattern = "%" + search.trim().toLowerCase() + "%";
-
+                
                 Predicate nameMatch = criteriaBuilder.like(
                         criteriaBuilder.lower(studentJoin.get("fullName")),
                         searchPattern
@@ -91,6 +93,14 @@ public class StudentAttendanceSpecification {
             // 2. Filter theo ngày học
             if (sessionDate != null) {
                 predicates.add(criteriaBuilder.equal(root.get("sessionDate"), sessionDate));
+            } else {
+                // Nếu sessionDate không được truyền vào, có thể filter theo khoảng thời gian nếu startDate và endDate được cung cấp
+                if (startDate != null) {
+                    predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("sessionDate"), startDate));
+                }
+                if (endDate != null) {
+                    predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("sessionDate"), endDate));
+                }
             }
 
             // 3. Filter theo trạng thái điểm danh (IN)

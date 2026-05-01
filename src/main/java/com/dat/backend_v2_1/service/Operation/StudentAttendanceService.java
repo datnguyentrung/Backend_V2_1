@@ -16,6 +16,7 @@ import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
 import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
+import com.dat.backend_v2_1.event.ScoreRecalculateEvent;
 import com.dat.backend_v2_1.mapper.Operation.StudentAttendanceMapper;
 import com.dat.backend_v2_1.repository.Core.CoachRepository;
 import com.dat.backend_v2_1.repository.Operation.ClassSessionRepository;
@@ -29,6 +30,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -58,10 +60,24 @@ public class StudentAttendanceService {
     private final StudentService studentService;
     private final CoachRepository coachRepository;
     private final ClassSessionRepository classSessionRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Autowired
     @Lazy
     private StudentAttendanceService self; // Self-injection để gọi method có @Transactional từ cùng class
+
+    private void publishScoreRecalculateEvent(Student student, LocalDate sessionDate) {
+        if (student == null || sessionDate == null) return;
+
+        int year = sessionDate.getYear();
+        int quarter = (sessionDate.getMonthValue() - 1) / 3 + 1; // Công thức tính Quý
+
+        eventPublisher.publishEvent(new ScoreRecalculateEvent(
+                student.getStudentCode(),
+                quarter,
+                year
+        ));
+    }
 
     @Transactional
 //    @Caching(evict = {
@@ -124,10 +140,14 @@ public class StudentAttendanceService {
             }
         }
 
-        // 6. KHÔNG CẦN studentAttendanceRepository.saveAll(...)
-        // Nhờ @Transactional, Hibernate sẽ tự động (Dirty Checking) phát hiện Entity nào bị thay đổi
-        // và gộp chúng vào các câu lệnh UPDATE (Batch Updates) khi kết thúc Transaction.
-
+        // 6. Lưu tất cả thay đổi chỉ với 1 câu lệnh saveAll (thay vì save từng bản ghi)
+        Set<String> processedStudents = new HashSet<>(); // Dùng Set để tránh 1 học sinh bị tính lại 2 lần trong 1 request
+        for (StudentAttendance entity : existingRecords) {
+            String uniqueKey = entity.getStudentEnrollment().getStudent().getStudentCode() + "_" + entity.getSessionDate().getMonthValue();
+            if (processedStudents.add(uniqueKey)) {
+                publishScoreRecalculateEvent(entity.getStudentEnrollment().getStudent(), entity.getSessionDate());
+            }
+        }
         return studentAttendanceMapper.toResponseList(existingRecords);
     }
 
@@ -162,27 +182,34 @@ public class StudentAttendanceService {
                 .map(a -> a.getStudentEnrollment().getEnrollmentId())
                 .toList();
 
-        // 4. Tìm buổi học ĐANG DIỄN RA (ACTIVE) để điểm danh
+        // --- TỐI ƯU TẠI ĐÂY ---
+        // 4a. Lấy ra danh sách các scheduleId mà học viên này đang học
+        List<String> enrolledScheduleIds = enrollments.stream()
+                .map(e -> e.getClassSchedule().getScheduleId())
+                .toList();
+
+        // 4b. Chỉ fetch những buổi học thuộc các scheduleId đó trong ngày hôm nay
+        // Yêu cầu: Bạn cần tạo hàm findBySessionDateAndClassSchedule_ScheduleIdIn trong ClassSessionRepository
+        List<ClassSession> relevantSessions = classSessionRepository
+                .findBySessionDateAndClassSchedule_ScheduleIdIn(today, enrolledScheduleIds);
+
+        // 5. Tìm buổi học ĐANG DIỄN RA (ACTIVE) để điểm danh
         for (StudentEnrollment enrollment : enrollments) {
             if (attendedEnrollmentIds.contains(enrollment.getEnrollmentId())) {
                 continue;
             }
 
-            // TÌM BUỔI HỌC CỦA LỊCH NÀY TRONG NGÀY HÔM NAY
-            // Lưu ý: Bạn cần inject classSessionRepository vào Service này
-            Optional<ClassSession> currentSessionOpt = classSessionRepository
-                    .findByClassSchedule_ScheduleIdAndSessionDate(
-                            enrollment.getClassSchedule().getScheduleId(),
-                            today
-                    );
+            // Tìm buổi học của lịch này trong list vừa fetch
+            Optional<ClassSession> currentSessionOpt = relevantSessions.stream()
+                    .filter(s -> s.getClassSchedule().getScheduleId().equals(enrollment.getClassSchedule().getScheduleId()))
+                    .filter(s -> "ACTIVE".equals(s.getStatus().name())) // Gom logic check ACTIVE lên đây, dùng .name() cho an toàn
+                    .findFirst();
 
-            // KIỂM TRA DUY NHẤT 1 ĐIỀU KIỆN: SESSION ĐANG ACTIVE
-            if (currentSessionOpt.isPresent() &&
-                    "ACTIVE".equals(currentSessionOpt.get().getStatus().name())) {
-
+            // Nếu tìm thấy buổi học hợp lệ, tiến hành điểm danh
+            if (currentSessionOpt.isPresent()) {
                 LocalTime classStartTime = enrollment.getClassSchedule().getStartTime();
 
-                // Vẫn dùng classStartTime để phân loại Đúng giờ / Đi muộn
+                // Phân loại Đúng giờ / Đi muộn
                 AttendanceStatus status = currentTime.isBefore(classStartTime)
                         ? AttendanceStatus.PRESENT
                         : AttendanceStatus.LATE;
@@ -194,6 +221,8 @@ public class StudentAttendanceService {
                         .checkInTime(now)
                         .note("Điểm danh tự động qua API")
                         .build());
+
+                publishScoreRecalculateEvent(enrollment.getStudent(), today);
 
                 return studentAttendanceMapper.toResponse(savedAttendance);
             }
@@ -261,6 +290,8 @@ public class StudentAttendanceService {
         if (request.getAttendanceStatus() != AttendanceStatus.ABSENT) {
             sendAttendanceNotification(attendance);
         }
+
+        publishScoreRecalculateEvent(attendance.getStudentEnrollment().getStudent(), attendance.getSessionDate());
 
         log.info("Coach {} updated attendance {} status to {}",
                 currentCoach.getFullName(), attendanceId, request.getAttendanceStatus());
@@ -482,6 +513,8 @@ public class StudentAttendanceService {
             sendEvaluationNotification(attendance);
         }
 
+        publishScoreRecalculateEvent(attendance.getStudentEnrollment().getStudent(), attendance.getSessionDate());
+
         log.info("Coach {} updated evaluation for attendance record {} to status {}",
                 currentCoach.getFullName(), attendanceId, request.getEvaluationStatus());
     }
@@ -511,6 +544,7 @@ public class StudentAttendanceService {
      */
     @Transactional(readOnly = true)
     public StudentAttendanceDTO.AttendanceListResponse getStudentAttendancesWithStats(
+            Pageable pageable,
             String search,
             LocalDate sessionDate,
             List<AttendanceStatus> attendanceStatuses,
@@ -519,7 +553,8 @@ public class StudentAttendanceService {
             List<Integer> branchIds,
             List<ScheduleLevel> levels,
             List<StudentEnrollmentResDTO.EnrollmentHistoryItem> enrollmentHistoryItems,
-            Pageable pageable
+            LocalDate startDate,
+            LocalDate endDate
     ) {
         // Chuẩn hóa tham số search (tránh trường hợp null gây lỗi)
         String safeSearch = (search == null || search.trim().isEmpty()) ? null : search.trim();
@@ -533,7 +568,9 @@ public class StudentAttendanceService {
                 belts,
                 branchIds,
                 levels,
-                enrollmentHistoryItems
+                enrollmentHistoryItems,
+                startDate,
+                endDate
         );
 
         // Gọi Repository với Specification + Named EntityGraph (tránh N+1 query)
@@ -598,6 +635,9 @@ public class StudentAttendanceService {
 
         if (!newAttendances.isEmpty()) {
             studentAttendanceRepository.saveAll(newAttendances);
+            for (StudentAttendance sa : newAttendances) {
+                publishScoreRecalculateEvent(sa.getStudentEnrollment().getStudent(), sessionDate);
+            }
         }
     }
 
@@ -673,5 +713,10 @@ public class StudentAttendanceService {
         }
 
         studentAttendanceRepository.deleteAll(attendancesToDelete);
+
+        // Xóa xong thì bắn event báo tính lại điểm (Lúc này hàm count = 0 -> điểm về mặc định)
+        for (StudentAttendance sa : attendancesToDelete) {
+            publishScoreRecalculateEvent(sa.getStudentEnrollment().getStudent(), sa.getSessionDate());
+        }
     }
 }

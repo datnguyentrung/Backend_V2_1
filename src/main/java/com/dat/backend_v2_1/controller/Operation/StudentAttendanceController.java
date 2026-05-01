@@ -200,6 +200,8 @@ public class StudentAttendanceController {
             @RequestParam(required = false) List<ScheduleLevel> scheduleLevels,
 
             @RequestParam(required = false) List<String> scheduleIds, // Thêm filter theo scheduleId nếu cần thiết
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
 
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "30") int size,
@@ -251,8 +253,10 @@ public class StudentAttendanceController {
 
         StudentAttendanceDTO.AttendanceListResponse response = studentAttendanceService
                 .getStudentAttendancesWithStats(
+                        pageable,
                         search, sessionDate, attendanceStatuses, evaluationStatuses,
-                        belts, branchIds, scheduleLevels, items, pageable
+                        belts, branchIds, scheduleLevels, items,
+                        startDate, endDate
                 );
 
         return ResponseEntity.ok(response);

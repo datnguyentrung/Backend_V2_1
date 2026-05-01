@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,14 +28,16 @@ public class StudentAttendanceDTO {
     }
 
     @Data
-    @Builder
+    @SuperBuilder
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class AttendanceStats {
         // --- TỔNG QUAN ---
         long totalRecords;       // Tổng số bản ghi (tương đương sĩ số)
-        double attendanceRate;   // Tỷ lệ đi học (%) = (PRESENT + MAKEUP + LATE) / totalRecords
+        
+        @Builder.Default
+        double attendanceRate = 0.0;   // Tỷ lệ đi học (%) = (PRESENT + MAKEUP + LATE) / totalRecords
 
         // --- ĐIỂM DANH ---
         long presentCount;       // Có mặt

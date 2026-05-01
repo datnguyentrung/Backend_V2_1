@@ -16,6 +16,15 @@ import java.util.UUID;
 
 @Data
 public class StudentResDTO {
+    // ĐÂY LÀ INTERFACE PROJECTION (Gọn gàng nằm chung 1 file)
+    public interface StudentRankInfo {
+        String getStudentCode();
+
+        String getFullName();
+
+        Belt getBelt();
+    }
+
     /**
      * DTO trả về danh sách Student kèm theo thống kê số lượng theo từng trạng thái
      * Bao gồm:

@@ -27,7 +27,14 @@ import java.util.UUID;
 // Quan trọng: Định nghĩa chiến lược kế thừa.
 // JOINED: Tạo 2 bảng riêng biệt, bảng con trỏ ID về bảng cha.
 @Inheritance(strategy = InheritanceType.JOINED)
-@Table(name = "user", schema = "security") // Tên bảng nên viết thường (lowercase)
+@Table(
+        name = "user",
+        schema = "security",
+        indexes = {
+                @Index(name = "idx_user_phone", columnList = "phone_number"),
+                @Index(name = "idx_user_role", columnList = "role_code")
+        }
+) // Tên bảng nên viết thường (lowercase)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class User {
 
@@ -76,7 +83,7 @@ public class User {
             message = "Số điện thoại không đúng định dạng VN")
     @Column(name = "phone_number", length = 20)
     String phoneNumber;
-    
+
     @NotNull(message = "Ngày sinh không được để trống")
     @Past(message = "Ngày sinh không hợp lệ (Phải là ngày trong quá khứ)")
     @Column(name = "birth_date", nullable = false)

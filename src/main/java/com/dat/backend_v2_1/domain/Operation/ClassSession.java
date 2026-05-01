@@ -21,7 +21,19 @@ import java.util.UUID;
 @AllArgsConstructor
 @Entity
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "class_session", schema = "operation") // Tên bảng snake_case
+@Table(
+        name = "class_session",
+        schema = "operation",
+        indexes = {
+                // 1. Tối ưu cho các Cron Job quét tự động chuyển trạng thái
+                // Cover các hàm: activateScheduledSessions, completeScheduledSessions, findClassSessionToClose
+                @Index(name = "idx_cs_date_status", columnList = "session_date DESC, status"),
+
+                // 2. Tối ưu cho khóa ngoại và query lọc danh sách buổi học theo lịch
+                // Cover hàm: findBySessionDateAndClassSchedule_ScheduleIdIn và các thao tác JOIN với ClassSchedule
+                @Index(name = "idx_cs_schedule_date", columnList = "class_schedule_schedule_id, session_date DESC")
+        }
+)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ClassSession {
     @Id

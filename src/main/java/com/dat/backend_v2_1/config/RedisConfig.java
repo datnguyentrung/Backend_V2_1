@@ -18,6 +18,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -26,6 +27,7 @@ import java.util.Map;
 @Configuration
 @EnableCaching
 @Slf4j
+@EnableAsync
 public class RedisConfig implements CachingConfigurer {
 
     @Value("${spring.data.redis.host}")

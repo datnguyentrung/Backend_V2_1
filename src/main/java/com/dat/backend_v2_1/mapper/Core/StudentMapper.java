@@ -78,5 +78,8 @@ public interface StudentMapper {
         return status == UserStatus.ACTIVE;
     }
 
+    @Mapping(target = "code", source = "studentCode")
+    StudentResDTO.StudentSummary toStudentSummary(Student student);
+
     // ĐÃ XÓA: getRoleName() và getUserCode() vì MapStruct có thể truy cập thẳng qua dấu "." (ví dụ: role.code, studentCode)
 }

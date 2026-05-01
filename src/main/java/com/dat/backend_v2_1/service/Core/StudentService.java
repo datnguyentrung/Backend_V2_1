@@ -13,9 +13,11 @@ import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
 import com.dat.backend_v2_1.mapper.Core.StudentMapper;
 import com.dat.backend_v2_1.mapper.Operation.StudentEnrollmentMapper;
 import com.dat.backend_v2_1.repository.Core.StudentRepository;
+import com.dat.backend_v2_1.repository.Core.StudentRepositoryCustom;
 import com.dat.backend_v2_1.repository.Operation.StudentEnrollmentRepository;
 import com.dat.backend_v2_1.service.Operation.StudentEnrollmentService;
 import com.dat.backend_v2_1.service.Security.UserService;
+import com.dat.backend_v2_1.specification.StudentSpecification;
 import com.dat.backend_v2_1.util.AccountUtil;
 import com.dat.backend_v2_1.util.converter.NameConverter;
 import com.dat.backend_v2_1.util.error.BusinessException;
@@ -24,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -317,26 +320,21 @@ public class StudentService {
      * @return StudentListResponse chứa danh sách học viên và số liệu thống kê
      */
     public StudentResDTO.StudentListResponse getStudentsWithStats(String search, StudentStatus status, Pageable pageable, List<String> scheduleIds) {
-        // 1. Chuẩn bị tham số
-        String searchParam = "%" + (search == null ? "" : search.trim().toLowerCase()) + "%";
-        boolean isFilterSchedule = (scheduleIds != null && !scheduleIds.isEmpty());
-        List<String> safeScheduleIds = isFilterSchedule ? scheduleIds : null;
+        // 1. Build Specification
+        Specification<Student> spec = StudentSpecification.filterBy(search, status, scheduleIds);
 
-        // 2. Lấy danh sách học viên (Page)
-        // SỬA LỖI 2: Truyền searchParam vào thay vì search
-        Page<Student> studentsPage = studentRepository.findStudentsWithFilter(
-                searchParam, status, safeScheduleIds, isFilterSchedule, pageable);
+        // 2. Lấy danh sách học viên (Page) với Specification
+        Page<Student> studentsPage = studentRepository.findAll(spec, pageable);
 
-        // 3. Lấy số lượng thống kê THEO FILTER (Chỉ cần 1 hàm này thôi)
-        List<StudentRepository.StudentStatusCount> filteredCounts = studentRepository.countStudentsByStatusWithFilter(
-                searchParam, safeScheduleIds, isFilterSchedule);
+        // 3. Lấy số lượng thống kê THEO FILTER (Specification không có status)
+        Specification<Student> countSpec = StudentSpecification.filterWithoutStatus(search, scheduleIds);
+        List<StudentRepositoryCustom.StudentStatusCount> filteredCounts = studentRepository.countStudentsByStatus(countSpec);
 
-        // 4. Map kết quả thống kê ra Map cho dễ lấy
-        // SỬA LỖI 1: Áp dụng list lấy ở Bước 3, không gọi DB thêm lần nữa
+        // 4. Map kết quả thống kê ra Map
         Map<StudentStatus, Long> statusCountMap = filteredCounts.stream()
                 .collect(Collectors.toMap(
-                        StudentRepository.StudentStatusCount::getStatus,
-                        StudentRepository.StudentStatusCount::getCount
+                        StudentRepositoryCustom.StudentStatusCount::getStatus,
+                        StudentRepositoryCustom.StudentStatusCount::getCount
                 ));
 
         // 5. Batch Fetch Enrollments (Chống N + 1)
@@ -369,7 +367,7 @@ public class StudentService {
             return overview;
         });
 
-        // 7. Build Response trả về với Map đã xử lý
+        // 7. Build Response
         return StudentResDTO.StudentListResponse.builder()
                 .activeStudentCount(statusCountMap.getOrDefault(StudentStatus.ACTIVE, 0L))
                 .reservedStudentCount(statusCountMap.getOrDefault(StudentStatus.RESERVED, 0L))

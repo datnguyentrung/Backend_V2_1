@@ -1,11 +1,10 @@
 package com.dat.backend_v2_1.mapper.Operation;
 
-import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.domain.Operation.TuitionPayment;
 import com.dat.backend_v2_1.domain.Operation.TuitionPaymentDetail;
-import com.dat.backend_v2_1.dto.Core.StudentResDTO;
 import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDTO;
 import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDetailDTO;
+import com.dat.backend_v2_1.mapper.Core.StudentMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
@@ -14,18 +13,11 @@ import java.util.List;
 
 @Mapper(
         componentModel = "spring",
-        unmappedTargetPolicy = ReportingPolicy.IGNORE
+        unmappedTargetPolicy = ReportingPolicy.IGNORE,
+        nullValuePropertyMappingStrategy = org.mapstruct.NullValuePropertyMappingStrategy.IGNORE,
+        uses = {StudentMapper.class} // Sử dụng StudentMapper để map Student sang Student
 )
 public interface TuitionPaymentMapper {
-    /**
-     * 1. Map Student entity sang StudentSummary DTO
-     */
-    @Mapping(target = "userId", source = "userId")
-    @Mapping(target = "fullName", source = "fullName")
-//    @Mapping(target = "email", source = "email") // Giả định email nằm ở class User cha của Student
-    @Mapping(target = "code", source = "studentCode")
-    // Dựa theo StudentMapper của bạn
-    StudentResDTO.StudentSummary toStudentSummary(Student student);
 
     /**
      * 2. Map từng dòng Detail entity sang DetailResponse DTO

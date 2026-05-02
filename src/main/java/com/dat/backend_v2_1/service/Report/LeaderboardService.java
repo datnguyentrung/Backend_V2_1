@@ -35,7 +35,7 @@ public class LeaderboardService {
      * Lấy Bảng xếp hạng từ Redis
      * Kết hợp: ZSET (Thứ tự) + HASH (Dữ liệu chi tiết phẳng) + DB (Thông tin cá nhân rút gọn)
      */
-    public LeaderboardDTO.Response getQuarterLeaderboard(int year, int quarter, Pageable pageable) {
+    public LeaderboardDTO.Response getQuarterLeaderboard(int year, int quarter, List<String> scheduleIds, Pageable pageable) {
         String redisKey = String.format("leaderboard:%d:Q%d", year, quarter);
         String redisDataKey = String.format("leaderboard_data:%d:Q%d", year, quarter);
 

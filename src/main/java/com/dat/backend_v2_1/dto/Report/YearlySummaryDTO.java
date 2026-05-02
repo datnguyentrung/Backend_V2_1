@@ -40,7 +40,7 @@ public class YearlySummaryDTO {
 //        List<BonusDetail> bonusDetails;
 
         // 4. Tổng kết
-        double totalQuarterScore = attendanceScore + performanceScore; // 92.5
+        double totalQuarterScore;
 
         ExamEligibility eligibility; // ĐỦ ĐIỀU KIỆN / MIỄN THI THỬ
     }

@@ -30,7 +30,7 @@ public class LeaderboardController {
             @RequestParam int quarter,
             @PageableDefault(size = 50) Pageable pageable // Tự động parse ?page=0&size=50
     ) {
-        LeaderboardDTO.Response response = leaderboardService.getQuarterLeaderboard(year, quarter, pageable);
+        LeaderboardDTO.Response response = leaderboardService.getQuarterLeaderboard(year, quarter, null, pageable);
         return ResponseEntity.ok(response);
     }
 }

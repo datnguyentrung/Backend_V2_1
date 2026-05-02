@@ -11,6 +11,9 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.Array;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 
@@ -65,7 +68,10 @@ public class Student extends User {
     @Builder.Default
     Belt belt = Belt.C10;
 
-    @Transient
+    //    @Transient
+    @JdbcTypeCode(SqlTypes.VECTOR)
+    @Array(length = 512)
+    @Column(name = "face_embedding", columnDefinition = "vector(512)")
     float[] faceEmbedding;
 
     //    @NotNull(message = "Người bảo hộ không được để trống")

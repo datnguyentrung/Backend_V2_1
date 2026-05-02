@@ -35,7 +35,7 @@ public class StudentAttendanceDTO {
     public static class AttendanceStats {
         // --- TỔNG QUAN ---
         long totalRecords;       // Tổng số bản ghi (tương đương sĩ số)
-        
+
         @Builder.Default
         double attendanceRate = 0.0;   // Tỷ lệ đi học (%) = (PRESENT + MAKEUP + LATE) / totalRecords
 
@@ -66,8 +66,8 @@ public class StudentAttendanceDTO {
         UUID studentId;
         String studentName;
 
-        // Thông tin học phí (Thông tin cho tts generate nhắc nhở đóng học phí nếu chưa đóng)
-        TuitionPaymentDetailDTO.TuitionStatusResponse tuitionStatus;
+//        // Thông tin học phí (Thông tin cho tts generate nhắc nhở đóng học phí nếu chưa đóng)
+//        TuitionPaymentDetailDTO.TuitionStatusResponse tuitionStatus;
 
         // Thông tin buổi học
         String classScheduleId;

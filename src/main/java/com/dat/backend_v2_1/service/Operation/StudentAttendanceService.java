@@ -194,22 +194,26 @@ public class StudentAttendanceService {
                 .findBySessionDateAndClassSchedule_ScheduleIdIn(today, enrolledScheduleIds);
 
         // 5. Tìm buổi học ĐANG DIỄN RA (ACTIVE) để điểm danh
-        for (StudentEnrollment enrollment : enrollments) {
-            if (attendedEnrollmentIds.contains(enrollment.getEnrollmentId())) {
-                continue;
-            }
+        boolean isAlreadyCheckedIn = false; // Cờ đánh dấu xem có ca học nhưng đã điểm danh chưa
 
+        for (StudentEnrollment enrollment : enrollments) {
             // Tìm buổi học của lịch này trong list vừa fetch
             Optional<ClassSession> currentSessionOpt = relevantSessions.stream()
                     .filter(s -> s.getClassSchedule().getScheduleId().equals(enrollment.getClassSchedule().getScheduleId()))
-                    .filter(s -> "ACTIVE".equals(s.getStatus().name())) // Gom logic check ACTIVE lên đây, dùng .name() cho an toàn
+                    .filter(s -> "ACTIVE".equals(s.getStatus().name()))
                     .findFirst();
 
-            // Nếu tìm thấy buổi học hợp lệ, tiến hành điểm danh
+            // Nếu có ca học đang ACTIVE
             if (currentSessionOpt.isPresent()) {
-                LocalTime classStartTime = enrollment.getClassSchedule().getStartTime();
 
-                // Phân loại Đúng giờ / Đi muộn
+                // Kiểm tra xem đã điểm danh ca này chưa
+                if (attendedEnrollmentIds.contains(enrollment.getEnrollmentId())) {
+                    isAlreadyCheckedIn = true;
+                    continue; // Vẫn chạy tiếp nhỡ học viên học 2 ca liên tiếp thì sao
+                }
+
+                // Nếu chưa điểm danh -> Tiến hành điểm danh
+                LocalTime classStartTime = enrollment.getClassSchedule().getStartTime();
                 AttendanceStatus status = currentTime.isBefore(classStartTime)
                         ? AttendanceStatus.PRESENT
                         : AttendanceStatus.LATE;
@@ -227,7 +231,15 @@ public class StudentAttendanceService {
                 return studentAttendanceMapper.toResponse(savedAttendance);
             }
         }
+        // --- XỬ LÝ KẾT QUẢ SAU VÒNG LẶP ---
 
+        if (isAlreadyCheckedIn) {
+            // Có ca học ACTIVE, nhưng đã điểm danh rồi -> Trả về null
+            // (Controller của bạn đang có sẵn logic: if (response == null) return ResponseEntity.badRequest().build(); -> Sẽ trả về chuẩn 400)
+            return null;
+        }
+
+        // Thực sự không tìm thấy ca học nào ACTIVE để vào lớp
         throw new NoSuchElementException("Không tìm thấy buổi học nào đang mở (ACTIVE) để điểm danh lúc này");
     }
 

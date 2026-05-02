@@ -4,7 +4,6 @@ import com.dat.backend_v2_1.config.SecurityRule;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentAttendanceDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
-import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDetailDTO;
 import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.ScheduleLevel;
 import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
@@ -29,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -130,23 +130,32 @@ public class StudentAttendanceController {
      * @return 201 CREATED + Response DTO chứa thông tin bản ghi vừa tạo
      */
 //    @PreAuthorize("@securityRule.isCoach(authentication)")
-    @PostMapping("/check-in") // URL rõ ràng hành động
-    public ResponseEntity<StudentAttendanceDTO.Response> createAttendanceRecordByStudent(
+    @PostMapping("/check-in")
+    public ResponseEntity<?> createAttendanceRecordByStudent(
+            // Đổi thành <?> để có thể trả về cả DTO hoặc Message lỗi
             @Valid @RequestBody StudentAttendanceDTO.CreateRequest request
     ) {
         log.info("Creating attendance record for student {}", request.getStudentId());
 
-        StudentAttendanceDTO.Response response = studentAttendanceService.createAttendanceRecord(request);
+        try {
+            StudentAttendanceDTO.Response response = studentAttendanceService.createAttendanceRecord(request);
 
-        if (response == null) {
-            // Trường hợp không tạo được bản ghi (ví dụ: đã điểm danh rồi), trả về 400 Bad Request
-            return ResponseEntity.badRequest().build();
+            if (response == null) {
+                // Trường hợp 1: Có ca học nhưng đã điểm danh -> Báo Conflict 409
+                return ResponseEntity.status(HttpStatus.CONFLICT).build();
+            }
+
+            // Điểm danh thành công -> Báo Created 201
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        } catch (NoSuchElementException e) {
+            // Trường hợp 2: Không có ca học -> Báo Not Found 404
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+
+        } catch (IllegalStateException e) {
+            // Trường hợp học viên không ACTIVE -> Báo Bad Request 400
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
-
-        TuitionPaymentDetailDTO.TuitionStatusResponse tuitionStatusResponse = tuitionPaymentService.checkTuitionStatus(request.getStudentId());
-        response.setTuitionStatus(tuitionStatusResponse);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**

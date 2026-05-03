@@ -55,7 +55,7 @@ public class StudentController {
             @RequestParam(required = false) List<String> scheduleIds, // Thêm filter theo lớp học
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "userId") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
         log.info("Request get students - page: {}, size: {}", page, size);
 

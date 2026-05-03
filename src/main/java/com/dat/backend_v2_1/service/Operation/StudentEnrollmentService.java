@@ -52,7 +52,7 @@ public class StudentEnrollmentService {
     })
     public List<StudentEnrollment> createStudentEnrollment(StudentEnrollmentReqDTO.CreateRequest request) {
         // 1. Tìm Student (1 lần)
-        Student student = studentRepository.findById(UUID.fromString(request.getStudentId()))
+        Student student = studentRepository.findByStudentCode(request.getStudentId())
                 .orElseThrow(() -> new BusinessException("Không tìm thấy học viên với ID: " + request.getStudentId()));
 
         // 2. Tìm tất cả ClassSchedule theo danh sách ID (1 query thay vì N query)

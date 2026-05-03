@@ -43,7 +43,7 @@ public class ClassSessionService {
     @Value("${ATTENDANCE_GRACE_PERIOD_MINUTES:30}")
     private int attendanceGracePeriodMinutes;
 
-    @Scheduled(cron = "0 36 1 * * *")
+    @Scheduled(cron = "0 0 0 * * *")
     @Transactional(rollbackFor = Exception.class)
     public void generateClassSessions() {
         LocalDate today = LocalDate.now();

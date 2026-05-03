@@ -103,12 +103,15 @@ public class SecurityConfiguration {
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(
                         auth -> auth
-                                .requestMatchers("/ws/**").permitAll()
-                                .requestMatchers("/actuator/**").permitAll() // Thêm dòng này
+                                .requestMatchers(
+                                        "/actuator/**",
+                                        "/ws/**"
+                                ).permitAll() // Thêm dòng này
                                 .requestMatchers(
                                         "/api/v1/auth/login",
                                         "/api/v1/auth/logout",
-                                        "/api/v1/user"
+                                        "/api/v1/user",
+                                        "/api/v1/leaderboards/**"
                                 ).permitAll()
                                 // 👇 Chỉ GET là public
                                 .anyRequest().authenticated()

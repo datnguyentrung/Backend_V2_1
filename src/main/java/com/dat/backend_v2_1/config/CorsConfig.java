@@ -19,7 +19,8 @@ public class CorsConfig {
                 Arrays.asList(
                         "http://localhost:3000", "http://localhost:4173",
                         "http://localhost:5173", "https://tkdvanquan.vercel.app",
-                        "http://localhost:8000", "https://taekwondovanquan.vercel.app/"
+                        "http://localhost:8000", "https://taekwondovanquan.vercel.app/",
+                        "https://datnguyentrung-ai-receptionist-be.hf.space"
                 )
         );
         // Các phương thức HTTP được phép

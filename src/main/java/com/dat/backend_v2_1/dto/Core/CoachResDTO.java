@@ -39,6 +39,8 @@ public class CoachResDTO {
      */
     @Data
     @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class CoachSummary {
         UUID userId;

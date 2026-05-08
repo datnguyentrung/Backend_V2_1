@@ -102,7 +102,7 @@ public class RedisConfig implements CachingConfigurer {
 
     @Bean
     public RedisCacheConfiguration cacheConfiguration() {
-        // Tận dụng lại ObjectMapper đã config ở trên để @Cacheable cũng lưu JSON chuẩn như RedisTemplate (Spring Boot 4.0+)
+        // Tận dụng lại ObjectMapper đã config ở trên để //@Cacheable cũng lưu JSON chuẩn như RedisTemplate (Spring Boot 4.0+)
         RedisSerializer<Object> serializer = RedisSerializer.json();
 
         return RedisCacheConfiguration.defaultCacheConfig()
@@ -149,7 +149,7 @@ public class RedisConfig implements CachingConfigurer {
         // 1. Lấy cấu hình mặc định (dùng JSON serializer và TTL 7 ngày mà bạn đã setup)
         RedisCacheConfiguration defaultConfig = cacheConfiguration();
 
-        // 2. Map riêng từng TTL cho từng loại Tên Cache (Tên khai báo trong @Cacheable)
+        // 2. Map riêng từng TTL cho từng loại Tên Cache (Tên khai báo trong //@Cacheable)
         Map<String, RedisCacheConfiguration> specificCacheConfigs = new HashMap<>();
 
         // ===== NHÓM 1: DỮ LIỆU ĐỘNG (Thay đổi liên tục) -> TTL: 1 NGÀY =====

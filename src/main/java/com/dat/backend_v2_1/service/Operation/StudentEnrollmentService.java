@@ -16,8 +16,6 @@ import com.dat.backend_v2_1.util.error.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -40,15 +38,15 @@ public class StudentEnrollmentService {
 
     @Autowired
     @Lazy
-    private StudentEnrollmentService self; // Dùng để gọi các hàm có @Cacheable nội bộ
+    private StudentEnrollmentService self; // Dùng để gọi các hàm có //@Cacheable nội bộ
 
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
-            @CacheEvict(value = "studentEnrollmentsById", key = "#request.studentId"),
-            @CacheEvict(value = "studentEnrollmentsByCode", allEntries = true),
-            @CacheEvict(value = "studentEnrollmentsByClass", allEntries = true),
+            //@CacheEvict(value = "studentEnrollmentsById", key = "#request.studentId"),
+            //@CacheEvict(value = "studentEnrollmentsByCode", allEntries = true),
+            //@CacheEvict(value = "studentEnrollmentsByClass", allEntries = true),
             // QUAN TRỌNG: Xóa cache chi tiết Lớp học để hệ thống tính toán lại tổng số sinh viên (totalStudents)
-            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
     })
     public List<StudentEnrollment> createStudentEnrollment(StudentEnrollmentReqDTO.CreateRequest request) {
         // 1. Tìm Student (1 lần)
@@ -100,12 +98,12 @@ public class StudentEnrollmentService {
 
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
-            @CacheEvict(value = "studentEnrollmentsById", allEntries = true),
-            @CacheEvict(value = "studentEnrollmentsByCode", allEntries = true),
-            @CacheEvict(value = "studentEnrollmentsByClass", allEntries = true),
-            @CacheEvict(value = "singleEnrollment", allEntries = true),
+            //@CacheEvict(value = "studentEnrollmentsById", allEntries = true),
+            //@CacheEvict(value = "studentEnrollmentsByCode", allEntries = true),
+            //@CacheEvict(value = "studentEnrollmentsByClass", allEntries = true),
+            //@CacheEvict(value = "singleEnrollment", allEntries = true),
             // Xóa cache chi tiết lớp học để update lại sĩ số
-            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
     })
     public void deleteStudentEnrollment(UUID enrollmentId) {
         if (!studentEnrollmentRepository.existsById(enrollmentId)) {
@@ -117,12 +115,12 @@ public class StudentEnrollmentService {
 
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
-            @CacheEvict(value = "studentEnrollmentsById", allEntries = true),
-            @CacheEvict(value = "studentEnrollmentsByCode", allEntries = true),
-            @CacheEvict(value = "studentEnrollmentsByClass", allEntries = true),
-            @CacheEvict(value = "singleEnrollment", allEntries = true),
+            //@CacheEvict(value = "studentEnrollmentsById", allEntries = true),
+            //@CacheEvict(value = "studentEnrollmentsByCode", allEntries = true),
+            //@CacheEvict(value = "studentEnrollmentsByClass", allEntries = true),
+            //@CacheEvict(value = "singleEnrollment", allEntries = true),
             // Trạng thái enrollment có thể thay đổi (vd Active -> Inactive), ảnh hưởng sĩ số lớp
-            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
     })
     public void updateStudentEnrollment(UUID enrollmentId, StudentEnrollmentReqDTO.UpdateRequest request) {
         // 1. Tìm Enrollment (Gọi thẳng Repo để đảm bảo data mới nhất trước khi update)
@@ -136,7 +134,7 @@ public class StudentEnrollmentService {
     /**
      * Tìm tất cả các lớp học mà học viên đang tham gia (trạng thái ACTIVE)
      */
-    @Cacheable(value = "studentEnrollmentsByCode", key = "#studentCode")
+    //@Cacheable(value = "studentEnrollmentsByCode", key = "#studentCode")
     public List<StudentEnrollment> findStudentEnrollmentsByStudentCode(String studentCode) {
         // Validate student exists
         studentRepository.findByStudentCode(studentCode)
@@ -157,7 +155,7 @@ public class StudentEnrollmentService {
     /**
      * Tìm tất cả các lớp học mà học viên đang tham gia (trạng thái ACTIVE) theo userId
      */
-    @Cacheable(value = "studentEnrollmentsById", key = "#userId")
+    //@Cacheable(value = "studentEnrollmentsById", key = "#userId")
     public List<StudentEnrollment> findStudentEnrollmentsByStudentId(UUID userId) {
         // Validate student exists
         studentRepository.findById(userId)
@@ -185,13 +183,13 @@ public class StudentEnrollmentService {
         );
     }
 
-    @Cacheable(value = "studentEnrollmentsByClassDTO", key = "#classScheduleId")
+    //@Cacheable(value = "studentEnrollmentsByClassDTO", key = "#classScheduleId")
     public List<StudentEnrollmentResDTO.EnrolledStudentItem> getEnrolledStudentItemsByClass(String classScheduleId) {
         List<StudentEnrollment> enrollments = getStudentEnrollmentsByClassScheduleId(classScheduleId);
         return studentEnrollmentMapper.toEnrolledStudentItemList(enrollments);
     }
 
-    @Cacheable(value = "singleEnrollment", key = "#studentUserId.toString() + '_' + #classScheduleId")
+    //@Cacheable(value = "singleEnrollment", key = "#studentUserId.toString() + '_' + #classScheduleId")
     public StudentEnrollment getEnrollmentByStudentUserIdAndClassScheduleId(UUID studentUserId, String classScheduleId) {
         return studentEnrollmentRepository.findByStudent_UserIdAndClassSchedule_ScheduleIdAndStatus(
                 studentUserId,

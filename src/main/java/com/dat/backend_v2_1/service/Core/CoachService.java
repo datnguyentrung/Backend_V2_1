@@ -20,9 +20,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.CachePut;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.access.AccessDeniedException;
@@ -63,7 +60,7 @@ public class CoachService {
         return coach;
     }
 
-    // ❌ ĐÃ XÓA @Cacheable: Không Cache JPA Entity!
+    // ❌ ĐÃ XÓA //@Cacheable: Không Cache JPA Entity!
     public Coach getCoachById(UUID coachId) {
         return coachRepository.findById(coachId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy huấn luyện viên với ID: " + coachId));
@@ -73,14 +70,14 @@ public class CoachService {
         return getCoachById(UUID.fromString(coachId)); // Gọi thẳng, không cần self
     }
 
-    // ❌ ĐÃ XÓA @Cacheable: Không Cache JPA Entity!
+    // ❌ ĐÃ XÓA //@Cacheable: Không Cache JPA Entity!
     public Coach getCoachByStaffCode(String staffCode) {
         return coachRepository.findByStaffCode(staffCode)
                 .orElseThrow(() -> new UserNotFoundException("Không tìm thấy HLV: " + staffCode));
     }
 
     // ✅ CHỈ CACHE DTO
-    @Cacheable(value = "coachDetail", key = "#userId")
+    //@Cacheable(value = "coachDetail", key = "#userId")
     public CoachResDTO.CoachDetail getCoachDetail(UUID userId) {
         // Dùng hàm bình thường lấy từ DB
         Coach coach = getCoachById(userId);
@@ -91,7 +88,7 @@ public class CoachService {
     }
 
     // ✅ CHỈ CACHE DTO
-    @Cacheable(value = "coachDetailByCode", key = "#staffCode")
+    //@Cacheable(value = "coachDetailByCode", key = "#staffCode")
     @Transactional(readOnly = true)
     public CoachResDTO.CoachDetail getCoachDetail(String staffCode) {
         Coach coach = getCoachByStaffCode(staffCode);
@@ -100,8 +97,8 @@ public class CoachService {
     }
 
     @Caching(put = {
-            @CachePut(value = "coachDetail", key = "#result.userId"),
-            @CachePut(value = "coachDetailByCode", key = "#result.staffCode")
+            //@CachePut(value = "coachDetail", key = "#result.userId"),
+            //@CachePut(value = "coachDetailByCode", key = "#result.staffCode")
     })
     @Transactional(rollbackFor = Exception.class)
     public CoachResDTO.CoachDetail createCoach(CoachReqDTO.CoachCreate createDTO) {
@@ -149,8 +146,8 @@ public class CoachService {
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
 // Đã xóa các key rác (coach, coachByCode), chỉ giữ lại DTO
-            @CacheEvict(value = "coachDetail", key = "#updateDTO.userId"),
-            @CacheEvict(value = "coachDetailByCode", allEntries = true)
+            //@CacheEvict(value = "coachDetail", key = "#updateDTO.userId"),
+            //@CacheEvict(value = "coachDetailByCode", allEntries = true)
     })
     public CoachResDTO.CoachDetail updateCoach(CoachReqDTO.CoachUpdate updateDTO) {
         Coach coach = coachRepository.findById(updateDTO.getUserId())
@@ -203,8 +200,8 @@ public class CoachService {
 
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
-            @CacheEvict(value = "coachDetail", key = "#userId"),
-            @CacheEvict(value = "coachDetailByCode", allEntries = true)
+            //@CacheEvict(value = "coachDetail", key = "#userId"),
+            //@CacheEvict(value = "coachDetailByCode", allEntries = true)
     })
 
     public void deleteCoach(UUID userId) {
@@ -225,8 +222,8 @@ public class CoachService {
 
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
-            @CacheEvict(value = "coachDetail", key = "#userId"),
-            @CacheEvict(value = "coachDetailByCode", allEntries = true)
+            //@CacheEvict(value = "coachDetail", key = "#userId"),
+            //@CacheEvict(value = "coachDetailByCode", allEntries = true)
     })
 
     public void permanentlyDeleteCoach(UUID userId) {

@@ -21,8 +21,6 @@ import com.nimbusds.oauth2.sdk.util.CollectionUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -50,7 +48,7 @@ public class ClassScheduleService {
 
     // ========== READ OPERATIONS ==========
 
-    // ❌ ĐÃ XÓA @Cacheable ở đây: KHÔNG ĐƯỢC CACHE ENTITY!
+    // ❌ ĐÃ XÓA //@Cacheable ở đây: KHÔNG ĐƯỢC CACHE ENTITY!
     public ClassSchedule getClassScheduleById(String scheduleId) {
         return classScheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> {
@@ -59,8 +57,8 @@ public class ClassScheduleService {
                 });
     }
 
-    // ✅ CHUYỂN @Cacheable XUỐNG ĐÂY: CHỈ CACHE DTO!
-    @Cacheable(value = "classScheduleDetail", key = "#scheduleId")
+    // ✅ CHUYỂN //@Cacheable XUỐNG ĐÂY: CHỈ CACHE DTO!
+    //@Cacheable(value = "classScheduleDetail", key = "#scheduleId")
     public ClassScheduleResDTO.ClassScheduleDetail getClassScheduleDetail(String scheduleId) {
         // Dùng thẳng hàm bình thường, không qua self vì hàm gốc đã bỏ cache
         ClassSchedule schedule = getClassScheduleById(scheduleId);
@@ -158,7 +156,7 @@ public class ClassScheduleService {
     // ========== UPDATE OPERATION ==========
 
     // ✅ Đổi key xóa cache thành classScheduleDetail
-    @CacheEvict(value = "classScheduleDetail", key = "#scheduleId")
+    //@CacheEvict(value = "classScheduleDetail", key = "#scheduleId")
     @Transactional(rollbackFor = Exception.class)
     public ClassScheduleResDTO.ClassScheduleDetail updateClassSchedule(String scheduleId, ClassScheduleReqDTO.UpdateRequest request) throws JsonProcessingException {
         // ✅ CỐ TÌNH GỌI THẲNG DB để đảm bảo lấy Entity toàn vẹn nhất (không bị sứt mẻ gì) trước khi update
@@ -181,13 +179,13 @@ public class ClassScheduleService {
         classScheduleRepository.save(classSchedule);
         log.info("Updated class schedule: {}", scheduleId);
 
-        // Trả về DTO và nạp lại vào cache (thông qua self để kích hoạt proxy @Cacheable của hàm này)
+        // Trả về DTO và nạp lại vào cache (thông qua self để kích hoạt proxy //@Cacheable của hàm này)
         return self.getClassScheduleDetail(scheduleId);
     }
 
     // ========== DELETE OPERATION ==========
 
-    @CacheEvict(value = "classScheduleDetail", key = "#scheduleId")
+    //@CacheEvict(value = "classScheduleDetail", key = "#scheduleId")
     @Transactional(rollbackFor = Exception.class)
     public void deleteClassSchedule(String scheduleId) throws JsonProcessingException {
         // ✅ Gọi thẳng Repo
@@ -212,7 +210,7 @@ public class ClassScheduleService {
 
     // ========== UPDATE STATUS ==========
 
-    @CacheEvict(value = "classScheduleDetail", key = "#scheduleId")
+    //@CacheEvict(value = "classScheduleDetail", key = "#scheduleId")
     @Transactional(rollbackFor = Exception.class)
     public void updateStatus(String scheduleId, ScheduleStatus status) {
         // ✅ Gọi thẳng Repo

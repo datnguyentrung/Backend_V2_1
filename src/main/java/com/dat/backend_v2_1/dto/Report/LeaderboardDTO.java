@@ -13,11 +13,11 @@ public class LeaderboardDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class Response {
+    public static class Response<T> {
         int year;
         int quarter;
         int totalStudents; // Tổng số học viên có trong bảng xếp hạng
-        List<RankItem> rankings;
+        List<RankItem<T>> rankings;
     }
 
     @EqualsAndHashCode(callSuper = true)
@@ -38,11 +38,11 @@ public class LeaderboardDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class RankItem {
+    public static class RankItem<T> {
         int rank;            // Hạng (1, 2, 3...)
         String studentCode;  // Mã HV (Dùng để FE làm key hoặc link tới trang chi tiết)
         String fullName;     // Tên HV
         Belt belt;     // Cấp đai (Rất cần để FE render màu đai tương ứng)
-        YearlySummaryDTO.QuarterSummary quarterSummary; // Thông tin chi tiết về điểm số và thống kê của quý
+        T data; // Thông tin chi tiết về điểm số và thống kê của quý
     }
 }

@@ -112,6 +112,8 @@ public class StudentResDTO {
 
     @Data
     @Builder
+    @NoArgsConstructor // Quan trọng: Bắt buộc phải có để Jackson làm việc
+    @AllArgsConstructor
     public static class StudentSummary {
         private UUID userId;
         private String fullName;

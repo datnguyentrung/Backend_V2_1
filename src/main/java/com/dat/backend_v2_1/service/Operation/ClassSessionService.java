@@ -16,7 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -43,7 +42,7 @@ public class ClassSessionService {
     @Value("${ATTENDANCE_GRACE_PERIOD_MINUTES:30}")
     private int attendanceGracePeriodMinutes;
 
-    @Scheduled(cron = "0 0 0 * * *")
+    //@Scheduled(cron = "0 0 0 * * *")
     @Transactional(rollbackFor = Exception.class)
     public void generateClassSessions() {
         LocalDate today = LocalDate.now();
@@ -73,7 +72,7 @@ public class ClassSessionService {
         broadcastAfterCommit("SESSIONS_GENERATED", Map.of("count", newSessions.size()));
     }
 
-    @Scheduled(cron = "0 */1 * * * *")
+    //@Scheduled(cron = "0 */1 * * * *")
     @Transactional(rollbackFor = Exception.class)
     public void autoActivateClassSessionsJob() {
         LocalDateTime now = LocalDateTime.now();
@@ -99,7 +98,7 @@ public class ClassSessionService {
         }
     }
 
-    @Scheduled(cron = "0 */5 * * * *")
+    //@Scheduled(cron = "0 */5 * * * *")
     @Transactional(rollbackFor = Exception.class)
     public void autoCompleteClassSessionsJob() {
         LocalDateTime now = LocalDateTime.now();
@@ -121,12 +120,12 @@ public class ClassSessionService {
         }
     }
 
-    @Scheduled(cron = "0 */5 * * * *")
+    //@Scheduled(cron = "0 */5 * * * *")
     @Transactional(rollbackFor = Exception.class)
 //    @Caching(evict = {
 //            // Chốt tự động cũng phải xóa cache vì data thay đổi ngầm
-//            @CacheEvict(value = "studentDetail", allEntries = true),
-//            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+//            //@CacheEvict(value = "studentDetail", allEntries = true),
+//            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
 //    })
     public void autoCloseAttendanceJob() {
         LocalDateTime now = LocalDateTime.now();

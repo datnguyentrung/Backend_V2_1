@@ -3,6 +3,7 @@ package com.dat.backend_v2_1.mapper.Report;
 import com.dat.backend_v2_1.dto.Core.StudentResDTO;
 import com.dat.backend_v2_1.dto.Report.LeaderboardDTO;
 import com.dat.backend_v2_1.dto.Report.YearlySummaryDTO;
+import com.dat.backend_v2_1.dto.Skill.FitnessRecordDTO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
@@ -25,9 +26,17 @@ public interface LeaderboardMapper {
         // Đập toàn bộ field của summary vào RankItemForRedis
     LeaderboardDTO.RankItemForRedis toRankItemForRedis(int rank, StudentResDTO.StudentRankInfo student, YearlySummaryDTO.QuarterSummaryForRedis summary);
 
-    @Mapping(target = "quarterSummary", source = "rankItemForRedis")
+    @Mapping(target = "data", source = "rankItemForRedis")
         // Lôi toàn bộ field trong RankItemForRedis ra ngoài class cha
-    LeaderboardDTO.RankItem toRankItem(LeaderboardDTO.RankItemForRedis rankItemForRedis);
+    LeaderboardDTO.RankItem<YearlySummaryDTO.QuarterSummary> toRankItem(LeaderboardDTO.RankItemForRedis rankItemForRedis);
 
-    List<LeaderboardDTO.RankItem> toRankItemList(List<LeaderboardDTO.RankItemForRedis> rankItemForRedisList);
+    List<LeaderboardDTO.RankItem<Object>> toRankItemList(List<LeaderboardDTO.RankItemForRedis> rankItemForRedisList);
+
+    @Mapping(target = "rank", source = "rank")
+    @Mapping(target = "studentCode", source = "student.studentCode")
+    @Mapping(target = "fullName", source = "student.fullName")
+    @Mapping(target = "belt", source = "student.belt")
+    @Mapping(target = "data", source = "data")
+        // Map toàn bộ object vào field summary
+    LeaderboardDTO.RankItem<FitnessRecordDTO.Metrics> toRankItemFromFitness(int rank, StudentResDTO.StudentRankInfo student, FitnessRecordDTO.Metrics data);
 }

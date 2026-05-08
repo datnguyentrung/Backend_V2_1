@@ -82,8 +82,8 @@ public class StudentAttendanceService {
     @Transactional
 //    @Caching(evict = {
 //            // Khi điểm danh thay đổi, nếu có thống kê đi học trong chi tiết Học viên/Lớp thì phải xóa
-//            @CacheEvict(value = "studentDetail", allEntries = true),
-//            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+//            //@CacheEvict(value = "studentDetail", allEntries = true),
+//            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
 //    })
     public List<StudentAttendanceDTO.Response> updateStudentAttendance(
             List<StudentAttendanceDTO.SimpleResponse> requests,
@@ -262,8 +262,8 @@ public class StudentAttendanceService {
      */
     @Transactional(rollbackFor = Exception.class)
 //    @Caching(evict = {
-//            @CacheEvict(value = "studentDetail", allEntries = true),
-//            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+//            //@CacheEvict(value = "studentDetail", allEntries = true),
+//            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
 //    })
     public void updateAttendanceStatus(
             String coachId,
@@ -497,8 +497,8 @@ public class StudentAttendanceService {
      */
     @Transactional(rollbackFor = Exception.class)
 //    @Caching(evict = {
-//            @CacheEvict(value = "studentDetail", allEntries = true),
-//            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+//            //@CacheEvict(value = "studentDetail", allEntries = true),
+//            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
 //    })
     public void updateAttendanceEvaluation(
             String coachId,
@@ -675,8 +675,8 @@ public class StudentAttendanceService {
 
     @Transactional(rollbackFor = Exception.class)
 //    @Caching(evict = {
-//            @CacheEvict(value = "studentDetail", allEntries = true),
-//            @CacheEvict(value = "classScheduleDetail", allEntries = true)
+//            //@CacheEvict(value = "studentDetail", allEntries = true),
+//            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
 //    })
     public StudentAttendanceDTO.Response createAttendanceRecord(
             StudentAttendanceDTO.ManualLogRequest request) {

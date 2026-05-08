@@ -46,11 +46,6 @@ public class StudentService {
     private final StudentEnrollmentRepository studentEnrollmentRepository;
     private final StudentEnrollmentService studentEnrollmentService;
 
-    public Student getStudentById(String idUser) {
-        return studentRepository.findById(UUID.fromString(idUser))
-                .orElseThrow(() -> new BusinessException("Không tìm thấy học viên với ID: " + idUser));
-    }
-
     public Student getStudentById(UUID idUser) {
         return studentRepository.findById(idUser)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy học viên với ID: " + idUser));

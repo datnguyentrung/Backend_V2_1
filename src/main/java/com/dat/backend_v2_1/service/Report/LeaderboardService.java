@@ -24,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -159,6 +160,7 @@ public class LeaderboardService {
         // 1. Key có thêm SkillLevel để lọc ngay từ đầu
         String redisKey = String.format("leaderboard:fitness:%d:Q%d:%s", year, quarter, skillLevel);
         String redisDataKey = String.format("leaderboard_data:fitness:%d:Q%d:%s", year, quarter, skillLevel);
+        String redisHistoryKey = String.format("leaderboard_history:fitness:%d:Q%d:%s", year, quarter, skillLevel);
 
         long start = pageable.getOffset();
         long end = start + pageable.getPageSize() - 1;
@@ -192,6 +194,7 @@ public class LeaderboardService {
 
         // MultiGet từ Hash để lấy object Response đã lưu sẵn
         List<Object> rawRecords = redisTemplate.opsForHash().multiGet(redisDataKey, new ArrayList<>(codesList));
+        List<Object> rawHistories = stringRedisTemplate.opsForHash().multiGet(redisHistoryKey, new ArrayList<>(codesList));
 
         // 5. Build kết quả trả về
         List<LeaderboardDTO.RankItem<FitnessRecordDTO.Metrics>> rankings = new ArrayList<>();
@@ -205,9 +208,21 @@ public class LeaderboardService {
             FitnessRecordDTO.Metrics fitnessData =
                     objectMapper.convertValue(rawData, FitnessRecordDTO.Metrics.class);
 
+            // Đọc Rank History
+            Object historyObj = rawHistories.get(i);
+            Integer rankBefore = null;
+            if (historyObj != null) {
+                rankBefore = Integer.parseInt(historyObj.toString());
+            }
+
             if (info != null && fitnessData != null) {
-                // Map thẳng ra RankItem<Object> (chứa object fitness trong summary)
-                rankings.add(leaderboardMapper.toRankItemFromFitness(currentRank++, info, fitnessData));
+                LeaderboardDTO.RankItem<FitnessRecordDTO.Metrics> item = leaderboardMapper
+                        .toRankItemFromFitness(currentRank++, info, fitnessData);
+
+                // Set thêm rankBefore vào DTO
+                item.setRankBefore(rankBefore);
+
+                rankings.add(item);
             }
         }
 
@@ -259,23 +274,32 @@ public class LeaderboardService {
     }
 
     public void updateFitnessLeaderboard(FitnessRecordDTO.Response response, String studentCode) {
-        int year = response.getAssessmentDate().getYear();
-        int quarter = (response.getAssessmentDate().getMonthValue() - 1) / 3 + 1;
+        int year = response.getMetrics().getAssessmentDate().getYear();
+        int quarter = (response.getMetrics().getAssessmentDate().getMonthValue() - 1) / 3 + 1;
         String skillLevel = response.getMetrics().getSkillLevel().toString();
 
         String redisKey = String.format("leaderboard:fitness:%d:Q%d:%s", year, quarter, skillLevel);
         String redisDataKey = String.format("leaderboard_data:fitness:%d:Q%d:%s", year, quarter, skillLevel);
+        String redisHistoryKey = String.format("leaderboard_history:fitness:%d:Q%d:%s", year, quarter, skillLevel);
 
         // 1. SỬA SCORE: Phải dùng chung hệ số 1 tỷ và có tie-breaker giống hệt hàm Rebuild
         double score = getScore(response.getMetrics());
-
         Double currentScore = stringRedisTemplate.opsForZSet().score(redisKey, studentCode);
 
         if (currentScore == null || score > currentScore) {
-            stringRedisTemplate.opsForZSet().add(redisKey, studentCode, score);
+            // --- LOGIC LƯU RANK CŨ ---
+            // Lấy rank hiện tại (trước khi điểm mới được ghi nhận). ZREVRANK tính từ 0, nên cần + 1
+            Long currentRankRaw = stringRedisTemplate.opsForZSet().reverseRank(redisKey, studentCode);
+            if (currentRankRaw != null) {
+                int currentRank = currentRankRaw.intValue() + 1;
+                // Lưu hạng cũ vào Hash History
+                stringRedisTemplate.opsForHash().put(redisHistoryKey, studentCode, String.valueOf(currentRank));
+                stringRedisTemplate.expire(redisHistoryKey, Duration.ofDays(30));
+            }
+            // -------------------------
 
+            stringRedisTemplate.opsForZSet().add(redisKey, studentCode, score);
             // 2. SỬA DATA: Chỉ lưu Metrics vào Hash để đồng bộ với hàm get()
-            // Không lưu cả cục 'response'
             redisTemplate.opsForHash().put(redisDataKey, studentCode, response.getMetrics());
 
             stringRedisTemplate.expire(redisKey, Duration.ofDays(30));
@@ -292,15 +316,27 @@ public class LeaderboardService {
         int duration = (metrics.getDuration() != null && metrics.getDuration() > 0) ? metrics.getDuration() : 1;
         int amount = (metrics.getAmount() != null) ? metrics.getAmount() : 0;
 
-        return (fitnessLevel * 1_000_000_000.0)
+        // Điểm chính (Lưu ý: Nhân (amount / duration) với 100.0 để tách bạch phần nguyên với phần thập phân của ngày)
+        double baseScore = (fitnessLevel * 1_000_000_000.0)
                 + (durationLevel * 10_000_000.0)
                 + (amountLevel * 100_000.0)
-                + (double) amount / duration;
+                + (((double) amount / duration) * 100.0);
+
+        // Điểm phụ (Tie-breaker): Ai đạt được mức này TRƯỚC (ngày nhỏ hơn) sẽ có điểm cao hơn
+        double dateBonus = 0.0;
+        if (metrics.getAssessmentDate() != null) {
+            // 100_000 ngày ~ năm 2243 (Dư sức cho hệ thống chạy)
+            // Chia 1_000_000.0 để số này luôn < 1, chỉ nằm ở phần thập phân
+            dateBonus = (100_000.0 - metrics.getAssessmentDate().toEpochDay()) / 1_000_000.0;
+        }
+
+        return baseScore + dateBonus;
     }
 
     public void syncSingleStudentFitnessLeaderboard(String studentCode, int year, int quarter, SkillLevel skillLevel) {
         String redisKey = String.format("leaderboard:fitness:%d:Q%d:%s", year, quarter, skillLevel);
         String redisDataKey = String.format("leaderboard_data:fitness:%d:Q%d:%s", year, quarter, skillLevel);
+        String redisHistoryKey = String.format("leaderboard_history:fitness:%d:Q%d:%s", year, quarter, skillLevel);
 
         // 1. Tìm bản ghi tốt nhất của RIÊNG học viên này
         Optional<FitnessRecord> bestRecordOpt = fitnessRecordRepository.findBestRecordForSingleStudent(year, quarter, skillLevel, studentCode);
@@ -316,6 +352,18 @@ public class LeaderboardService {
 
             double score = getScore(dto);
 
+            // --- BỔ SUNG LOGIC LƯU RANK CŨ TRƯỚC KHI GHI ĐÈ ---
+            Double currentScore = stringRedisTemplate.opsForZSet().score(redisKey, studentCode);
+            // Chỉ lưu rank cũ nếu học viên đã có điểm trước đó và điểm này khác với điểm chuẩn bị update
+            if (currentScore != null && score != currentScore) {
+                Long currentRankRaw = stringRedisTemplate.opsForZSet().reverseRank(redisKey, studentCode);
+                if (currentRankRaw != null) {
+                    stringRedisTemplate.opsForHash().put(redisHistoryKey, studentCode, String.valueOf(currentRankRaw.intValue() + 1));
+                    stringRedisTemplate.expire(redisHistoryKey, Duration.ofDays(30));
+                }
+            }
+            // ---------------------------------------------------
+
             // Ghi đè điểm mới vào ZSET (nếu đã có sẽ tự update điểm, chưa có sẽ thêm mới)
             stringRedisTemplate.opsForZSet().add(redisKey, studentCode, score);
             // Ghi đè data vào HASH
@@ -326,6 +374,7 @@ public class LeaderboardService {
             // 3. Nếu không tìm thấy (ví dụ: record duy nhất trong quý vừa bị xóa khỏi Supabase) -> Xóa khỏi Redis
             stringRedisTemplate.opsForZSet().remove(redisKey, studentCode);
             redisTemplate.opsForHash().delete(redisDataKey, studentCode);
+            stringRedisTemplate.opsForHash().delete(redisHistoryKey, studentCode);
 
             log.info("🗑️ [Webhook] Đã xóa học viên {} khỏi Leaderboard Redis do không còn dữ liệu.", studentCode);
         }
@@ -353,7 +402,7 @@ public class LeaderboardService {
                 metrics.setFitnessLevel(finalLevel);
             }
 
-            String key = String.format("%s_%d_%d_%s",
+            String key = String.format("%s|%d|%d|%s",
                     payload.getStudentCode(), payload.getYear(), payload.getQuarter(), payload.getSkillLevel());
 
             if ("DELETE".equals(payload.getAction()) || "UPDATE".equals(payload.getAction())) {
@@ -373,7 +422,7 @@ public class LeaderboardService {
 
         // 2. Xử lý nhóm cần đồng bộ DB (Giữ nguyên logic cũ)
         for (String key : requiresDbSync) {
-            String[] parts = key.split("_");
+            String[] parts = key.split("\\|");
             syncSingleStudentFitnessLeaderboard(parts[0], Integer.parseInt(parts[1]), Integer.parseInt(parts[2]), SkillLevel.valueOf(parts[3]));
         }
 
@@ -381,7 +430,41 @@ public class LeaderboardService {
         if (!bestInserts.isEmpty()) {
             log.info("⚡ Đang thực hiện Pipeline cập nhật {} bản ghi lên Redis...", bestInserts.size());
 
+            // --- BỔ SUNG: LẤY RANK CŨ CỦA TẤT CẢ HỌC VIÊN TRƯỚC KHI CHẠY PIPELINE ---
+            Map<String, String> rankHistoryUpdates = new HashMap<>();
+            for (WebhookPayload<FitnessRecordDTO.Metrics> payload : bestInserts.values()) {
+                String redisKey = String.format("leaderboard:fitness:%d:Q%d:%s",
+                        payload.getYear(), payload.getQuarter(), payload.getSkillLevel());
+
+                // Fetch rank hiện tại
+                Long currentRankRaw = stringRedisTemplate.opsForZSet().reverseRank(redisKey, payload.getStudentCode());
+                if (currentRankRaw != null) {
+                    String redisHistoryKey = String.format("leaderboard_history:fitness:%d:Q%d:%s",
+                            payload.getYear(), payload.getQuarter(), payload.getSkillLevel());
+
+                    // Cấu trúc map: "HistoryKey:StudentCode" -> "RankCũ"
+                    rankHistoryUpdates.put(redisHistoryKey + ":" + payload.getStudentCode(), String.valueOf(currentRankRaw.intValue() + 1));
+                }
+            }
+            // -----------------------------------------------------------------------
+
             redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+                // --- BỔ SUNG: LƯU RANK CŨ VÀO HASH TRONG PIPELINE ---
+                for (Map.Entry<String, String> entry : rankHistoryUpdates.entrySet()) {
+                    String[] parts = entry.getKey().split(":");
+                    // parts[0] đến n-1 là historyKey, phần tử cuối là studentCode
+                    String studentCode = parts[parts.length - 1];
+                    String historyKey = entry.getKey().substring(0, entry.getKey().lastIndexOf(":"));
+
+                    byte[] rawHistoryKey = stringRedisTemplate.getStringSerializer().serialize(historyKey);
+                    byte[] rawField = stringRedisTemplate.getStringSerializer().serialize(studentCode);
+                    byte[] rawValue = stringRedisTemplate.getStringSerializer().serialize(entry.getValue());
+
+                    connection.hashCommands().hSet(rawHistoryKey, rawField, rawValue);
+                    connection.keyCommands().expire(rawHistoryKey, Duration.ofDays(30).getSeconds());
+                }
+                // ----------------------------------------------------
+
                 for (WebhookPayload<FitnessRecordDTO.Metrics> payload : bestInserts.values()) {
                     String studentCode = payload.getStudentCode();
 
@@ -406,8 +489,7 @@ public class LeaderboardService {
                         // Ép kiểu Serializer về kiểu Object để chấp nhận mọi đầu vào,
                         // đảm bảo gọi đúng Serializer của Spring để có @class
                         @SuppressWarnings("unchecked")
-                        org.springframework.data.redis.serializer.RedisSerializer<Object> valueSerializer =
-                                (org.springframework.data.redis.serializer.RedisSerializer<Object>) redisTemplate.getValueSerializer();
+                        RedisSerializer<Object> valueSerializer = (RedisSerializer<Object>) redisTemplate.getValueSerializer();
 
                         byte[] rawData = valueSerializer.serialize(metricsData);
 

@@ -40,6 +40,7 @@ public class LeaderboardDTO {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class RankItem<T> {
         int rank;            // Hạng (1, 2, 3...)
+        Integer rankBefore;
         String studentCode;  // Mã HV (Dùng để FE làm key hoặc link tới trang chi tiết)
         String fullName;     // Tên HV
         Belt belt;     // Cấp đai (Rất cần để FE render màu đai tương ứng)

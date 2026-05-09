@@ -27,9 +27,6 @@ public class FitnessRecordDTO {
         @NotNull(message = "ID không được để trống")
         Long id; // Đổi fitnessId thành id cho đúng chuẩn chung của REST API
 
-        @NotNull(message = "Ngày đánh giá không được để trống")
-        LocalDate assessmentDate;
-
         StudentResDTO.StudentSummary studentSummary; // Bỏ chữ Summary ở tên biến cho JSON trả về gọn hơn
 
         @NotNull
@@ -46,6 +43,10 @@ public class FitnessRecordDTO {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     @JsonIgnoreProperties(ignoreUnknown = true) // <--- THÊM DÒNG NÀY
     public static class Metrics {
+
+        @NotNull(message = "Ngày đánh giá không được để trống")
+        LocalDate assessmentDate;
+
         @Positive(message = "Thời gian (duration) phải lớn hơn 0")
         Integer duration;
 

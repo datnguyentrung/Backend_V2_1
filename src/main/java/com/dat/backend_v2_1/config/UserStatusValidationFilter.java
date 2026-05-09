@@ -7,6 +7,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -31,18 +32,30 @@ public class UserStatusValidationFilter extends OncePerRequestFilter {
             "/api/v1/auth/refresh"
     );
 
+    // 🚀 ĐÃ THÊM: Danh sách các API Hệ thống (chạy tự động qua X-API-KEY, không có JWT)
+    private static final List<String> SYSTEM_ENDPOINTS = List.of(
+            "/api/v1/student-attendances/check-in",
+            "/api/v1/leaderboards/sync-batch"
+    );
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getRequestURI();
-        // Bỏ qua, KHÔNG đòi JWT Token nếu đây là API do AI Python gọi
-        return path.equals("/api/v1/student-attendances/check-in");
+
+        // Bỏ qua nếu là request OPTIONS (Pre-flight của CORS)
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
+        // 🚀 ĐÃ SỬA: Nếu đường dẫn nằm trong danh sách hệ thống -> BỎ QUA filter kiểm tra Status này
+        return SYSTEM_ENDPOINTS.contains(path);
     }
 
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
-            HttpServletResponse response,
-            FilterChain filterChain
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
         String requestPath = request.getRequestURI();
 
@@ -104,4 +117,3 @@ public class UserStatusValidationFilter extends OncePerRequestFilter {
         return EXCLUDED_PATHS.stream().anyMatch(requestPath::startsWith);
     }
 }
-

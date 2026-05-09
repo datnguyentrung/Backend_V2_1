@@ -106,7 +106,8 @@ public class SecurityConfiguration {
                         auth -> auth
                                 .requestMatchers(
                                         "/actuator/**",
-                                        "/ws/**"
+                                        "/ws/**",
+                                        "/api/v1/leaderboards/sync-batch"
                                 ).permitAll() // Thêm dòng này
                                 .requestMatchers(
                                         "/api/v1/auth/login",

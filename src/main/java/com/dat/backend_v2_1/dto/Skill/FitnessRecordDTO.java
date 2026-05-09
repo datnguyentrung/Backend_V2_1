@@ -47,18 +47,22 @@ public class FitnessRecordDTO {
     @JsonIgnoreProperties(ignoreUnknown = true) // <--- THÊM DÒNG NÀY
     public static class Metrics {
         @Positive(message = "Thời gian (duration) phải lớn hơn 0")
-        int duration;
+        Integer duration;
 
         @Positive(message = "Số lượng (amount) phải lớn hơn 0")
-        int amount;
+        Integer amount;
 
+        @NotNull(message = "Cấp độ kỹ năng không được để trống")
         SkillLevel skillLevel;
 
-        int durationLevel;
+        @NotNull(message = "Thời gian cấp độ không được để trống")
+        Integer durationLevel;
 
-        int amountLevel;
+        @NotNull(message = "Số lượng cấp độ không được để trống")
+        Integer amountLevel;
 
-        int fitnessLevel;
+        @NotNull(message = "Cấp độ Thể lực & Tốc độ không được để trống")
+        Integer fitnessLevel;
 
         @Builder.Default
         Boolean isQualified = false; // Dùng camelCase chuẩn Java

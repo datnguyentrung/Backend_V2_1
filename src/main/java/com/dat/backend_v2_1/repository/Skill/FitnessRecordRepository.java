@@ -14,6 +14,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface FitnessRecordRepository extends JpaRepository<FitnessRecord, Long>, JpaSpecificationExecutor<FitnessRecord> {
@@ -22,20 +23,6 @@ public interface FitnessRecordRepository extends JpaRepository<FitnessRecord, Lo
     Page<FitnessRecord> findAll(
             @NonNull Specification<FitnessRecord> spec, @NonNull Pageable pageable
     );
-
-//    @Query(value = """
-//            SELECT DISTINCT ON (student_user_id) *
-//            FROM skill.fitness_record
-//            WHERE EXTRACT(YEAR FROM assessment_date) = :year
-//              AND EXTRACT(QUARTER FROM assessment_date) = :quarter
-//              AND skill_level = :#{#skillLevel.name()}
-//            ORDER BY student_user_id, amount DESC, duration
-//            """, nativeQuery = true)
-//    List<FitnessRecord> findBestRecordsForQuarter(
-//            @Param("year") int year,
-//            @Param("quarter") int quarter,
-//            @Param("skillLevel") SkillLevel skillLevel
-//    );
 
     @EntityGraph(attributePaths = {"student"}) // Ép lấy Student và User
     @Query("""
@@ -50,4 +37,15 @@ public interface FitnessRecordRepository extends JpaRepository<FitnessRecord, Lo
             @Param("quarter") int quarter,
             @Param("skillLevel") SkillLevel skillLevel
     );
+
+    @Query("""
+                SELECT fr FROM FitnessRecord fr
+                WHERE year(fr.assessmentDate) = :year
+                  AND quarter(fr.assessmentDate) = :quarter
+                  AND fr.skillLevel = :skillLevel
+                  AND fr.student.studentCode = :studentCode
+                ORDER BY fr.duration DESC, fr.amount DESC
+                LIMIT 1
+            """)
+    Optional<FitnessRecord> findBestRecordForSingleStudent(int year, int quarter, SkillLevel skillLevel, String studentCode);
 }

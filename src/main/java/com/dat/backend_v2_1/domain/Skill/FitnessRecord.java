@@ -24,7 +24,19 @@ import java.time.LocalDateTime;
 @EntityListeners(AuditingEntityListener.class) // BẮT BUỘC để @CreatedDate hoạt động
 @Table(
         name = "fitness_record",
-        schema = "skill"
+        schema = "skill",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "unique_fitness_record", // Tên của constraint trong database
+                        columnNames = {
+                                "student_user_id",
+                                "assessment_date",
+                                "skill_level",
+                                "duration",
+                                "amount"
+                        } // Danh sách tên CỘT (chữ thường có gạch dưới như trong db, không phải tên biến Java)
+                )
+        }
 )
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class FitnessRecord {

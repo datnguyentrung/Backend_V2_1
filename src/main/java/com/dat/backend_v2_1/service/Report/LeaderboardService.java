@@ -331,60 +331,85 @@ public class LeaderboardService {
         }
     }
 
-    public void processBatchSync(List<WebhookPayload> payloads) {
+    public void processBatchSync(List<WebhookPayload<FitnessRecordDTO.Metrics>> payloads) {
         List<Fitness> benchmarks = fitnessService.getAllFitness();
         Set<String> requiresDbSync = new HashSet<>();
-        Map<String, WebhookPayload> bestInserts = new HashMap<>();
+        Map<String, WebhookPayload<FitnessRecordDTO.Metrics>> bestInserts = new HashMap<>();
 
-        // 1. Phân loại và tính toán điểm trước (Cái này xử lý trên RAM, rất nhanh)
-        for (WebhookPayload payload : payloads) {
-            skillCalculator.calculateAndSetLevels(payload.getMetrics(), benchmarks);
+        // 1. Phân loại và tính toán điểm
+        for (WebhookPayload<FitnessRecordDTO.Metrics> payload : payloads) {
+            FitnessRecordDTO.Metrics metrics = payload.getData();
+
+            // ✅ CHECK AN TOÀN: Nếu không có metrics mà hành động không phải DELETE thì bỏ qua luôn
+            // (DELETE thường không cần metrics, chỉ cần studentCode và metadata)
+            if (metrics == null && !"DELETE".equals(payload.getAction())) {
+                log.warn("⚠️ Bỏ qua payload của học viên {} vì Metrics bị null!", payload.getStudentCode());
+                continue; // Nhảy sang vòng lặp tiếp theo ngay lập tức
+            }
+
+            // 2. Tính toán fitness level (Chỉ thực hiện nếu có metrics)
+            if (metrics != null) {
+                int finalLevel = skillCalculator.calculateAndSetLevels(metrics, benchmarks);
+                metrics.setFitnessLevel(finalLevel);
+            }
+
             String key = String.format("%s_%d_%d_%s",
                     payload.getStudentCode(), payload.getYear(), payload.getQuarter(), payload.getSkillLevel());
 
             if ("DELETE".equals(payload.getAction()) || "UPDATE".equals(payload.getAction())) {
                 requiresDbSync.add(key);
                 bestInserts.remove(key);
-            } else if ("INSERT".equals(payload.getAction()) && !requiresDbSync.contains(key)) {
-                double incomingScore = getScore(payload.getMetrics());
-                if (!bestInserts.containsKey(key) || incomingScore > getScore(bestInserts.get(key).getMetrics())) {
-                    bestInserts.put(key, payload);
+            } else if ("INSERT".equals(payload.getAction())) {
+                // ✅ Lúc này IDE sẽ hết báo lỗi vì nó biết chắc chắn metrics không thể null ở đây nhờ lệnh continue phía trên
+                if (!requiresDbSync.contains(key)) {
+                    double incomingScore = getScore(metrics);
+                    WebhookPayload<FitnessRecordDTO.Metrics> existing = bestInserts.get(key);
+                    if (existing == null || incomingScore > getScore(existing.getData())) {
+                        bestInserts.put(key, payload);
+                    }
                 }
             }
         }
 
-        // 2. Xử lý nhóm cần chọc DB (Giữ nguyên vì cái này ít và cần chính xác)
+        // 2. Xử lý nhóm cần đồng bộ DB (Giữ nguyên logic cũ)
         for (String key : requiresDbSync) {
             String[] parts = key.split("_");
             syncSingleStudentFitnessLeaderboard(parts[0], Integer.parseInt(parts[1]), Integer.parseInt(parts[2]), SkillLevel.valueOf(parts[3]));
         }
 
-        // 3. 🛡️ TỐI ƯU: Sử dụng PIPELINE cho nhóm Insert
+        // 3. Pipeline cập nhật Redis
         if (!bestInserts.isEmpty()) {
             log.info("⚡ Đang thực hiện Pipeline cập nhật {} bản ghi lên Redis...", bestInserts.size());
 
             redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-                for (WebhookPayload payload : bestInserts.values()) {
+                for (WebhookPayload<FitnessRecordDTO.Metrics> payload : bestInserts.values()) {
                     String studentCode = payload.getStudentCode();
-                    double score = getScore(payload.getMetrics());
+
+                    // Trích xuất data ra biến rõ ràng
+                    FitnessRecordDTO.Metrics metricsData = payload.getData();
+                    double score = getScore(metricsData);
 
                     String redisKey = String.format("leaderboard:fitness:%d:Q%d:%s",
                             payload.getYear(), payload.getQuarter(), payload.getSkillLevel());
                     String redisDataKey = String.format("leaderboard_data:fitness:%d:Q%d:%s",
                             payload.getYear(), payload.getQuarter(), payload.getSkillLevel());
 
-                    // 1. Serialize Key và Field sang byte[]
                     byte[] rawKey = redisTemplate.getStringSerializer().serialize(redisKey);
                     byte[] rawValue = redisTemplate.getStringSerializer().serialize(studentCode);
-
-                    // 2. Ghi vào ZSET (Thứ tự bảng xếp hạng)
                     connection.zSetCommands().zAdd(rawKey, score, rawValue);
 
-                    // 3. 🚀 FIX TẠI ĐÂY: Serialize Object Metrics sang byte[] dùng ObjectMapper
                     try {
                         byte[] rawHashKey = redisTemplate.getStringSerializer().serialize(redisDataKey);
                         byte[] rawField = redisTemplate.getStringSerializer().serialize(studentCode);
-                        byte[] rawData = objectMapper.writeValueAsBytes(payload.getMetrics());
+
+                        // ✅ GIẢI PHÁP CHO LỖI CAPTURE:
+                        // Ép kiểu Serializer về kiểu Object để chấp nhận mọi đầu vào,
+                        // đảm bảo gọi đúng Serializer của Spring để có @class
+                        @SuppressWarnings("unchecked")
+                        org.springframework.data.redis.serializer.RedisSerializer<Object> valueSerializer =
+                                (org.springframework.data.redis.serializer.RedisSerializer<Object>) redisTemplate.getValueSerializer();
+
+                        byte[] rawData = valueSerializer.serialize(metricsData);
 
                         connection.hashCommands().hSet(rawHashKey, rawField, rawData);
                     } catch (Exception e) {
@@ -393,8 +418,7 @@ public class LeaderboardService {
                 }
                 return null;
             });
-
-            log.info("✅ Đã hoàn tất Pipeline cho {} học viên.", bestInserts.size());
+            log.info("✅ Đã hoàn tất Pipeline.");
         }
     }
 }

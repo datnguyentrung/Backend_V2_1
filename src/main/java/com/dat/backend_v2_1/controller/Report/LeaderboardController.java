@@ -47,7 +47,7 @@ public class LeaderboardController {
     }
 
     @PostMapping("/sync-batch")
-    public ResponseEntity<String> syncBatch(@RequestBody List<WebhookPayload> payloads) {
+    public ResponseEntity<String> syncBatch(@RequestBody List<WebhookPayload<FitnessRecordDTO.Metrics>> payloads) {
         leaderboardService.processBatchSync(payloads);
         return ResponseEntity.ok("Đã xử lý Batch thành công");
     }

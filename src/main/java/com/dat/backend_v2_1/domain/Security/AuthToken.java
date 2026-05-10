@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
 
@@ -36,6 +38,7 @@ public class AuthToken {
     // Quan hệ ManyToOne nên để LAZY để tránh query thừa khi không cần info User
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false) // Tên cột foreign key chuẩn: user_id
+    @OnDelete(action = OnDeleteAction.CASCADE)
     @ToString.Exclude // Ngắt vòng lặp vô hạn khi in log
             User user;
 

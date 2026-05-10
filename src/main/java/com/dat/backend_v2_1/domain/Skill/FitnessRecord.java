@@ -8,6 +8,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -52,6 +54,7 @@ public class FitnessRecord {
     @NotNull(message = "Học viên không được để trống")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_user_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     Student student;
 
     @Positive(message = "Thời gian (duration) phải lớn hơn 0")
@@ -69,7 +72,8 @@ public class FitnessRecord {
     SkillLevel skillLevel; // Cấp độ kỹ năng (BASIC, ADVANCED, EXPERT)
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recorded_by_coach_id", nullable = false)
+    @JoinColumn(name = "recorded_by_coach_id", nullable = true)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     Coach recordByCoach;
 
     @CreatedDate

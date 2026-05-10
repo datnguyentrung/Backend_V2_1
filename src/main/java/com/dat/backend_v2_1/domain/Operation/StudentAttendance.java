@@ -9,6 +9,8 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
@@ -86,6 +88,7 @@ public class StudentAttendance {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "student_enrollment_id", nullable = true)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     StudentEnrollment studentEnrollment;
 
     @NotNull(message = "Ngày học không được để trống")

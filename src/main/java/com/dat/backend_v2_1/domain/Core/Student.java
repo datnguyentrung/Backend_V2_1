@@ -13,6 +13,8 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Array;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
@@ -35,6 +37,7 @@ import java.time.LocalDate;
 @PrimaryKeyJoinColumn(name = "user_id") // Khóa chính cũng là FK trỏ về bảng User
 @EqualsAndHashCode(callSuper = true) // So sánh object bao gồm cả các field của User
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@OnDelete(action = OnDeleteAction.CASCADE)
 public class Student extends User {
 
     @NotBlank(message = "Mã học viên không được để trống")

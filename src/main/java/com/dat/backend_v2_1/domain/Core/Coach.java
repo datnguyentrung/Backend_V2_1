@@ -11,6 +11,8 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Getter
 @Setter
@@ -23,6 +25,7 @@ import lombok.experimental.SuperBuilder;
 @PrimaryKeyJoinColumn(name = "user_id")
 @EqualsAndHashCode(callSuper = true) // So sánh object dựa trên cả field của User
 @FieldDefaults(level = AccessLevel.PRIVATE)
+@OnDelete(action = OnDeleteAction.CASCADE)
 public class Coach extends User {
 
     @NotBlank(message = "Mã nhân viên không được để trống")

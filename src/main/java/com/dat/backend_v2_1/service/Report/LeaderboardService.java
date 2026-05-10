@@ -316,20 +316,27 @@ public class LeaderboardService {
         int duration = (metrics.getDuration() != null && metrics.getDuration() > 0) ? metrics.getDuration() : 1;
         int amount = (metrics.getAmount() != null) ? metrics.getAmount() : 0;
 
-        // Điểm chính (Lưu ý: Nhân (amount / duration) với 100.0 để tách bạch phần nguyên với phần thập phân của ngày)
-        double baseScore = (fitnessLevel * 1_000_000_000.0)
-                + (durationLevel * 10_000_000.0)
-                + (amountLevel * 100_000.0)
-                + (((double) amount / duration) * 100.0);
+        // 1. ĐIỂM CHÍNH: ÉP TUYỆT ĐỐI VỀ SỐ NGUYÊN (Long)
+        // Tỷ lệ amount/duration sinh ra số thập phân vô hạn. Ta nhân với 10,000 và LÀM TRÒN (Math.round)
+        // để cắt đứt đuôi thập phân, biến nó thành số nguyên hoàn toàn.
+        // Giảm các hệ số xuống một chút để tổng độ dài nhỏ hơn 10 chữ số (cực kỳ an toàn cho double).
+        long baseScore = (fitnessLevel * 10_000_000L)
+                + (durationLevel * 1_000_000L)
+                + (amountLevel * 100_000L)
+                + Math.round(((double) amount / duration) * 10_000);
 
-        // Điểm phụ (Tie-breaker): Ai đạt được mức này TRƯỚC (ngày nhỏ hơn) sẽ có điểm cao hơn
+        // 2. ĐIỂM PHỤ (Tie-breaker): CHỈ NẰM Ở PHẦN THẬP PHÂN
         double dateBonus = 0.0;
         if (metrics.getAssessmentDate() != null) {
-            // 100_000 ngày ~ năm 2243 (Dư sức cho hệ thống chạy)
-            // Chia 1_000_000.0 để số này luôn < 1, chỉ nằm ở phần thập phân
-            dateBonus = (100_000.0 - metrics.getAssessmentDate().toEpochDay()) / 1_000_000.0;
+            // Năm 2026 có toEpochDay() ~ 20,583.
+            // Lấy 100_000 - 20_583 = 79,417.
+            // Chia cho 100_000.0 (chỉ cần 5 số 0) là đủ để tạo ra: 0.79417
+            // Số này luôn < 1 và KHÔNG BAO GIỜ bị hòa lẫn vào baseScore.
+            dateBonus = (100_000.0 - metrics.getAssessmentDate().toEpochDay()) / 100_000.0;
         }
 
+        // Kết quả cuối cùng ghép lại cực kỳ sắc nét. Ví dụ: 22033333.79417
+        // Máy tính sẽ so sánh chính xác 100% không bao giờ sai lệch do làm tròn số.
         return baseScore + dateBonus;
     }
 
@@ -413,8 +420,20 @@ public class LeaderboardService {
                 if (!requiresDbSync.contains(key)) {
                     double incomingScore = getScore(metrics);
                     WebhookPayload<FitnessRecordDTO.Metrics> existing = bestInserts.get(key);
+
                     if (existing == null || incomingScore > getScore(existing.getData())) {
-                        bestInserts.put(key, payload);
+                        // --- THÊM LOGIC CHECK ĐIỂM CŨ TRONG REDIS ---
+                        String redisKey = String.format("leaderboard:fitness:%d:Q%d:%s",
+                                payload.getYear(), payload.getQuarter(), payload.getSkillLevel());
+
+                        Double currentRedisScore = stringRedisTemplate.opsForZSet().score(redisKey, payload.getStudentCode());
+
+                        // CHỈ ĐƯA VÀO BATCH NẾU ĐIỂM MỚI > ĐIỂM CŨ TRONG REDIS (hoặc chưa từng có điểm)
+                        if (currentRedisScore == null || incomingScore > currentRedisScore) {
+                            bestInserts.put(key, payload);
+                        } else {
+                            log.info("Bỏ qua học viên {} vì điểm mới {} <= điểm cũ {}", payload.getStudentCode(), incomingScore, currentRedisScore);
+                        }
                     }
                 }
             }
@@ -477,23 +496,38 @@ public class LeaderboardService {
                     String redisDataKey = String.format("leaderboard_data:fitness:%d:Q%d:%s",
                             payload.getYear(), payload.getQuarter(), payload.getSkillLevel());
 
+                    // Serialize Key và Value cho ZSET (dùng mặc định StringSerializer là chuẩn nhất cho Key)
                     byte[] rawKey = redisTemplate.getStringSerializer().serialize(redisKey);
                     byte[] rawValue = redisTemplate.getStringSerializer().serialize(studentCode);
                     connection.zSetCommands().zAdd(rawKey, score, rawValue);
 
                     try {
-                        byte[] rawHashKey = redisTemplate.getStringSerializer().serialize(redisDataKey);
-                        byte[] rawField = redisTemplate.getStringSerializer().serialize(studentCode);
-
-                        // ✅ GIẢI PHÁP CHO LỖI CAPTURE:
-                        // Ép kiểu Serializer về kiểu Object để chấp nhận mọi đầu vào,
-                        // đảm bảo gọi đúng Serializer của Spring để có @class
+                        // --- ÉP KIỂU RÕ RÀNG ĐỂ TRÁNH LỖI "CAPTURE OF ?" ---
                         @SuppressWarnings("unchecked")
-                        RedisSerializer<Object> valueSerializer = (RedisSerializer<Object>) redisTemplate.getValueSerializer();
+                        RedisSerializer<String> keySerializer = (RedisSerializer<String>) redisTemplate.getKeySerializer();
 
-                        byte[] rawData = valueSerializer.serialize(metricsData);
+                        @SuppressWarnings("unchecked")
+                        RedisSerializer<String> hashKeySerializer = (RedisSerializer<String>) redisTemplate.getHashKeySerializer();
 
+                        @SuppressWarnings("unchecked")
+                        RedisSerializer<Object> hashValueSerializer = (RedisSerializer<Object>) redisTemplate.getHashValueSerializer();
+
+                        // 1. Serialize Hash Key (Tên của giỏ Hash)
+                        byte[] rawHashKey = (keySerializer != null) ?
+                                keySerializer.serialize(redisDataKey) :
+                                redisTemplate.getStringSerializer().serialize(redisDataKey);
+
+                        // 2. Serialize Hash Field (Mã học viên)
+                        byte[] rawField = (hashKeySerializer != null) ?
+                                hashKeySerializer.serialize(studentCode) :
+                                redisTemplate.getStringSerializer().serialize(studentCode);
+
+                        // 3. Serialize Hash Value (Object Metrics)
+                        byte[] rawData = hashValueSerializer.serialize(metricsData);
+
+                        // Lưu vào Hash
                         connection.hashCommands().hSet(rawHashKey, rawField, rawData);
+
                     } catch (Exception e) {
                         log.error("❌ Không thể nạp dữ liệu Redis cho học viên {}: {}", studentCode, e.getMessage());
                     }

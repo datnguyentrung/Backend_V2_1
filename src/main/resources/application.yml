@@ -118,6 +118,9 @@ jwt:
   access-token-validity-in-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_IN_SECONDS}
   refresh-token-validity-in-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_IN_SECONDS}
 
+firebase:
+  config-base64: ${FIREBASE_CONFIG_BASE64:}
+
 password:
   time_password_change_days: ${TIME_PASSWORD_CHANGE_DAYS}
 

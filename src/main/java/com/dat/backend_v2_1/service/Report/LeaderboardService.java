@@ -309,34 +309,29 @@ public class LeaderboardService {
     }
 
     private double getScore(FitnessRecordDTO.Metrics metrics) {
-        int fitnessLevel = Optional.ofNullable(metrics.getFitnessLevel()).orElse(0);
+        // 1. SỬA LỖI: Rút gọn và đẩy fitnessLevel ra ngoài scope.
+        // Dùng Boolean.FALSE.equals() để chống NullPointerException hoàn toàn.
+        int fitnessLevel = Boolean.FALSE.equals(metrics.getIsQualified())
+                ? 0
+                : Optional.ofNullable(metrics.getFitnessLevel()).orElse(0);
+
         int durationLevel = Optional.ofNullable(metrics.getDurationLevel()).orElse(0);
         int amountLevel = Optional.ofNullable(metrics.getAmountLevel()).orElse(0);
 
         int duration = (metrics.getDuration() != null && metrics.getDuration() > 0) ? metrics.getDuration() : 1;
         int amount = (metrics.getAmount() != null) ? metrics.getAmount() : 0;
 
-        // 1. ĐIỂM CHÍNH: ÉP TUYỆT ĐỐI VỀ SỐ NGUYÊN (Long)
-        // Tỷ lệ amount/duration sinh ra số thập phân vô hạn. Ta nhân với 10,000 và LÀM TRÒN (Math.round)
-        // để cắt đứt đuôi thập phân, biến nó thành số nguyên hoàn toàn.
-        // Giảm các hệ số xuống một chút để tổng độ dài nhỏ hơn 10 chữ số (cực kỳ an toàn cho double).
+        // Các thuật toán tính toán của bạn giữ nguyên vì logic phân tách nguyên/thập phân đã rất chuẩn
         long baseScore = (fitnessLevel * 10_000_000L)
                 + (durationLevel * 1_000_000L)
                 + (amountLevel * 100_000L)
                 + Math.round(((double) amount / duration) * 10_000);
 
-        // 2. ĐIỂM PHỤ (Tie-breaker): CHỈ NẰM Ở PHẦN THẬP PHÂN
         double dateBonus = 0.0;
         if (metrics.getAssessmentDate() != null) {
-            // Năm 2026 có toEpochDay() ~ 20,583.
-            // Lấy 100_000 - 20_583 = 79,417.
-            // Chia cho 100_000.0 (chỉ cần 5 số 0) là đủ để tạo ra: 0.79417
-            // Số này luôn < 1 và KHÔNG BAO GIỜ bị hòa lẫn vào baseScore.
             dateBonus = (100_000.0 - metrics.getAssessmentDate().toEpochDay()) / 100_000.0;
         }
 
-        // Kết quả cuối cùng ghép lại cực kỳ sắc nét. Ví dụ: 22033333.79417
-        // Máy tính sẽ so sánh chính xác 100% không bao giờ sai lệch do làm tròn số.
         return baseScore + dateBonus;
     }
 

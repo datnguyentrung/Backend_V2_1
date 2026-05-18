@@ -11,6 +11,7 @@ import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import com.dat.backend_v2_1.mapper.Core.CoachMapper;
 import com.dat.backend_v2_1.mapper.Core.StudentMapper;
 import com.dat.backend_v2_1.mapper.Security.UserMapper;
+import com.dat.backend_v2_1.service.Core.CoachService;
 import com.dat.backend_v2_1.service.Core.StudentService;
 import com.dat.backend_v2_1.service.Operation.CoachAssignmentService;
 import com.dat.backend_v2_1.service.Security.UserService;
@@ -31,6 +32,7 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService usersService;
+    private final CoachService coachService;
     private final UserMapper userMapper;
     private final CoachMapper coachMapper;
     private final StudentMapper studentMapper;
@@ -53,48 +55,44 @@ public class UserController {
     @GetMapping("/me")
     public ResponseEntity<List<UserRes>> getCurrentUser(Authentication authentication) throws IdInvalidException {
         String idUser = authentication.getName();
-
-        // Lấy user từ database
-        User user = usersService.getUserById(idUser);
-
-        // Map User sang UserRes dựa trên type thực tế (Coach có staffCode, Student có studentCode)
+        UUID userUuid = UUID.fromString(idUser);
         List<UserRes> userResList = new ArrayList<>();
+
         if (securityRule.isCoach(authentication)) {
-            UserRes userRes = coachMapper.toUserRes((Coach) user);
+            // CÁCH FIX: Query trực tiếp từ CoachService thay vì UserService
+            Coach coach = coachService.getCoachById(userUuid);
+            UserRes userRes = coachMapper.toUserRes(coach);
 
-            // Xử lý phân quyền: Set assignedClasses cho COACH
-            if (securityRule.isCoach(authentication) && !securityRule.isManagerSenior(authentication)) {
-                // Chỉ là COACH (không phải MANAGER hay HEAD_COACH)
+            if (!securityRule.isManagerSenior(authentication)) {
                 List<CoachAssignmentResDTO.Response> coachAssignments =
-                        coachAssignmentService.findDetailedCoachAssignmentsByUserId(UUID.fromString(idUser), CoachAssignmentStatus.ACTIVE);
-
+                        coachAssignmentService.findDetailedCoachAssignmentsByUserId(userUuid, CoachAssignmentStatus.ACTIVE);
                 if (userRes.getUserInfo() != null) {
                     userRes.getUserInfo().setAssignedClasses(coachAssignments);
                 }
             }
             userResList.add(userRes);
-        } else if (securityRule.isStudent(authentication)) {
-            userResList.add(studentMapper.toUserRes((Student) user));
-        } else if (securityRule.isParent(authentication)) {
-            List<Student> children = studentService.getStudentByParentId(UUID.fromString(idUser));
 
-            // Map danh sách Student thành danh sách UserRes
+        } else if (securityRule.isStudent(authentication)) {
+            // Tương tự, lấy Student trực tiếp
+            Student student = studentService.getStudentById(userUuid);
+            userResList.add(studentMapper.toUserRes(student));
+
+        } else if (securityRule.isParent(authentication)) {
+            // (Logic lấy danh sách con của bạn giữ nguyên, vì nó đang gọi đúng qua studentService)
+            User parentUser = usersService.getUserById(idUser); // Lấy user cha để lấy SĐT
+            List<Student> children = studentService.getStudentByParentId(userUuid);
+
             List<UserRes> mappedChildren = children.stream()
                     .map(child -> {
-                        // Bước 3.1: Map thông tin của Child sang UserRes như bình thường
                         UserRes childRes = studentMapper.toUserRes(child);
-
-                        // Bước 3.2: GÁN THÔNG TIN PARENT VÀO CHILD
-                        // Ví dụ: Gán số điện thoại của Parent làm phoneNumber của con trong UserInfo
                         if (childRes.getUserInfo() != null) {
-                            childRes.getUserProfile().setPhone(user.getPhoneNumber());
+                            childRes.getUserProfile().setPhone(parentUser.getPhoneNumber());
                         }
-
                         return childRes;
                     })
                     .toList();
 
-            userResList.addAll(mappedChildren); // Chú ý: Dùng addAll thay vì add
+            userResList.addAll(mappedChildren);
         }
 
         return ResponseEntity.ok(userResList);

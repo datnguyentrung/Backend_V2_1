@@ -136,4 +136,19 @@ public class AuthTokenService {
                 .filter(fcmToken -> fcmToken != null && !fcmToken.isEmpty())
                 .collect(Collectors.toList());
     }
+
+    public void deleteFcmTokenOnly(String fcmToken) {
+        if (fcmToken == null || fcmToken.isEmpty()) {
+            return;
+        }
+
+        // 1. Tìm bản ghi dựa trên chuỗi FCM Token mà FE gửi sang
+        authTokenRepository.findByFcmToken(fcmToken).ifPresent(authToken -> {
+            // 2. Set trường fcmToken về null để bẻ gãy liên kết thông báo với thiết bị này
+            authToken.setFcmToken(null);
+
+            // 3. Lưu lại cập nhật vào Database
+            authTokenRepository.save(authToken);
+        });
+    }
 }

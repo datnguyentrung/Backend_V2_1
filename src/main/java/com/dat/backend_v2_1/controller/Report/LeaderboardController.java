@@ -1,6 +1,7 @@
 package com.dat.backend_v2_1.controller.Report;
 
 import com.dat.backend_v2_1.dto.Report.LeaderboardDTO;
+import com.dat.backend_v2_1.dto.Report.YearlySummaryDTO;
 import com.dat.backend_v2_1.dto.Skill.FitnessRecordDTO;
 import com.dat.backend_v2_1.dto.WebhookPayload;
 import com.dat.backend_v2_1.enums.Skill.SkillLevel;
@@ -37,12 +38,15 @@ public class LeaderboardController {
      * VD: GET /api/v1/leaderboards/quarter?year=2026&quarter=2&limit=50
      */
     @GetMapping("/quarter")
-    public ResponseEntity<LeaderboardDTO.Response<Object>> getQuarterLeaderboard(
+    public ResponseEntity<LeaderboardDTO.Response<YearlySummaryDTO.QuarterSummary>> getQuarterLeaderboard(
             @RequestParam int year,
             @RequestParam int quarter,
-            @PageableDefault(size = 50) Pageable pageable // Tự động parse ?page=0&size=50
+            @PageableDefault(size = 50) Pageable pageable
     ) {
-        LeaderboardDTO.Response<Object> response = leaderboardService.getQuarterLeaderboard(year, quarter, null, pageable);
+        // Ép kiểu chuẩn xác cho Response
+        LeaderboardDTO.Response<YearlySummaryDTO.QuarterSummary> response =
+                leaderboardService.getQuarterLeaderboard(year, quarter, null, pageable);
+
         return ResponseEntity.ok(response);
     }
 

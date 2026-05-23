@@ -30,7 +30,8 @@ public interface LeaderboardMapper {
         // Lôi toàn bộ field trong RankItemForRedis ra ngoài class cha
     LeaderboardDTO.RankItem<YearlySummaryDTO.QuarterSummary> toRankItem(LeaderboardDTO.RankItemForRedis rankItemForRedis);
 
-    List<LeaderboardDTO.RankItem<Object>> toRankItemList(List<LeaderboardDTO.RankItemForRedis> rankItemForRedisList);
+    
+    List<LeaderboardDTO.RankItem<YearlySummaryDTO.QuarterSummary>> toRankItemList(List<LeaderboardDTO.RankItemForRedis> rankItemForRedisList);
 
     @Mapping(target = "rank", source = "rank")
     @Mapping(target = "studentCode", source = "student.studentCode")

@@ -53,7 +53,7 @@ public class LeaderboardService {
      * Lấy Bảng xếp hạng từ Redis
      * Kết hợp: ZSET (Thứ tự) + HASH (Dữ liệu chi tiết phẳng) + DB (Thông tin cá nhân rút gọn)
      */
-    public LeaderboardDTO.Response<Object> getQuarterLeaderboard(int year, int quarter, List<String> scheduleIds, Pageable pageable) {
+    public LeaderboardDTO.Response<YearlySummaryDTO.QuarterSummary> getQuarterLeaderboard(int year, int quarter, List<String> scheduleIds, Pageable pageable) {
         String redisKey = String.format("leaderboard:%d:Q%d", year, quarter);
         String redisDataKey = String.format("leaderboard_data:%d:Q%d", year, quarter);
 
@@ -72,23 +72,25 @@ public class LeaderboardService {
             }
         }
 
+        // ĐÃ SỬA: Chỉ định Generic Type cho Builder và dùng Collections.emptyList() đúng cú pháp
         if (studentCodes == null || studentCodes.isEmpty()) {
-            return LeaderboardDTO.Response.builder()
-                    .year(year).quarter(quarter).totalStudents(0).rankings(Collections.emptyList())
+            return LeaderboardDTO.Response.<YearlySummaryDTO.QuarterSummary>builder()
+                    .year(year)
+                    .quarter(quarter)
+                    .totalStudents(0)
+                    .rankings(Collections.emptyList())
                     .build();
         }
 
         List<String> codesList = new ArrayList<>(studentCodes);
 
         // 3. TỐI ƯU TRUY VẤN:
-        // - Lấy Tên, Đai từ DB bằng DTO Projection (Chỉ lấy cột cần thiết)
-        // - Lấy Stats chi tiết (JSON phẳng) từ Redis Hash bằng MultiGet (Chỉ 1 request)
         Map<String, StudentResDTO.StudentRankInfo> studentMap = studentRepository.findRankInfoByStudentCodeIn(codesList)
                 .stream().collect(Collectors.toMap(StudentResDTO.StudentRankInfo::getStudentCode, Function.identity()));
 
         List<Object> rawSummaries = redisTemplate.opsForHash().multiGet(redisDataKey, new ArrayList<>(codesList));
 
-        // 4. MAP dồn dữ liệu vào RankItemForRedis (Sử dụng MapStruct để trải phẳng)
+        // 4. MAP dồn dữ liệu vào RankItemForRedis
         List<LeaderboardDTO.RankItemForRedis> rankings = new ArrayList<>();
         int currentRank = (int) start + 1;
 
@@ -104,7 +106,8 @@ public class LeaderboardService {
 
         Long totalStudents = stringRedisTemplate.opsForZSet().zCard(redisKey);
 
-        return LeaderboardDTO.Response.builder()
+        // ĐÃ SỬA: Chỉ định Generic Type cho Builder ở kết quả trả về
+        return LeaderboardDTO.Response.<YearlySummaryDTO.QuarterSummary>builder()
                 .year(year)
                 .quarter(quarter)
                 .totalStudents(totalStudents != null ? totalStudents.intValue() : 0)
@@ -229,7 +232,6 @@ public class LeaderboardService {
         return LeaderboardDTO.Response.<FitnessRecordDTO.Metrics>builder()
                 .year(year).quarter(quarter)
                 .totalStudents(stringRedisTemplate.opsForZSet().zCard(redisKey).intValue())
-                // TRUYỀN THẲNG RANKINGS VÀO ĐÂY, BỎ QUA toRankItemList()
                 .rankings(rankings)
                 .build();
     }

@@ -117,7 +117,10 @@ public class SecurityConfiguration {
                                 .requestMatchers(
                                         HttpMethod.GET,
                                         "/api/v1/fitness",
-                                        "/api/v1/leaderboards/**"
+                                        "/api/v1/leaderboards/**",
+                                        "/api/v1/students/**",
+                                        "/api/v1/student-attendances",
+                                        "/api/v1/student-enrollments"
                                 ).permitAll()
                                 // 👇 Chỉ GET là public
                                 .anyRequest().authenticated()

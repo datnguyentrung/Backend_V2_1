@@ -121,7 +121,7 @@ public class StudentEnrollmentController {
      * 404 Not Found - Không tìm thấy học viên
      */
     @GetMapping("/student/{studentCode}")
-    @PreAuthorize("@securityRule.isCoach(authentication)")
+//    @PreAuthorize("@securityRule.isCoach(authentication)")
     public ResponseEntity<List<StudentEnrollmentResDTO.SimpleResponse>> getStudentEnrollments(
             @PathVariable String studentCode) {
         log.info("Request get enrollments for student: {}", studentCode);
@@ -147,7 +147,7 @@ public class StudentEnrollmentController {
      * 404 Not Found - Không tìm thấy học viên
      */
     @GetMapping("/student/{studentCode}/detailed")
-    @PreAuthorize("@securityRule.isCoach(authentication)")
+//    @PreAuthorize("@securityRule.isCoach(authentication)")
     public ResponseEntity<List<StudentEnrollmentResDTO.Response>> getDetailedStudentEnrollments(
             @PathVariable String studentCode) {
         log.info("Request get detailed enrollments for student: {}", studentCode);
@@ -172,7 +172,7 @@ public class StudentEnrollmentController {
      * 404 Not Found - Không tìm thấy lớp học
      */
     @GetMapping("/class-schedule/{classScheduleId}")
-    @PreAuthorize("@securityRule.isCoach(authentication)")
+//    @PreAuthorize("@securityRule.isCoach(authentication)")
     public ResponseEntity<StudentEnrollmentResDTO.EnrollmentsByScheduleResponse> getStudentEnrollmentsByClassScheduleId(
             @PathVariable String classScheduleId) {
 

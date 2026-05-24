@@ -18,7 +18,8 @@ public class CorsConfig {
         configuration.setAllowedOrigins(
                 Arrays.asList(
                         "http://localhost:3000", "http://localhost:4173",
-                        "http://localhost:5173", "https://tkdvanquan.vercel.app",
+                        "http://localhost:5173", "http://localhost:5174",
+                        "https://tkdvanquan.vercel.app",
                         "http://localhost:8000", "https://taekwondovanquan.vercel.app", // Đã xóa dấu / ở cuối
                         "https://datnguyentrung-ai-receptionist-be.hf.space",
                         "https://6bb8-2a09-bac5-398a-16dc-00-247-10a.ngrok-free.app"

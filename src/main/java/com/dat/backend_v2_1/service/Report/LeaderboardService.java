@@ -28,6 +28,7 @@ import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -330,8 +331,12 @@ public class LeaderboardService {
                 + Math.round(((double) amount / duration) * 10_000);
 
         double dateBonus = 0.0;
-        if (metrics.getAssessmentDate() != null) {
-            dateBonus = (100_000.0 - metrics.getAssessmentDate().toEpochDay()) / 100_000.0;
+        if (metrics.getCreatedAt() != null) {
+            // Chuyển đổi LocalDateTime sang số giây. Dùng UTC hoặc ZoneOffset/ZoneId tuỳ thuộc vào múi giờ bạn đang lưu.
+            long epochSeconds = metrics.getCreatedAt().toEpochSecond(ZoneOffset.UTC);
+
+            // Dùng 10 tỷ để đảm bảo giá trị luôn < 1.0 và bao quát được thời gian trong tương lai xa
+            dateBonus = (10_000_000_000.0 - epochSeconds) / 10_000_000_000.0;
         }
 
         return baseScore + dateBonus;

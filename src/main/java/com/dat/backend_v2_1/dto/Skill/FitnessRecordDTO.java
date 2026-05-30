@@ -10,6 +10,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
@@ -43,6 +44,8 @@ public class FitnessRecordDTO {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     @JsonIgnoreProperties(ignoreUnknown = true) // <--- THÊM DÒNG NÀY
     public static class Metrics {
+        @NotNull(message = "Ngày tạo không được để trống")
+        LocalDateTime createdAt;
 
         @NotNull(message = "Ngày đánh giá không được để trống")
         LocalDate assessmentDate;

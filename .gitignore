@@ -38,5 +38,6 @@ build/
 
 .agents/**
 .claude/**
+skills-lock.json
 
 src/main/resources/serviceAccountKey.json

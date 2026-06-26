@@ -7,10 +7,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -21,6 +24,15 @@ import java.util.UUID;
 public interface StudentRepository extends JpaRepository<Student, UUID>,
         JpaSpecificationExecutor<Student>,
         StudentRepositoryCustom {
+
+    /**
+     * Override default findAll(Specification, Pageable) to add EntityGraph.
+     * This eliminates N+1 queries for branch, role, and parent when listing students.
+     * These are all @ManyToOne (single-valued), so pagination stays at SQL level (no in-memory pagination).
+     */
+    @Override
+    @EntityGraph(attributePaths = {"branch", "role", "parent"})
+    Page<Student> findAll(@Nullable Specification<Student> spec, Pageable pageable);
 
     boolean existsByPhoneNumber(@NotBlank(message = "Số điện thoại không được để trống") @Pattern(regexp = "^(0|\\+84)(\\s|\\.)?((3[2-9])|(5[689])|(7[06-9])|(8[1-689])|(9[0-46-9]))(\\d)(\\s|\\.)?(\\d{3})(\\s|\\.)?(\\d{3})$",
             message = "Số điện thoại không đúng định dạng Việt Nam") String phoneNumber);

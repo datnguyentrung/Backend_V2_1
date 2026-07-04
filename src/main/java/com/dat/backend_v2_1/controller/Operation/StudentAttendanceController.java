@@ -45,7 +45,8 @@ public class StudentAttendanceController {
     /*
      * API Cập nhật điểm danh hàng loạt cho nhiều học viên trong cùng 1 buổi học.
      * Logic:
-     * - Nhận vào List<StudentAttendanceDTO.SimpleResponse> chứa attendanceId và các trường cần cập nhật (status, note, evaluationStatus).
+     * - Nhận vào List<StudentAttendanceDTO.SimpleResponse> chứa attendanceId và các trường cần cập nhật (status,
+     * note, evaluationStatus).
      * - Duyệt qua từng item, kiểm tra quyền hạn (chỉ Coach phụ trách lớp đó mới được cập nhật).
      * - Cập nhật từng bản ghi tương ứng trong database.
      * - Trả về List<StudentAttendanceDTO.Response> mới nhất sau khi cập nhật để Frontend đồng bộ UI ngay lập tức.
@@ -63,7 +64,8 @@ public class StudentAttendanceController {
         String coachId = jwt.getSubject();
 
         // Gọi thẳng vào Service, truyền ID
-        List<StudentAttendanceDTO.Response> updatedData = studentAttendanceService.updateStudentAttendance(request, coachId);
+        List<StudentAttendanceDTO.Response> updatedData = studentAttendanceService.updateStudentAttendance(request,
+                coachId);
 
         // Trả về 200 OK kèm dữ liệu mới nhất để Frontend đồng bộ UI
         return ResponseEntity.ok(updatedData);
@@ -129,14 +131,15 @@ public class StudentAttendanceController {
      *
      * @return 201 CREATED + Response DTO chứa thông tin bản ghi vừa tạo
      */
-//    @PreAuthorize("@securityRule.isCoach(authentication)")
+    @PreAuthorize("@securityRule.isCoach(authentication) or @securityRule.isSystem(authentication)")
     @PostMapping("/check-in")
     public ResponseEntity<?> createAttendanceRecordByStudent(
             // Đổi thành <?> để có thể trả về cả DTO hoặc Message lỗi
-            @Valid @RequestBody StudentAttendanceDTO.CreateRequest request
+            @Valid @RequestBody StudentAttendanceDTO.CreateRequest request,
+            Authentication authentication
     ) {
-        log.info("Creating attendance record for student {}", request.getStudentId());
-
+        log.info("Creating attendance record for student {}", request.getStudentCode());
+        
         try {
             StudentAttendanceDTO.Response response = studentAttendanceService.createAttendanceRecord(request);
 
@@ -196,7 +199,8 @@ public class StudentAttendanceController {
      * @param sortDir            Hướng sắp xếp ("asc" hoặc "desc")
      * @return 200 OK + Danh sách bản ghi điểm danh
      */
-//    @PreAuthorize("@securityRule.isCoach(authentication) || @securityRule.isParent(authentication) || @securityRule.isStudent(authentication)")
+//    @PreAuthorize("@securityRule.isCoach(authentication) || @securityRule.isParent(authentication) || @securityRule
+//    .isStudent(authentication)")
     @GetMapping
     public ResponseEntity<StudentAttendanceDTO.AttendanceListResponse> filterAttendanceRecords(
             Authentication authentication,

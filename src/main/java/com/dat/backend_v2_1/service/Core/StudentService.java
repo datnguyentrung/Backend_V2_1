@@ -8,6 +8,7 @@ import com.dat.backend_v2_1.dto.Core.StudentReqDTO;
 import com.dat.backend_v2_1.dto.Core.StudentResDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.dto.PageResponse;
+import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
 import com.dat.backend_v2_1.mapper.Core.StudentMapper;
@@ -209,7 +210,8 @@ public class StudentService {
         newStudent.setBirthDate(createDTO.getBirthDate());
         newStudent.setNationalCode(createDTO.getNationalCode());
         newStudent.setStartDate(createDTO.getStartDate() != null ? createDTO.getStartDate() : LocalDate.now());
-        newStudent.setStudentStatus(createDTO.getStudentStatus() != null ? createDTO.getStudentStatus() : StudentStatus.ACTIVE);
+        newStudent.setStudentStatus(createDTO.getStudentStatus() != null ? createDTO.getStudentStatus() :
+                StudentStatus.ACTIVE);
         newStudent.setBelt(createDTO.getBelt());
         newStudent.setBranch(branch);
 
@@ -236,7 +238,8 @@ public class StudentService {
             createDTO.getEnrollmentRequest().setStudentId(String.valueOf(newStudent.getUserId()));
 
             // Gọi Service enrollment
-            List<StudentEnrollment> studentEnrollments = studentEnrollmentService.createStudentEnrollment(createDTO.getEnrollmentRequest());
+            List<StudentEnrollment> studentEnrollments =
+                    studentEnrollmentService.createStudentEnrollment(createDTO.getEnrollmentRequest());
 
             // Map sang DTO
             enrollmentResponses = studentEnrollments.stream()
@@ -307,23 +310,28 @@ public class StudentService {
      * - Trả về số lượng học viên theo từng trạng thái (ACTIVE, RESERVED, DROPPED)
      * - Trả về danh sách học viên dưới dạng Page để hỗ trợ phân trang ở frontend
      * - Mỗi học viên trong danh sách sẽ kèm theo thông tin các lớp học đang tham gia (classSchedules)
-     * Lưu ý: Việc lấy thông tin lớp học sẽ được tối ưu bằng cách dùng 1 query duy nhất để lấy tất cả enrollment của các học viên trong page, sau đó map vào từng học viên
+     * Lưu ý: Việc lấy thông tin lớp học sẽ được tối ưu bằng cách dùng 1 query duy nhất để lấy tất cả enrollment của
+     * các học viên trong page, sau đó map vào từng học viên
      *
      * @param search   Từ khóa tìm kiếm (theo tên), có thể null hoặc rỗng để không filter theo tên
-     * @param status   Trạng thái học viên để filter (ACTIVE, RESERVED, DROPPED), có thể null để không filter theo trạng thái
+     * @param status   Trạng thái học viên để filter (ACTIVE, RESERVED, DROPPED), có thể null để không filter theo
+     *                 trạng thái
      * @param pageable Thông tin phân trang (page number, page size, sort)
      * @return StudentListResponse chứa danh sách học viên và số liệu thống kê
      */
-    public StudentResDTO.StudentListResponse getStudentsWithStats(String search, StudentStatus status, Pageable pageable, List<String> scheduleIds) {
+    public StudentResDTO.StudentListResponse getStudentsWithStats(String search, StudentStatus status,
+                                                                  Pageable pageable, List<String> scheduleIds,
+                                                                  List<Belt> belts) {
         // 1. Build Specification
-        Specification<Student> spec = StudentSpecification.filterBy(search, status, scheduleIds);
+        Specification<Student> spec = StudentSpecification.filterBy(search, status, scheduleIds, belts);
 
         // 2. Lấy danh sách học viên (Page) với Specification
         Page<Student> studentsPage = studentRepository.findAll(spec, pageable);
 
         // 3. Lấy số lượng thống kê THEO FILTER (Specification không có status)
         Specification<Student> countSpec = StudentSpecification.filterWithoutStatus(search, scheduleIds);
-        List<StudentRepositoryCustom.StudentStatusCount> filteredCounts = studentRepository.countStudentsByStatus(countSpec);
+        List<StudentRepositoryCustom.StudentStatusCount> filteredCounts =
+                studentRepository.countStudentsByStatus(countSpec);
 
         // 4. Map kết quả thống kê ra Map
         Map<StudentStatus, Long> statusCountMap = filteredCounts.stream()
@@ -351,7 +359,8 @@ public class StudentService {
         Page<StudentResDTO.StudentOverview> studentOverviews = studentsPage.map(student -> {
             StudentResDTO.StudentOverview overview = studentMapper.toStudentOverview(student);
 
-            List<StudentEnrollment> studentEnrollments = finalEnrollmentsMap.getOrDefault(student.getUserId(), Collections.emptyList());
+            List<StudentEnrollment> studentEnrollments = finalEnrollmentsMap.getOrDefault(student.getUserId(),
+                    Collections.emptyList());
 
             List<ClassScheduleResDTO.ClassScheduleSummary> scheduleResponses = studentEnrollments.stream()
                     .map(studentEnrollmentMapper::toSimpleResponse)

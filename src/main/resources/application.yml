@@ -45,8 +45,8 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate # none, validate, update, create, create-drop
-    database: postgresql
+      ddl-auto: update # none, validate, update, create, create-drop
+    database: PostgreSQL
     show-sql: true
     open-in-view: true
     repositories:
@@ -90,28 +90,31 @@ spring:
     baseline-version: 1
 
 logging:
-  level:
-    org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: ERROR
-    org.springframework.security: WARN
-    com.zaxxer.hikari: WARN
-    org.hibernate: WARN
-    org.postgresql: WARN
-    root: INFO
-    org.springframework.web: INFO
-
+  level: #    org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: ERROR
+    #    org.springframework.security: WARN
+    #    com.zaxxer.hikari: WARN
+    #    org.hibernate: WARN
+    #    org.postgresql: WARN
     #    root: INFO
-    #
-    #    # 1. T?T log SQL t?ng d�ng (Th? ph?m g�y hi?u l?m)
-    #    org.hibernate.SQL: OFF
-    #    org.hibernate.type.descriptor.sql.BasicBinder: OFF
-    #
-    #    # 2. C? g?ng b?t th?ng k� (N?u Hibernate 7 h? tr? class n�y)
-    #    org.hibernate.stat: DEBUG
-    #    org.hibernate.engine.internal.StatisticalLoggingSessionEventListener: INFO
+    #    org.springframework.web: INFO
 
-    # 3. C�c log h? th?ng kh�c
-#    org.springframework.web: INFO # Gi?m xu?ng INFO cho ?? r�c
-#    org.postgresql: WARN
+    root: INFO
+
+    # 1.
+    org.hibernate.SQL: OFF
+    org.hibernate.type.descriptor.sql.BasicBinder: OFF
+
+    # 2.
+    org.hibernate.stat: ERROR
+    org.hibernate.engine.internal.StatisticalLoggingSessionEventListener: INFO
+    org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: ERROR
+
+    # 3.
+    org.springframework.web: DEBUG # Log các yêu cầu HTTP và phản hồi
+    org.springframework.web.filter.CommonsRequestLoggingFilter: DEBUG
+    org.springframework.security: WARN # Log các sự kiện liên quan đến bảo mật
+    com.zaxxer.hikari: WARN # Log các sự kiện liên quan đến HikariCP
+    org.postgresql: WARN
 
 jwt:
   base64-secret: ${JWT_BASE64_SECRET}
@@ -134,6 +137,9 @@ bytescale:
   account-id: ${BYTESCALE_ACCOUNT_ID}
   api-key: ${BYTESCALE_API_KEY}
 
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4173,http://localhost:5173,http://localhost:5174,http://localhost:8000,https://tkdvanquan.vercel.app,https://taekwondovanquan.vercel.app,https://datnguyentrung-ai-receptionist-be.hf.space,https://dk8nhdz4-5173.asse.devtunnels.ms/}
+
 server:
   port: ${PORT:8080}
   address: 0.0.0.0
@@ -147,3 +153,7 @@ management:
   endpoint:
     health:
       show-details: when-authorized
+
+facebook:
+  app-id: ${FACEBOOK_APP_ID}
+  app-secret: ${FACEBOOK_APP_SECRET}

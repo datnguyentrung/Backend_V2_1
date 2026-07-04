@@ -206,6 +206,6 @@ public class StudentAttendanceDTO {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class CreateRequest {
-        UUID studentId;
+        String studentCode;
     }
 }

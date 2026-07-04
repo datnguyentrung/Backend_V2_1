@@ -119,6 +119,7 @@ public class StudentResDTO {
         private String fullName;
         //        private String email;
         private String code; // Mã sinh viên
+        private Belt belt;
     }
 }
 

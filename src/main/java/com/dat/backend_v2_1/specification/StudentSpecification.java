@@ -2,6 +2,7 @@ package com.dat.backend_v2_1.specification;
 
 import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
+import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
@@ -20,7 +21,8 @@ public class StudentSpecification {
     public static Specification<Student> filterBy(
             String search,
             StudentStatus status,
-            List<String> scheduleIds
+            List<String> scheduleIds,
+            List<Belt> belts
     ) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -53,6 +55,10 @@ public class StudentSpecification {
             // 3. Filter by scheduleIds via StudentEnrollment (subquery since Student has no enrollments collection)
             if (scheduleIds != null && !scheduleIds.isEmpty()) {
                 predicates.add(buildScheduleFilter(root, query, criteriaBuilder, scheduleIds));
+            }
+
+            if (belts != null && !belts.isEmpty()) {
+                predicates.add(criteriaBuilder.equal(root.get("belts"), belts));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
@@ -113,4 +119,6 @@ public class StudentSpecification {
 
         return criteriaBuilder.exists(subquery);
     }
+
+
 }

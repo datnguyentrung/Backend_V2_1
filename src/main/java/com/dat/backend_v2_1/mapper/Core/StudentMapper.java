@@ -79,7 +79,9 @@ public interface StudentMapper {
     }
 
     @Mapping(target = "code", source = "studentCode")
+    @Mapping(target = "belt", source = "belt")
     StudentResDTO.StudentSummary toStudentSummary(Student student);
 
-    // ĐÃ XÓA: getRoleName() và getUserCode() vì MapStruct có thể truy cập thẳng qua dấu "." (ví dụ: role.code, studentCode)
+    // ĐÃ XÓA: getRoleName() và getUserCode() vì MapStruct có thể truy cập thẳng qua dấu "." (ví dụ: role.code,
+    // studentCode)
 }

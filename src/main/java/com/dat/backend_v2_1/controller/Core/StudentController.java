@@ -3,6 +3,7 @@ package com.dat.backend_v2_1.controller.Core;
 import com.dat.backend_v2_1.dto.Core.StudentReqDTO;
 import com.dat.backend_v2_1.dto.Core.StudentResDTO;
 import com.dat.backend_v2_1.dto.Report.YearlySummaryDTO;
+import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import com.dat.backend_v2_1.service.Core.StudentService;
 import com.dat.backend_v2_1.service.Report.StudentSummaryService;
@@ -53,6 +54,7 @@ public class StudentController {
             @RequestParam(required = false) String search,
             @RequestParam(required = false) StudentStatus status,
             @RequestParam(required = false) List<String> scheduleIds, // Thêm filter theo lớp học
+            @RequestParam(required = false) List<Belt> belt,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "userId") String sortBy,
@@ -66,7 +68,7 @@ public class StudentController {
 
         // Gọi hàm Service mới
         StudentResDTO.StudentListResponse response = studentService
-                .getStudentsWithStats(search, status, pageable, scheduleIds);
+                .getStudentsWithStats(search, status, pageable, scheduleIds, belt);
 
         return ResponseEntity.ok(response);
     }

@@ -8,21 +8,36 @@ import java.util.Objects;
 
 @Component("securityRule")
 public class SecurityRule {
-    // 1. Cấp cao nhất: HEAD_COACH (Tôi thêm cả ADMIN để đề phòng hệ thống bạn có Admin tổng)
+
+    /**
+     * Quyền hệ thống: dùng cho các request chạy qua X-API-KEY
+     * Ví dụ: Python AI service, cron job, webhook, sync batch...
+     */
+    public boolean isSystem(Authentication authentication) {
+        return checkContains(authentication, "SYSTEM");
+    }
+
+    /**
+     * Cấp cao nhất: HEAD_COACH / DEVELOPER
+     */
     public boolean isHeadCoach(Authentication authentication) {
         return checkContains(authentication, "HEAD_COACH")
                 || checkContains(authentication, "DEVELOPER");
     }
 
-    // 2. Cấp trung: MANAGER
-    // Trả về true nếu user có chữ MANAGER, HOẶC user đó là HEAD_COACH
+    /**
+     * Cấp trung: MANAGER_SENIOR
+     * HEAD_COACH và DEVELOPER cũng được xem là manager senior.
+     */
     public boolean isManagerSenior(Authentication authentication) {
         return checkContains(authentication, "MANAGER_SENIOR")
                 || isHeadCoach(authentication);
     }
 
-    // 3. Cấp cơ sở: COACH
-    // Trả về true nếu user có chữ COACH, HOẶC user đó thỏa mãn điều kiện isManagerSenior
+    /**
+     * Cấp cơ sở: COACH
+     * MANAGER, MANAGER_SENIOR, HEAD_COACH, DEVELOPER đều có quyền như COACH.
+     */
     public boolean isCoach(Authentication authentication) {
         return checkContains(authentication, "COACH")
                 || checkContains(authentication, "MANAGER")
@@ -37,16 +52,25 @@ public class SecurityRule {
         return checkContains(authentication, "PARENT");
     }
 
-    // --- Hàm Helper dùng chung để tránh lặp code ---
+    /**
+     * Helper kiểm tra quyền.
+     * <p>
+     * Hỗ trợ cả dạng:
+     * - COACH
+     * - ROLE_COACH
+     * - MANAGER
+     * - ROLE_MANAGER
+     * - SYSTEM
+     * - ROLE_SYSTEM
+     */
     private boolean checkContains(Authentication authentication, String keyword) {
-        if (authentication == null) {
+        if (authentication == null || !authentication.isAuthenticated()) {
             return false;
-        } else {
-            authentication.getAuthorities();
         }
+
         return authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .filter(Objects::nonNull)
-                .anyMatch(auth -> auth.contains(keyword)); // Hoặc .equals() tùy bạn
+                .anyMatch(auth -> auth.contains(keyword));
     }
 }

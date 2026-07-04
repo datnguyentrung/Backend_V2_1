@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -34,7 +35,6 @@ public class UserStatusValidationFilter extends OncePerRequestFilter {
 
     // 🚀 ĐÃ THÊM: Danh sách các API Hệ thống (chạy tự động qua X-API-KEY, không có JWT)
     private static final List<String> SYSTEM_ENDPOINTS = List.of(
-            "/api/v1/student-attendances/check-in",
             "/api/v1/leaderboards/sync-batch"
     );
 
@@ -49,6 +49,13 @@ public class UserStatusValidationFilter extends OncePerRequestFilter {
 
         // 🚀 ĐÃ SỬA: Nếu đường dẫn nằm trong danh sách hệ thống -> BỎ QUA filter kiểm tra Status này
         return SYSTEM_ENDPOINTS.contains(path);
+    }
+
+    private boolean isSystemAuthentication(Authentication authentication) {
+        return authentication != null
+                && authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> authority != null && authority.contains("SYSTEM"));
     }
 
     @Override
@@ -74,6 +81,12 @@ public class UserStatusValidationFilter extends OncePerRequestFilter {
             return;
         }
 
+        // Request từ X-API-KEY được cấp ROLE_SYSTEM, không có user status trong JWT
+        if (isSystemAuthentication(authentication)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         // Request đã authenticated -> Kiểm tra UserStatus
         try {
             String statusString = SecurityUtil.getCurrentUserStatus()
@@ -87,7 +100,8 @@ public class UserStatusValidationFilter extends OncePerRequestFilter {
                 response.setStatus(HttpStatus.FORBIDDEN.value());
                 response.setContentType("application/json;charset=UTF-8");
                 response.getWriter().write(
-                        String.format("{\"error\":\"Forbidden\",\"message\":\"Tài khoản của bạn chưa được kích hoạt (Status: %s)\"}", status)
+                        String.format("{\"error\":\"Forbidden\",\"message\":\"Tài khoản của bạn chưa được kích hoạt " +
+                                "(Status: %s)\"}", status)
                 );
                 return; // Dừng filter chain, không cho request đi tiếp
             }
@@ -102,7 +116,8 @@ public class UserStatusValidationFilter extends OncePerRequestFilter {
             log.error("Error validating user status for path: {}", requestPath, e);
             response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
             response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"error\":\"Internal Server Error\",\"message\":\"Failed to validate user status\"}");
+            response.getWriter().write("{\"error\":\"Internal Server Error\",\"message\":\"Failed to validate user " +
+                    "status\"}");
             return;
         }
 

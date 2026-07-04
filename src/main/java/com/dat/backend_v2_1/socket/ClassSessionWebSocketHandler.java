@@ -10,6 +10,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,7 +41,7 @@ public class ClassSessionWebSocketHandler extends TextWebSocketHandler {
 
         try {
             Map<String, Object> message = Map.of(
-                    "type", actionType, // Ví dụ: "SESSIONS_ACTIVATED" hoặc "SESSION_COMPLETED"
+                    "type", actionType,
                     "data", data != null ? data : Map.of()
             );
             String messageJson = objectMapper.writeValueAsString(message);
@@ -48,11 +49,25 @@ public class ClassSessionWebSocketHandler extends TextWebSocketHandler {
 
             for (WebSocketSession session : activeSessions) {
                 if (session.isOpen()) {
-                    session.sendMessage(textMessage);
+                    // Đưa try-catch vào trong để lỗi 1 client không làm sập cả broadcast
+                    try {
+                        session.sendMessage(textMessage);
+                    } catch (IOException e) {
+                        log.warn("WS: Lỗi khi gửi tin nhắn cho session {}: {}", session.getId(), e.getMessage());
+                    }
                 }
             }
         } catch (Exception e) {
-            log.error("WS: Error broadcasting message: {}", e.getMessage());
+            log.error("WS: Lỗi parse JSON khi broadcast: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    public void handleTransportError(@NonNull WebSocketSession session, @NonNull Throwable exception) throws Exception {
+        if (exception instanceof IOException) {
+            log.warn("Client {} ngắt kết nối đột ngột (Mạng hoặc tắt trình duyệt).", session.getId());
+        } else {
+            log.error("Lỗi WebSocket transport: ", exception);
         }
     }
 }

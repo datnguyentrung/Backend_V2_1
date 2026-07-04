@@ -141,9 +141,11 @@ public class StudentAttendanceService {
         }
 
         // 6. Lưu tất cả thay đổi chỉ với 1 câu lệnh saveAll (thay vì save từng bản ghi)
-        Set<String> processedStudents = new HashSet<>(); // Dùng Set để tránh 1 học sinh bị tính lại 2 lần trong 1 request
+        Set<String> processedStudents = new HashSet<>(); // Dùng Set để tránh 1 học sinh bị tính lại 2 lần trong 1
+        // request
         for (StudentAttendance entity : existingRecords) {
-            String uniqueKey = entity.getStudentEnrollment().getStudent().getStudentCode() + "_" + entity.getSessionDate().getMonthValue();
+            String uniqueKey =
+                    entity.getStudentEnrollment().getStudent().getStudentCode() + "_" + entity.getSessionDate().getMonthValue();
             if (processedStudents.add(uniqueKey)) {
                 publishScoreRecalculateEvent(entity.getStudentEnrollment().getStudent(), entity.getSessionDate());
             }
@@ -159,7 +161,7 @@ public class StudentAttendanceService {
     @Transactional(rollbackFor = Exception.class)
     public StudentAttendanceDTO.Response createAttendanceRecord(StudentAttendanceDTO.CreateRequest request) {
         // 1. Validate Student
-        Student student = studentService.getStudentById(request.getStudentId());
+        Student student = studentService.getStudentByStudentCode(request.getStudentCode());
         if (student.getStudentStatus() != StudentStatus.ACTIVE) {
             throw new IllegalStateException("Học viên không ở trạng thái ACTIVE");
         }
@@ -170,14 +172,14 @@ public class StudentAttendanceService {
 
         // 2. Lấy danh sách đăng ký lớp
         List<StudentEnrollment> enrollments = studentEnrollmentService
-                .findStudentEnrollmentsByStudentId(request.getStudentId());
+                .findStudentEnrollmentsByStudentId(student.getUserId());
 
         if (enrollments.isEmpty()) {
             throw new NoSuchElementException("Học viên không có đăng ký lớp nào");
         }
 
         // 3. Lấy danh sách ID đã điểm danh hôm nay
-        List<UUID> attendedEnrollmentIds = getAttendancesByUserIdAndSessionDate(request.getStudentId(), today)
+        List<UUID> attendedEnrollmentIds = getAttendancesByUserIdAndSessionDate(student.getUserId(), today)
                 .stream()
                 .map(a -> a.getStudentEnrollment().getEnrollmentId())
                 .toList();
@@ -228,6 +230,8 @@ public class StudentAttendanceService {
 
                 publishScoreRecalculateEvent(enrollment.getStudent(), today);
 
+//                sendAttendanceNotification(savedAttendance);
+
                 return studentAttendanceMapper.toResponse(savedAttendance);
             }
         }
@@ -235,7 +239,8 @@ public class StudentAttendanceService {
 
         if (isAlreadyCheckedIn) {
             // Có ca học ACTIVE, nhưng đã điểm danh rồi -> Trả về null
-            // (Controller của bạn đang có sẵn logic: if (response == null) return ResponseEntity.badRequest().build(); -> Sẽ trả về chuẩn 400)
+            // (Controller của bạn đang có sẵn logic: if (response == null) return ResponseEntity.badRequest().build
+            // (); -> Sẽ trả về chuẩn 400)
             return null;
         }
 
@@ -321,7 +326,8 @@ public class StudentAttendanceService {
         String scheduleId = attendance.getStudentEnrollment().getClassSchedule().getScheduleId();
 
         // 2. Format thời gian kiểu Việt Nam (VD: 18:30 03/02/2026)
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy", Locale.forLanguageTag("vi-VN"));
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy", Locale.forLanguageTag("vi" +
+                "-VN"));
         String formattedTime = attendance.getCheckInTime() != null
                 ? attendance.getCheckInTime().atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(timeFormatter)
                 : attendance.getCreatedAt().atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(timeFormatter);
@@ -342,7 +348,8 @@ public class StudentAttendanceService {
                 break;
             case LATE:
                 title = "⚠️ Thông báo đi muộn";
-                body = String.format("Hệ thống ghi nhận HV %s đến lớp muộn.\n🏫 Cơ sở: %s\n🕒 Ca học: %s\n🕒 Check-in: %s\n🥋 GV ghi nhận: %s",
+                body = String.format("Hệ thống ghi nhận HV %s đến lớp muộn.\n🏫 Cơ sở: %s\n🕒 Ca học: %s\n🕒 " +
+                                "Check-in: %s\n🥋 GV ghi nhận: %s",
                         student.getFullName(),
                         scheduleId.charAt(1),
                         scheduleId.charAt(4),

@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -42,7 +43,7 @@ public class ClassSessionService {
     @Value("${ATTENDANCE_GRACE_PERIOD_MINUTES:30}")
     private int attendanceGracePeriodMinutes;
 
-    //@Scheduled(cron = "0 0 0 * * *")
+    @Scheduled(cron = "0 43 11 * * *")
     @Transactional(rollbackFor = Exception.class)
     public void generateClassSessions() {
         LocalDate today = LocalDate.now();
@@ -72,7 +73,7 @@ public class ClassSessionService {
         broadcastAfterCommit("SESSIONS_GENERATED", Map.of("count", newSessions.size()));
     }
 
-    //@Scheduled(cron = "0 */1 * * * *")
+    @Scheduled(cron = "0 */15 * * * *")
     @Transactional(rollbackFor = Exception.class)
     public void autoActivateClassSessionsJob() {
         LocalDateTime now = LocalDateTime.now();
@@ -186,7 +187,8 @@ public class ClassSessionService {
     }
 
     @Transactional
-    public ClassSessionDTO.SessionResponse updateClassSession(UUID sessionId, ClassSessionDTO.SessionUpdateRequest request) {
+    public ClassSessionDTO.SessionResponse updateClassSession(UUID sessionId,
+                                                              ClassSessionDTO.SessionUpdateRequest request) {
         ClassSession session = classSessionRepository.findById(sessionId)
                 .orElseThrow(() -> new NoSuchElementException("Không tìm thấy buổi học với ID: " + sessionId));
 
@@ -219,7 +221,10 @@ public class ClassSessionService {
         return classSessionMapper.toSessionResponse(session);
     }
 
-    public PageResponse<ClassSessionDTO.SessionResponse> filterClassSessions(String search, LocalDate sessionDate, Boolean isAttendanceClosed, List<String> scheduleIds, Pageable pageable) {
+    public PageResponse<ClassSessionDTO.SessionResponse> filterClassSessions(String search, LocalDate sessionDate,
+                                                                             Boolean isAttendanceClosed,
+                                                                             List<String> scheduleIds,
+                                                                             Pageable pageable) {
         // Lắp ráp các điều kiện bằng phép AND
         Specification<ClassSession> spec = Specification.where(ClassSessionSpecification.hasSearch(search))
                 .and(ClassSessionSpecification.hasDate(sessionDate))

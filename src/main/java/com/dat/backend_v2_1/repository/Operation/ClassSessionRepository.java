@@ -16,11 +16,11 @@ import java.util.UUID;
 
 @Repository
 public interface ClassSessionRepository extends JpaRepository<ClassSession, UUID>, JpaSpecificationExecutor<ClassSession> {
-    @Query("SELECT cs FROM ClassSession cs JOIN FETCH ClassSchedule sch ON cs.classSchedule.scheduleId = sch.scheduleId " +
+    @Query("SELECT cs FROM ClassSession cs " +
             "WHERE cs.isAttendanceClosed = false " +
             "AND cs.status IN ('ACTIVE', 'COMPLETED', 'TERMINATED') " +
             "AND cs.sessionDate = :thresholdDate " +
-            "AND sch.startTime <= :thresholdTime")
+            "AND cs.startTime <= :thresholdTime")
     List<ClassSession> findClassSessionToClose(
             @Param("thresholdDate") LocalDate thresholdDate,
             @Param("thresholdTime") LocalTime thresholdTime

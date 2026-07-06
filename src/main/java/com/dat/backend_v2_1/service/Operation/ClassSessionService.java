@@ -40,8 +40,35 @@ public class ClassSessionService {
     private final StudentAttendanceService studentAttendanceService;
     private final ClassSessionWebSocketHandler wsHandler;
 
+    /**
+     * Giữ lại biến cũ để tương thích config hiện tại.
+     * Dùng như thời gian chuẩn bị/mở lớp sớm trước giờ học.
+     *
+     * Ví dụ:
+     * - Lớp học 18:00
+     * - ATTENDANCE_GRACE_PERIOD_MINUTES = 30
+     * - Từ 17:30 hệ thống đã active lớp để HLV chuẩn bị điểm danh.
+     */
     @Value("${ATTENDANCE_GRACE_PERIOD_MINUTES:30}")
     private int attendanceGracePeriodMinutes;
+
+    /**
+     * Một ca dạy thực tế dao động 90 - 120 phút.
+     * Để tránh chốt sớm các ca học 120 phút, lấy 120 phút làm ngưỡng an toàn.
+     */
+    @Value("${CLASS_SESSION_MAX_DURATION_MINUTES:120}")
+    private int classSessionMaxDurationMinutes;
+
+    /**
+     * Sau khi hết ca học tối đa, cho phép HLV có thêm thời gian chỉnh/sửa điểm danh.
+     *
+     * Ví dụ:
+     * - Lớp bắt đầu 18:00
+     * - Ca tối đa 120 phút -> kết thúc khoảng 20:00
+     * - Cho grace 30 phút -> 20:30 mới auto close attendance
+     */
+    @Value("${ATTENDANCE_CLOSE_AFTER_END_MINUTES:30}")
+    private int attendanceCloseAfterEndMinutes;
 
     @Scheduled(cron = "0 03 00 * * *")
     @Transactional(rollbackFor = Exception.class)
@@ -73,55 +100,119 @@ public class ClassSessionService {
         broadcastAfterCommit("SESSIONS_GENERATED", Map.of("count", newSessions.size()));
     }
 
-    @Scheduled(cron = "0 */15 * * * *")
+    /**
+     * Active lớp trước giờ học.
+     *
+     * Chạy mỗi 5 phút, giây 00.
+     * Không nên chạy cùng giây với các job khác để tránh dồn DB/WebSocket.
+     */
+    @Scheduled(cron = "0 */5 * * * *", zone = "Asia/Ho_Chi_Minh")
     @Transactional(rollbackFor = Exception.class)
     public void autoActivateClassSessionsJob() {
         LocalDateTime now = LocalDateTime.now();
 
-        // CỘNG THÊM thời gian chuẩn bị.
-        // Ví dụ: Bây giờ là 17:30, thresholdTime sẽ là 18:00.
-        // Lệnh SQL sẽ quét và Active luôn các lớp có giờ học <= 18:00.
-        LocalTime thresholdTime = now.plusMinutes(attendanceGracePeriodMinutes).toLocalTime();
+        /**
+         * Ví dụ:
+         * now = 17:30
+         * attendanceGracePeriodMinutes = 30
+         * thresholdTime = 18:00
+         *
+         * Các lớp có giờ học <= 18:00 trong ngày hôm nay sẽ được ACTIVE.
+         */
+        LocalTime thresholdTime = now
+                .plusMinutes(attendanceGracePeriodMinutes)
+                .toLocalTime();
 
         try {
             int updatedCount = classSessionRepository.activateScheduledSessions(
-                    now.toLocalDate(), thresholdTime
+                    now.toLocalDate(),
+                    thresholdTime
             );
 
             if (updatedCount > 0) {
-                log.info("Successfully activated {} class sessions (including early prep) at {}", updatedCount, now);
+                log.info(
+                        "Successfully activated {} class sessions at {} with prep threshold {} minutes",
+                        updatedCount,
+                        now,
+                        attendanceGracePeriodMinutes
+                );
 
-                // Chỉ bắn WebSocket khi thực sự có record được update
-                broadcastAfterCommit("SESSIONS_ACTIVATED", Map.of("count", updatedCount));
+                broadcastAfterCommit(
+                        "SESSIONS_ACTIVATED",
+                        Map.of("count", updatedCount)
+                );
             }
         } catch (Exception e) {
             log.error("Failed to execute autoActivateClassSessionsJob", e);
+            throw e;
         }
     }
 
-    @Scheduled(cron = "0 */5 * * * *")
+    /**
+     * Auto complete lớp sau khi đã qua thời lượng học tối đa.
+     *
+     * Vì 1 ca dạy từ 90 - 120 phút, không dùng 90 phút để tránh chốt sớm.
+     * Ngưỡng hợp lý: startTime + 120 phút.
+     *
+     * Chạy mỗi 5 phút, giây 20.
+     */
+    @Scheduled(cron = "20 */5 * * * *", zone = "Asia/Ho_Chi_Minh")
     @Transactional(rollbackFor = Exception.class)
     public void autoCompleteClassSessionsJob() {
         LocalDateTime now = LocalDateTime.now();
 
+        /**
+         * Ví dụ:
+         * now = 20:00
+         * classSessionMaxDurationMinutes = 120
+         * thresholdDateTime = 18:00
+         *
+         * Các lớp bắt đầu <= 18:00 sẽ được COMPLETE.
+         */
+        LocalDateTime thresholdDateTime = now.minusMinutes(classSessionMaxDurationMinutes);
+        LocalDate thresholdDate = thresholdDateTime.toLocalDate();
+        LocalTime thresholdTime = thresholdDateTime.toLocalTime();
+
         try {
             int updatedCount = classSessionRepository.completeScheduledSessions(
-                    now.toLocalDate(), now.toLocalTime()
+                    thresholdDate,
+                    thresholdTime
             );
 
             if (updatedCount > 0) {
-                log.info("Successfully completed {} class sessions at {}", updatedCount, now);
+                log.info(
+                        "Successfully completed {} class sessions at {} with max duration {} minutes",
+                        updatedCount,
+                        now,
+                        classSessionMaxDurationMinutes
+                );
 
-                // 3. GỌI WEBSOCKET Ở ĐÂY
-                // Truyền luôn ID của buổi học vừa chốt xuống FE để FE cập nhật UI ngay lập tức
-                broadcastAfterCommit("SESSION_COMPLETED", Map.of("count", updatedCount));
+                broadcastAfterCommit(
+                        "SESSION_COMPLETED",
+                        Map.of("count", updatedCount)
+                );
             }
         } catch (Exception e) {
-            log.error("Failed to execute autoActivateClassSessionsJob", e);
+            log.error("Failed to execute autoCompleteClassSessionsJob", e);
+            throw e;
         }
     }
 
-    @Scheduled(cron = "0 */5 * * * *")
+    /**
+     * Auto đóng điểm danh sau khi lớp đã kết thúc một khoảng thời gian.
+     *
+     * Công thức:
+     * close threshold = now - (classSessionMaxDurationMinutes + attendanceCloseAfterEndMinutes)
+     *
+     * Ví dụ:
+     * - Lớp bắt đầu 18:00
+     * - Ca học tối đa 120 phút
+     * - Cho sửa điểm danh thêm 30 phút
+     * - 20:30 mới đóng điểm danh
+     *
+     * Chạy mỗi 5 phút, giây 40.
+     */
+    @Scheduled(cron = "40 */5 * * * *", zone = "Asia/Ho_Chi_Minh")
     @Transactional(rollbackFor = Exception.class)
 //    @Caching(evict = {
 //            // Chốt tự động cũng phải xóa cache vì data thay đổi ngầm
@@ -131,7 +222,10 @@ public class ClassSessionService {
     public void autoCloseAttendanceJob() {
         LocalDateTime now = LocalDateTime.now();
 
-        LocalDateTime thresholdDateTime = now.minusMinutes(attendanceGracePeriodMinutes);
+        int closeAfterStartMinutes =
+                classSessionMaxDurationMinutes + attendanceCloseAfterEndMinutes;
+
+        LocalDateTime thresholdDateTime = now.minusMinutes(closeAfterStartMinutes);
         LocalDate thresholdDate = thresholdDateTime.toLocalDate();
         LocalTime thresholdTime = thresholdDateTime.toLocalTime();
 
@@ -139,9 +233,12 @@ public class ClassSessionService {
                 .findClassSessionToClose(thresholdDate, thresholdTime);
 
         if (sessionsToClose.isEmpty()) {
-            log.info("No class sessions found that require attendance closure at {}", now);
+            log.debug("No class sessions found that require attendance closure at {}", now);
             return;
         }
+
+        int successCount = 0;
+        int failedCount = 0;
 
         for (ClassSession session : sessionsToClose) {
             try {
@@ -150,18 +247,40 @@ public class ClassSessionService {
                         session.getSessionDate()
                 );
 
-                session.setAttendanceClosed(true); // Đóng điểm danh để không cho phép sửa sau khi đã chốt
+                session.setAttendanceClosed(true);
                 classSessionRepository.save(session);
-                log.info("Closed attendance for class session {} on date {}",
-                        session.getSessionId(), session.getSessionDate());
 
-                // THÊM DÒNG NÀY (Vì đây là update từng record nên truyền luôn sessionId)
-                broadcastAfterCommit("SESSION_UPDATED", Map.of("sessionId", session.getSessionId()));
+                successCount++;
+
+                log.info(
+                        "Closed attendance for class session {} on date {}",
+                        session.getSessionId(),
+                        session.getSessionDate()
+                );
+
+                broadcastAfterCommit(
+                        "SESSION_UPDATED",
+                        Map.of("sessionId", session.getSessionId())
+                );
             } catch (Exception e) {
-                log.error("Failed to close attendance for class session {}: {}",
-                        session.getSessionId(), e.getMessage());
+                failedCount++;
+
+                log.error(
+                        "Failed to close attendance for class session {}: {}",
+                        session.getSessionId(),
+                        e.getMessage(),
+                        e
+                );
             }
         }
+
+        log.info(
+                "Auto close attendance finished at {}. Success: {}, Failed: {}, Threshold: {} minutes after start",
+                now,
+                successCount,
+                failedCount,
+                closeAfterStartMinutes
+        );
     }
 
     @Transactional(rollbackFor = Exception.class)

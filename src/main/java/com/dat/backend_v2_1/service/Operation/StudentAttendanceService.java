@@ -230,7 +230,7 @@ public class StudentAttendanceService {
 
                 publishScoreRecalculateEvent(enrollment.getStudent(), today);
 
-//                sendAttendanceNotification(savedAttendance);
+                sendAttendanceNotification(savedAttendance);
 
                 return studentAttendanceMapper.toResponse(savedAttendance);
             }
@@ -382,7 +382,7 @@ public class StudentAttendanceService {
         }
 
         // 4. Lấy danh sách Token của user (Học viên hoặc Phụ huynh)
-        List<String> studentFcmTokens = authTokenService.getAllFcmTokensByUserId(student.getUserId());
+        List<String> studentFcmTokens = authTokenService.getAllFcmTokensByUserId(student.getParent().getUserId());
 
         // 5. Gửi thông báo
         if (!studentFcmTokens.isEmpty()) {

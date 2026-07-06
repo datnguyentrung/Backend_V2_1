@@ -43,7 +43,7 @@ public class ClassSessionService {
     @Value("${ATTENDANCE_GRACE_PERIOD_MINUTES:30}")
     private int attendanceGracePeriodMinutes;
 
-    @Scheduled(cron = "0 43 11 * * *")
+    @Scheduled(cron = "0 0 1 * * *")
     @Transactional(rollbackFor = Exception.class)
     public void generateClassSessions() {
         LocalDate today = LocalDate.now();
@@ -99,7 +99,7 @@ public class ClassSessionService {
         }
     }
 
-    //@Scheduled(cron = "0 */5 * * * *")
+    @Scheduled(cron = "0 */5 * * * *")
     @Transactional(rollbackFor = Exception.class)
     public void autoCompleteClassSessionsJob() {
         LocalDateTime now = LocalDateTime.now();
@@ -121,7 +121,7 @@ public class ClassSessionService {
         }
     }
 
-    //@Scheduled(cron = "0 */5 * * * *")
+    @Scheduled(cron = "0 */5 * * * *")
     @Transactional(rollbackFor = Exception.class)
 //    @Caching(evict = {
 //            // Chốt tự động cũng phải xóa cache vì data thay đổi ngầm

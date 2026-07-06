@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -54,23 +55,31 @@ public class NotificationService {
         }
 
         try {
-            Notification notification = Notification.builder()
-                    .setTitle(title)
-                    .setBody(body)
-                    .build();
-
-            MulticastMessage.Builder messageBuilder = MulticastMessage.builder()
-                    .addAllTokens(tokens)
-                    .setNotification(notification);
+            Map<String, String> payload = new HashMap<>();
 
             if (data != null) {
-                messageBuilder.putAllData(data);
+                payload.putAll(data);
             }
 
-            // SỬA: Thay thế .sendMulticast() bằng .sendEachForMulticast() theo chuẩn Firebase mới
-            BatchResponse response = firebaseMessaging.sendEachForMulticast(messageBuilder.build());
-            log.info("Đã gửi thông báo hàng loạt. Thành công: {}/{}", response.getSuccessCount(), tokens.size());
+            payload.put("title", title);
+            payload.put("body", body);
+            payload.put("tag", "attendance-notification");
 
+            WebpushConfig webpushConfig = WebpushConfig.builder()
+                    .putHeader("Urgency", "high")
+                    .putHeader("TTL", "300")
+                    .build();
+
+            MulticastMessage message = MulticastMessage.builder()
+                    .addAllTokens(tokens)
+                    .putAllData(payload)
+                    .setWebpushConfig(webpushConfig)
+                    .build();
+
+            BatchResponse response = firebaseMessaging.sendEachForMulticast(message);
+
+            log.info("Đã gửi thông báo hàng loạt. Thành công: {}/{}",
+                    response.getSuccessCount(), tokens.size());
         } catch (FirebaseMessagingException e) {
             log.error("Lỗi khi gửi thông báo hàng loạt: ", e);
         }

@@ -20,8 +20,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.nimbusds.oauth2.sdk.util.CollectionUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,13 +43,13 @@ public class ClassScheduleService {
     private final StudentEnrollmentRepository studentEnrollmentRepository;
     private final BranchService branchService;
 
-    @Autowired
-    @Lazy
-    private ClassScheduleService self;
-
     // ========== READ OPERATIONS ==========
 
-    // ❌ ĐÃ XÓA //@Cacheable ở đây: KHÔNG ĐƯỢC CACHE ENTITY!
+    /**
+     * Không cache Entity JPA.
+     * Entity có thể dính lazy proxy, persistence context, stale state.
+     */
+    @Transactional(readOnly = true)
     public ClassSchedule getClassScheduleById(String scheduleId) {
         return classScheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> {
@@ -57,20 +58,35 @@ public class ClassScheduleService {
                 });
     }
 
-    // ✅ CHUYỂN //@Cacheable XUỐNG ĐÂY: CHỈ CACHE DTO!
-    //@Cacheable(value = "classScheduleDetail", key = "#scheduleId")
+    /**
+     * Cache DTO detail theo scheduleId.
+     *
+     * Lưu ý:
+     * - Nếu thay đổi ClassSchedule thì file này đã evict.
+     * - Nếu thay đổi CoachAssignment hoặc StudentEnrollment ở service khác,
+     *   service đó cũng phải evict cache này theo scheduleId.
+     */
+    @Cacheable(value = "classScheduleDetail", key = "#scheduleId", unless = "#result == null")
+    @Transactional(readOnly = true)
     public ClassScheduleResDTO.ClassScheduleDetail getClassScheduleDetail(String scheduleId) {
-        // Dùng thẳng hàm bình thường, không qua self vì hàm gốc đã bỏ cache
         ClassSchedule schedule = getClassScheduleById(scheduleId);
-        List<CoachAssignment> coachAssignments = coachAssignmentRepository
-                .findByClassSchedule_ScheduleIdAndStatus(scheduleId, CoachAssignmentStatus.ACTIVE);
-        ClassScheduleResDTO.ClassScheduleDetail detail = classScheduleMapper.toClassScheduleDetail(schedule, coachAssignments);
-        long studentCount = studentEnrollmentRepository.countByClassSchedule_ScheduleIdAndStatus(
-                scheduleId, StudentEnrollmentStatus.ACTIVE);
-        detail.setTotalStudents((int) studentCount);
-        return detail;
+        return buildClassScheduleDetail(schedule);
     }
 
+    /**
+     * Có thể cache getAll vì hàm này khá nặng:
+     * - query schedules theo filter
+     * - query active coach assignments
+     * - query toàn bộ enrollments rồi group count
+     *
+     * Dùng cache riêng classScheduleList.
+     * Default key của Spring sẽ lấy toàn bộ params:
+     * branchId, weekday, scheduleLevel, scheduleShift, scheduleLocation, scheduleStatus, scheduleIds.
+     *
+     * Không cache empty list để tránh giữ quá nhiều cache rỗng theo filter linh tinh.
+     */
+    @Cacheable(value = "classScheduleList", unless = "#result == null || #result.isEmpty()")
+    @Transactional(readOnly = true)
     public List<ClassScheduleResDTO.ClassScheduleDetail> getAllClassSchedules(
             Long branchId,
             Weekday weekday,
@@ -79,9 +95,16 @@ public class ClassScheduleService {
             ScheduleLocation scheduleLocation,
             ScheduleStatus scheduleStatus,
             List<String> scheduleIds) {
-        // Filter directly from repository
+
         List<ClassSchedule> schedules = classScheduleRepository.findAllWithFilters(
-                branchId, weekday, scheduleLevel, scheduleShift, scheduleLocation, scheduleStatus, scheduleIds);
+                branchId,
+                weekday,
+                scheduleLevel,
+                scheduleShift,
+                scheduleLocation,
+                scheduleStatus,
+                scheduleIds
+        );
 
         if (schedules.isEmpty()) {
             log.info("No class schedules found matching the filters");
@@ -89,7 +112,9 @@ public class ClassScheduleService {
         }
 
         List<CoachAssignment> coachAssignments = coachAssignmentRepository.findByStatus(CoachAssignmentStatus.ACTIVE);
+
         Map<String, List<CoachResDTO.CoachSummary>> scheduleIdToCoaches = coachAssignments.stream()
+                .filter(ca -> ca.getClassSchedule() != null && ca.getCoach() != null)
                 .collect(Collectors.groupingBy(
                         ca -> ca.getClassSchedule().getScheduleId(),
                         Collectors.mapping(ca -> {
@@ -103,7 +128,10 @@ public class ClassScheduleService {
                 ));
 
         Map<String, Long> studentCountMap = studentEnrollmentRepository.findAll().stream()
-                .filter(enrollment -> enrollment.getStatus() == StudentEnrollmentStatus.ACTIVE)
+                .filter(enrollment ->
+                        enrollment.getStatus() == StudentEnrollmentStatus.ACTIVE
+                                && enrollment.getClassSchedule() != null
+                )
                 .collect(Collectors.groupingBy(
                         enrollment -> enrollment.getClassSchedule().getScheduleId(),
                         Collectors.counting()
@@ -111,14 +139,29 @@ public class ClassScheduleService {
 
         return schedules.stream()
                 .map(schedule -> {
-                    ClassScheduleResDTO.ClassScheduleDetail detail = classScheduleMapper.toClassScheduleDetail(schedule);
-                    detail.setCoaches(scheduleIdToCoaches.getOrDefault(schedule.getScheduleId(), Collections.emptyList()));
-                    detail.setTotalStudents(studentCountMap.getOrDefault(schedule.getScheduleId(), 0L).intValue());
+                    ClassScheduleResDTO.ClassScheduleDetail detail =
+                            classScheduleMapper.toClassScheduleDetail(schedule);
+
+                    detail.setCoaches(
+                            scheduleIdToCoaches.getOrDefault(
+                                    schedule.getScheduleId(),
+                                    Collections.emptyList()
+                            )
+                    );
+
+                    detail.setTotalStudents(
+                            studentCountMap.getOrDefault(schedule.getScheduleId(), 0L).intValue()
+                    );
+
                     return detail;
                 })
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Không cache Entity list.
+     */
+    @Transactional(readOnly = true)
     public List<ClassSchedule> findByScheduleIds(List<String> scheduleIds) {
         if (CollectionUtils.isEmpty(scheduleIds)) {
             return Collections.emptyList();
@@ -128,8 +171,20 @@ public class ClassScheduleService {
 
     // ========== CREATE OPERATION ==========
 
+    /**
+     * Tạo mới lịch học làm thay đổi danh sách getAll theo nhiều filter khác nhau,
+     * nên phải xoá toàn bộ classScheduleList.
+     *
+     * Xoá thêm classScheduleDetail theo scheduleId để phòng trường hợp cache cũ còn sót.
+     */
+    @Caching(evict = {
+            @CacheEvict(value = "classScheduleDetail", key = "#request.scheduleId"),
+            @CacheEvict(value = "classScheduleList", allEntries = true)
+    })
     @Transactional(rollbackFor = Exception.class)
-    public ClassScheduleResDTO.ClassScheduleDetail createClassSchedule(ClassScheduleReqDTO.CreateRequest request) {
+    public ClassScheduleResDTO.ClassScheduleDetail createClassSchedule(
+            ClassScheduleReqDTO.CreateRequest request
+    ) {
         if (classScheduleRepository.existsById(request.getScheduleId())) {
             throw new AppException(ErrorCode.CLASS_ALREADY_EXISTS);
         }
@@ -146,7 +201,8 @@ public class ClassScheduleService {
         try {
             ClassSchedule savedSchedule = classScheduleRepository.save(classSchedule);
             log.info("Created new class schedule with ID: {}", savedSchedule.getScheduleId());
-            return classScheduleMapper.toClassScheduleDetail(savedSchedule);
+
+            return buildClassScheduleDetail(savedSchedule);
         } catch (DataIntegrityViolationException e) {
             log.error("Data integrity violation: {}", e.getMessage());
             throw new AppException(ErrorCode.CLASS_ALREADY_EXISTS);
@@ -155,11 +211,20 @@ public class ClassScheduleService {
 
     // ========== UPDATE OPERATION ==========
 
-    // ✅ Đổi key xóa cache thành classScheduleDetail
-    //@CacheEvict(value = "classScheduleDetail", key = "#scheduleId")
+    /**
+     * Update 1 schedule:
+     * - xoá cache detail của schedule đó
+     * - xoá toàn bộ list cache vì schedule có thể đổi branch/weekday/level/shift/location/status
+     */
+    @Caching(evict = {
+            @CacheEvict(value = "classScheduleDetail", key = "#scheduleId"),
+            @CacheEvict(value = "classScheduleList", allEntries = true)
+    })
     @Transactional(rollbackFor = Exception.class)
-    public ClassScheduleResDTO.ClassScheduleDetail updateClassSchedule(String scheduleId, ClassScheduleReqDTO.UpdateRequest request) throws JsonProcessingException {
-        // ✅ CỐ TÌNH GỌI THẲNG DB để đảm bảo lấy Entity toàn vẹn nhất (không bị sứt mẻ gì) trước khi update
+    public ClassScheduleResDTO.ClassScheduleDetail updateClassSchedule(
+            String scheduleId,
+            ClassScheduleReqDTO.UpdateRequest request
+    ) throws JsonProcessingException {
         ClassSchedule classSchedule = classScheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
 
@@ -168,38 +233,56 @@ public class ClassScheduleService {
             classSchedule.setBranch(branch);
         }
 
-        LocalTime newStartTime = request.getStartTime() != null ? request.getStartTime() : classSchedule.getStartTime();
-        LocalTime newEndTime = request.getEndTime() != null ? request.getEndTime() : classSchedule.getEndTime();
+        LocalTime newStartTime = request.getStartTime() != null
+                ? request.getStartTime()
+                : classSchedule.getStartTime();
+
+        LocalTime newEndTime = request.getEndTime() != null
+                ? request.getEndTime()
+                : classSchedule.getEndTime();
 
         if (!newEndTime.isAfter(newStartTime)) {
             throw new IllegalArgumentException("Giờ kết thúc phải sau giờ bắt đầu");
         }
 
         classScheduleMapper.updateEntityFromDto(request, classSchedule);
-        classScheduleRepository.save(classSchedule);
+        ClassSchedule savedSchedule = classScheduleRepository.save(classSchedule);
+
         log.info("Updated class schedule: {}", scheduleId);
 
-        // Trả về DTO và nạp lại vào cache (thông qua self để kích hoạt proxy //@Cacheable của hàm này)
-        return self.getClassScheduleDetail(scheduleId);
+        return buildClassScheduleDetail(savedSchedule);
     }
 
     // ========== DELETE OPERATION ==========
 
-    //@CacheEvict(value = "classScheduleDetail", key = "#scheduleId")
+    /**
+     * Delete schedule:
+     * - xoá detail cache của schedule đó
+     * - xoá toàn bộ list cache
+     */
+    @Caching(evict = {
+            @CacheEvict(value = "classScheduleDetail", key = "#scheduleId"),
+            @CacheEvict(value = "classScheduleList", allEntries = true)
+    })
     @Transactional(rollbackFor = Exception.class)
     public void deleteClassSchedule(String scheduleId) throws JsonProcessingException {
-        // ✅ Gọi thẳng Repo
         ClassSchedule classSchedule = classScheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
 
         long enrollmentCount = studentEnrollmentRepository.countByClassSchedule_ScheduleIdAndStatus(
-                scheduleId, StudentEnrollmentStatus.ACTIVE);
+                scheduleId,
+                StudentEnrollmentStatus.ACTIVE
+        );
+
         if (enrollmentCount > 0) {
             throw new AppException(ErrorCode.CLASS_HAS_STUDENTS);
         }
 
         long assignmentCount = coachAssignmentRepository.countByClassSchedule_ScheduleIdAndStatus(
-                scheduleId, CoachAssignmentStatus.ACTIVE);
+                scheduleId,
+                CoachAssignmentStatus.ACTIVE
+        );
+
         if (assignmentCount > 0) {
             throw new AppException(ErrorCode.CLASS_HAS_COACHES);
         }
@@ -210,14 +293,42 @@ public class ClassScheduleService {
 
     // ========== UPDATE STATUS ==========
 
-    //@CacheEvict(value = "classScheduleDetail", key = "#scheduleId")
+    /**
+     * Đổi status cũng ảnh hưởng getAll filter theo scheduleStatus,
+     * nên phải xoá detail và list cache.
+     */
+    @Caching(evict = {
+            @CacheEvict(value = "classScheduleDetail", key = "#scheduleId"),
+            @CacheEvict(value = "classScheduleList", allEntries = true)
+    })
     @Transactional(rollbackFor = Exception.class)
     public void updateStatus(String scheduleId, ScheduleStatus status) {
-        // ✅ Gọi thẳng Repo
         ClassSchedule classSchedule = classScheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new AppException(ErrorCode.CLASS_NOT_FOUND));
 
         classSchedule.setScheduleStatus(status);
+
         log.info("Updated status of class schedule {} to {}", scheduleId, status);
+    }
+
+    // ========== PRIVATE HELPERS ==========
+
+    private ClassScheduleResDTO.ClassScheduleDetail buildClassScheduleDetail(ClassSchedule schedule) {
+        String scheduleId = schedule.getScheduleId();
+
+        List<CoachAssignment> coachAssignments = coachAssignmentRepository
+                .findByClassSchedule_ScheduleIdAndStatus(scheduleId, CoachAssignmentStatus.ACTIVE);
+
+        ClassScheduleResDTO.ClassScheduleDetail detail =
+                classScheduleMapper.toClassScheduleDetail(schedule, coachAssignments);
+
+        long studentCount = studentEnrollmentRepository.countByClassSchedule_ScheduleIdAndStatus(
+                scheduleId,
+                StudentEnrollmentStatus.ACTIVE
+        );
+
+        detail.setTotalStudents((int) studentCount);
+
+        return detail;
     }
 }

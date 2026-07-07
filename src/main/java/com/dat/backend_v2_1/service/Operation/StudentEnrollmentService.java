@@ -15,9 +15,9 @@ import com.dat.backend_v2_1.util.error.AppException;
 import com.dat.backend_v2_1.util.error.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,51 +36,48 @@ public class StudentEnrollmentService {
     private final ClassScheduleService classScheduleService;
     private final StudentEnrollmentMapper studentEnrollmentMapper;
 
-    @Autowired
-    @Lazy
-    private StudentEnrollmentService self; // Dùng để gọi các hàm có //@Cacheable nội bộ
-
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
-            //@CacheEvict(value = "studentEnrollmentsById", key = "#request.studentId"),
-            //@CacheEvict(value = "studentEnrollmentsByCode", allEntries = true),
-            //@CacheEvict(value = "studentEnrollmentsByClass", allEntries = true),
-            // QUAN TRỌNG: Xóa cache chi tiết Lớp học để hệ thống tính toán lại tổng số sinh viên (totalStudents)
-            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
+            // Danh sách học viên trong lớp thay đổi
+            @CacheEvict(value = "studentEnrollmentsByClassDTO", allEntries = true),
+
+            // Quan trọng: enrollment thay đổi totalStudents trong ClassScheduleDetail/List
+            @CacheEvict(value = "classScheduleDetail", allEntries = true),
+            @CacheEvict(value = "classScheduleList", allEntries = true)
     })
     public List<StudentEnrollment> createStudentEnrollment(StudentEnrollmentReqDTO.CreateRequest request) {
-        // 1. Tìm Student (1 lần)
         Student student = studentRepository.findByStudentCode(request.getStudentId())
                 .orElseThrow(() -> new BusinessException("Không tìm thấy học viên với ID: " + request.getStudentId()));
 
-        // 2. Tìm tất cả ClassSchedule theo danh sách ID (1 query thay vì N query)
         List<ClassSchedule> schedules = classScheduleService.findByScheduleIds(request.getScheduleIds());
 
-        // Validation: Kiểm tra xem có lớp nào ID sai không
         if (schedules.size() != request.getScheduleIds().size()) {
             throw new AppException(ErrorCode.CLASS_NOT_FOUND);
         }
 
-        // [TỐI ƯU N+1]: Tận dụng hàm Cache để lấy danh sách các lớp hiện tại của sinh viên
-        List<StudentEnrollment> currentEnrollments = self.findStudentEnrollmentsByStudentId(student.getUserId());
+        /**
+         * Không dùng cache ở đây.
+         * Đây là internal write logic, cần dữ liệu mới nhất từ DB để check trùng enrollment.
+         */
+        List<StudentEnrollment> currentEnrollments =
+                studentEnrollmentRepository.findByStudent_UserIdAndStatusWithClassSchedule(
+                        student.getUserId(),
+                        StudentEnrollmentStatus.ACTIVE
+                );
+
         Set<String> currentlyEnrolledScheduleIds = currentEnrollments.stream()
                 .map(e -> e.getClassSchedule().getScheduleId())
                 .collect(Collectors.toSet());
 
         List<StudentEnrollment> enrollmentsToSave = new ArrayList<>();
 
-        // 3. Duyệt qua từng lớp để tạo Enrollment
         for (ClassSchedule schedule : schedules) {
-            // Check trùng lặp: Tra cứu O(1) từ Set thay vì chọc xuống DB liên tục
             if (currentlyEnrolledScheduleIds.contains(schedule.getScheduleId())) {
                 log.warn("Student {} already in class {}", student.getUserId(), schedule.getScheduleId());
                 throw new AppException(ErrorCode.STUDENT_ALREADY_ENROLLED);
             }
 
-            // Dùng Mapper tạo object cơ bản (có joinDate, note...)
             StudentEnrollment enrollment = studentEnrollmentMapper.toEntity(request);
-
-            // Set các quan hệ
             enrollment.setStudent(student);
             enrollment.setClassSchedule(schedule);
             enrollment.setStatus(StudentEnrollmentStatus.ACTIVE);
@@ -88,7 +85,6 @@ public class StudentEnrollmentService {
             enrollmentsToSave.add(enrollment);
         }
 
-        // 4. Lưu tất cả một lúc (Bulk Insert)
         List<StudentEnrollment> savedEnrollments = studentEnrollmentRepository.saveAll(enrollmentsToSave);
 
         log.info("Successfully enrolled student {} to {} classes", student.getUserId(), savedEnrollments.size());
@@ -98,52 +94,52 @@ public class StudentEnrollmentService {
 
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
-            //@CacheEvict(value = "studentEnrollmentsById", allEntries = true),
-            //@CacheEvict(value = "studentEnrollmentsByCode", allEntries = true),
-            //@CacheEvict(value = "studentEnrollmentsByClass", allEntries = true),
-            //@CacheEvict(value = "singleEnrollment", allEntries = true),
-            // Xóa cache chi tiết lớp học để update lại sĩ số
-            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
+            @CacheEvict(value = "studentEnrollmentsByClassDTO", allEntries = true),
+
+            // Xóa cache lớp để cập nhật lại totalStudents
+            @CacheEvict(value = "classScheduleDetail", allEntries = true),
+            @CacheEvict(value = "classScheduleList", allEntries = true)
     })
     public void deleteStudentEnrollment(UUID enrollmentId) {
         if (!studentEnrollmentRepository.existsById(enrollmentId)) {
             throw new AppException(ErrorCode.ENROLLMENT_NOT_FOUND);
         }
+
         studentEnrollmentRepository.deleteById(enrollmentId);
+
         log.info("Deleted student enrollment with ID: {}", enrollmentId);
     }
 
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
-            //@CacheEvict(value = "studentEnrollmentsById", allEntries = true),
-            //@CacheEvict(value = "studentEnrollmentsByCode", allEntries = true),
-            //@CacheEvict(value = "studentEnrollmentsByClass", allEntries = true),
-            //@CacheEvict(value = "singleEnrollment", allEntries = true),
-            // Trạng thái enrollment có thể thay đổi (vd Active -> Inactive), ảnh hưởng sĩ số lớp
-            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
+            @CacheEvict(value = "studentEnrollmentsByClassDTO", allEntries = true),
+
+            // Update status ACTIVE/INACTIVE làm thay đổi sĩ số lớp
+            @CacheEvict(value = "classScheduleDetail", allEntries = true),
+            @CacheEvict(value = "classScheduleList", allEntries = true)
     })
     public void updateStudentEnrollment(UUID enrollmentId, StudentEnrollmentReqDTO.UpdateRequest request) {
-        // 1. Tìm Enrollment (Gọi thẳng Repo để đảm bảo data mới nhất trước khi update)
         StudentEnrollment enrollment = studentEnrollmentRepository.findById(enrollmentId)
                 .orElseThrow(() -> new AppException(ErrorCode.ENROLLMENT_NOT_FOUND));
 
-        // 2. Cập nhật thông tin từ request
         studentEnrollmentMapper.updateEntityFromDto(request, enrollment);
+
+        log.info("Updated student enrollment with ID: {}", enrollmentId);
     }
 
     /**
-     * Tìm tất cả các lớp học mà học viên đang tham gia (trạng thái ACTIVE)
+     * Trả Entity nên không cache.
      */
-    //@Cacheable(value = "studentEnrollmentsByCode", key = "#studentCode")
+    @Transactional(readOnly = true)
     public List<StudentEnrollment> findStudentEnrollmentsByStudentCode(String studentCode) {
-        // Validate student exists
         studentRepository.findByStudentCode(studentCode)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy học viên với mã: " + studentCode));
 
-        List<StudentEnrollment> enrollments = studentEnrollmentRepository.findByStudent_StudentCodeAndStatusWithClassSchedule(
-                studentCode,
-                StudentEnrollmentStatus.ACTIVE
-        );
+        List<StudentEnrollment> enrollments =
+                studentEnrollmentRepository.findByStudent_StudentCodeAndStatusWithClassSchedule(
+                        studentCode,
+                        StudentEnrollmentStatus.ACTIVE
+                );
 
         if (enrollments.isEmpty()) {
             log.info("No active enrollments found for student: {}", studentCode);
@@ -153,18 +149,18 @@ public class StudentEnrollmentService {
     }
 
     /**
-     * Tìm tất cả các lớp học mà học viên đang tham gia (trạng thái ACTIVE) theo userId
+     * Trả Entity nên không cache.
      */
-    //@Cacheable(value = "studentEnrollmentsById", key = "#userId")
+    @Transactional(readOnly = true)
     public List<StudentEnrollment> findStudentEnrollmentsByStudentId(UUID userId) {
-        // Validate student exists
         studentRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy học viên với mã: " + userId));
 
-        List<StudentEnrollment> enrollments = studentEnrollmentRepository.findByStudent_UserIdAndStatusWithClassSchedule(
-                userId,
-                StudentEnrollmentStatus.ACTIVE
-        );
+        List<StudentEnrollment> enrollments =
+                studentEnrollmentRepository.findByStudent_UserIdAndStatusWithClassSchedule(
+                        userId,
+                        StudentEnrollmentStatus.ACTIVE
+                );
 
         if (enrollments.isEmpty()) {
             log.info("No active enrollments found for student: {}", userId);
@@ -174,8 +170,9 @@ public class StudentEnrollmentService {
     }
 
     /**
-     * Lấy danh sách học viên theo ID lịch học lớp
+     * Trả Entity nên không cache.
      */
+    @Transactional(readOnly = true)
     public List<StudentEnrollment> getStudentEnrollmentsByClassScheduleId(String classScheduleId) {
         return studentEnrollmentRepository.findByScheduleIdAndStatusWithStudent(
                 classScheduleId,
@@ -183,14 +180,28 @@ public class StudentEnrollmentService {
         );
     }
 
-    //@Cacheable(value = "studentEnrollmentsByClassDTO", key = "#classScheduleId")
+    /**
+     * Cache được vì trả DTO cho UI.
+     */
+    @Cacheable(
+            value = "studentEnrollmentsByClassDTO",
+            key = "#classScheduleId",
+            unless = "#result == null || #result.isEmpty()"
+    )
+    @Transactional(readOnly = true)
     public List<StudentEnrollmentResDTO.EnrolledStudentItem> getEnrolledStudentItemsByClass(String classScheduleId) {
         List<StudentEnrollment> enrollments = getStudentEnrollmentsByClassScheduleId(classScheduleId);
         return studentEnrollmentMapper.toEnrolledStudentItemList(enrollments);
     }
 
-    //@Cacheable(value = "singleEnrollment", key = "#studentUserId.toString() + '_' + #classScheduleId")
-    public StudentEnrollment getEnrollmentByStudentUserIdAndClassScheduleId(UUID studentUserId, String classScheduleId) {
+    /**
+     * Trả Entity nên không cache.
+     */
+    @Transactional(readOnly = true)
+    public StudentEnrollment getEnrollmentByStudentUserIdAndClassScheduleId(
+            UUID studentUserId,
+            String classScheduleId
+    ) {
         return studentEnrollmentRepository.findByStudent_UserIdAndClassSchedule_ScheduleIdAndStatus(
                 studentUserId,
                 classScheduleId,

@@ -5,6 +5,7 @@ import com.dat.backend_v2_1.domain.Core.Coach;
 import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -25,17 +26,27 @@ import java.util.UUID;
 @AllArgsConstructor
 @Entity
 @EntityListeners(AuditingEntityListener.class)
+@NamedEntityGraph(
+        name = "CoachAssignment.withDetails",
+        attributeNodes = {
+                @NamedAttributeNode("coach"),
+                @NamedAttributeNode(value = "classSchedule", subgraph = "schedule-subgraph")
+        },
+        subgraphs = {
+                @NamedSubgraph(
+                        name = "schedule-subgraph",
+                        attributeNodes = @NamedAttributeNode("branch")
+                )
+        }
+)
 @Table(
-        name = "coach_assignment", // Tên bảng: Phân công HLV
+        name = "coach_assignment",
         schema = "operation",
         indexes = {
                 @Index(name = "idx_assignment_coach", columnList = "coach_user_id"),
-                @Index(name = "idx_assignment_schedule", columnList = "schedule_id")
+                @Index(name = "idx_assignment_schedule", columnList = "schedule_id"),
+                @Index(name = "idx_assignment_status_dates", columnList = "assignment_status, assigned_date, end_date")
         }
-        // Ràng buộc: Một HLV không thể được phân công 2 lần vào cùng 1 lớp (tránh duplicate)
-//        uniqueConstraints = {
-//                @UniqueConstraint(columnNames = {"coach_user_id", "schedule_id"})
-//        }
 )
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CoachAssignment {
@@ -47,8 +58,6 @@ public class CoachAssignment {
     @Column(name = "assignment_id", updatable = false, nullable = false)
     UUID assignmentId;
 
-    // --- LIÊN KẾT ---
-
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "coach_user_id", nullable = false)
@@ -59,25 +68,23 @@ public class CoachAssignment {
     @JoinColumn(name = "schedule_id", nullable = false)
     ClassSchedule classSchedule;
 
-    // --- THỜI GIAN & TRẠNG THÁI ---
-
     @NotNull
     @Column(name = "assigned_date", nullable = false)
-    LocalDate assignedDate; // Ngày bắt đầu nhận lớp
+    LocalDate assignedDate;
 
     @Column(name = "end_date")
-    LocalDate endDate; // Ngày kết thúc nhiệm vụ (nếu bị đổi lớp)
+    LocalDate endDate;
 
     @NotNull
     @Enumerated(EnumType.STRING)
     @Builder.Default
-    @Column(name = "assignment_status", nullable = false)
+    @Column(name = "assignment_status", nullable = false, length = 20)
     CoachAssignmentStatus status = CoachAssignmentStatus.ACTIVE;
 
-    @Column(name = "note")
+    @Size(max = 500)
+    @Column(name = "note", length = 500)
     String note;
 
-    // --- AUDIT ---
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     LocalDateTime createdAt;
@@ -85,4 +92,13 @@ public class CoachAssignment {
     @LastModifiedDate
     @Column(name = "updated_at")
     LocalDateTime updatedAt;
+
+    public boolean isEffectiveOn(LocalDate date) {
+        if (date == null || status != CoachAssignmentStatus.ACTIVE) {
+            return false;
+        }
+        boolean started = assignedDate == null || !date.isBefore(assignedDate);
+        boolean notEnded = endDate == null || !date.isAfter(endDate);
+        return started && notEnded;
+    }
 }

@@ -54,6 +54,14 @@ public class GlobalException {
         return buildResponse(problemDetail, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(AppException.class)
+    public ResponseEntity<ProblemDetail> handleAppException(AppException ex) {
+        HttpStatus status = HttpStatus.valueOf(ex.getErrorCode().getStatusCode());
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(status, ex.getErrorCode().getMessage());
+        problemDetail.setTitle(ex.getErrorCode().name());
+        return buildResponse(problemDetail, status);
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ProblemDetail> handleResponseStatus(ResponseStatusException ex) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(ex.getStatusCode(), ex.getReason());

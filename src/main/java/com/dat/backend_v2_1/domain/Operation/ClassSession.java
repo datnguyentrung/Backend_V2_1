@@ -87,4 +87,18 @@ public class ClassSession {
             }
         }
     }
+
+    @Override
+    public String toString() {
+        return "ClassSession{" +
+                "sessionId=" + sessionId +
+                ", sessionDate=" + sessionDate +
+                ", classSchedule=" + (classSchedule != null ? classSchedule.getScheduleId() : null) +
+                ", status=" + status +
+                ", isAttendanceClosed=" + isAttendanceClosed +
+                ", startTime=" + startTime +
+                ", endTime=" + endTime +
+                ", note='" + note + '\'' +
+                '}';
+    }
 }

@@ -2,6 +2,7 @@ package com.dat.backend_v2_1.dto.Operation;
 
 import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -12,36 +13,33 @@ import java.util.List;
 
 @Data
 public class CoachAssignmentReqDTO {
-    // =================================================================
-    // 1. NHÓM REQUEST (INPUT) - Dữ liệu từ Client gửi lên
-    // =================================================================
 
-    /**
-     * DTO dùng cho việc TẠO MỚI (Create)
-     * Chỉ chứa thông tin cần thiết để bắt đầu một phân công HLV.
-     */
     @Data
     public static class CreateRequest {
-        @NotNull(message = "Học viên không được để trống")
-        private String coachId; // Nhận String (UUID)
+        @NotNull(message = "Huấn luyện viên không được để trống")
+        private String coachId;
 
         @NotEmpty(message = "Vui lòng chọn ít nhất một lớp học")
-        private List<String> scheduleIds; // Nhận String (UUID)
+        private List<String> scheduleIds;
 
         @NotNull(message = "Ngày phân công không được để trống")
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
         private LocalDate assignmentDate;
 
-        @NotNull(message = "Ngày kết thúc không được để trống")
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
         private LocalDate endDate;
 
         @Size(max = 500, message = "Ghi chú tối đa 500 ký tự")
         private String note;
+
+        @AssertTrue(message = "Ngày bắt đầu không được lớn hơn ngày kết thúc")
+        public boolean isDateRangeValid() {
+            return assignmentDate == null || endDate == null || !assignmentDate.isAfter(endDate);
+        }
     }
 
     @Data
-    public static class UpdateRequest{
+    public static class UpdateRequest {
         @NotNull(message = "Trạng thái không được để trống")
         private CoachAssignmentStatus status;
 
@@ -53,7 +51,25 @@ public class CoachAssignmentReqDTO {
 
         @Size(max = 500, message = "Ghi chú tối đa 500 ký tự")
         private String note;
+
+        @AssertTrue(message = "Ngày bắt đầu không được lớn hơn ngày kết thúc")
+        public boolean isDateRangeValid() {
+            return assignmentDate == null || endDate == null || !assignmentDate.isAfter(endDate);
+        }
     }
 
-
+    @Data
+    public static class FilterRequest {
+        private String coachId;
+        private String classScheduleId;
+        private Integer branchId;
+        private CoachAssignmentStatus status;
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+        private LocalDate startDate;
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+        private LocalDate endDate;
+        @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+        private LocalDate effectiveDate;
+        private String search;
+    }
 }

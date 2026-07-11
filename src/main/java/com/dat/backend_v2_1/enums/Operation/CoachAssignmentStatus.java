@@ -6,42 +6,24 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public enum CoachAssignmentStatus {
-
-    /**
-     * 🟢 ĐANG GIẢNG DẠY
-     * HLV đang phụ trách lớp này bình thường.
-     * Dữ liệu này sẽ được dùng để tính lương/chấm công hàng tháng.
-     */
     ACTIVE("Đang giảng dạy"),
+    INACTIVE("Không hoạt động"),
+    ENDED("Đã kết thúc"),
+    CANCELLED("Đã hủy"),
 
-    /**
-     * 🟡 TẠM NGƯNG / BẢO LƯU
-     * HLV tạm thời không dạy lớp này trong một khoảng thời gian ngắn
-     * (Ví dụ: Bị chấn thương, đi thi đấu, nghỉ phép, việc riêng).
-     * Hệ thống sẽ không tính công trong thời gian này, nhưng chưa cắt hẳn assignment.
-     */
+    // Giữ các giá trị cũ để không phá dữ liệu/API hiện tại.
     SUSPENDED("Tạm ngưng"),
-
-    /**
-     * 🔵 HOÀN THÀNH
-     * Nhiệm vụ kết thúc một cách tự nhiên và tốt đẹp.
-     * Ví dụ: Lớp học kết thúc khóa, hoặc HLV chuyển sang dạy lớp khác theo kế hoạch.
-     */
     COMPLETED("Hoàn thành nhiệm vụ"),
-
-    /**
-     * 🔴 CHẤM DỨT / HỦY BỎ
-     * Nhiệm vụ bị dừng đột ngột hoặc cưỡng chế.
-     * Ví dụ: HLV bị kỷ luật, HLV tự ý bỏ lớp, hoặc lớp bị giải tán giữa chừng.
-     */
     TERMINATED("Chấm dứt"),
-
-    /**
-     * ⚪ DỰ KIẾN (Optional)
-     * Đã lên lịch phân công nhưng chưa đến ngày bắt đầu dạy.
-     * Dùng cho việc Admin sắp xếp lịch giảng dạy cho tháng sau.
-     */
     PENDING("Chờ nhận lớp");
 
     private final String description;
+
+    public boolean isActiveLike() {
+        return this == ACTIVE;
+    }
+
+    public boolean blocksNewAssignment() {
+        return this == ACTIVE || this == PENDING || this == SUSPENDED;
+    }
 }

@@ -1,0 +1,48 @@
+package com.dat.backend_v2_1.repository.Operation;
+
+import com.dat.backend_v2_1.domain.Operation.CoachTimesheet;
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface CoachTimesheetRepository extends JpaRepository<CoachTimesheet, UUID>,
+        JpaSpecificationExecutor<CoachTimesheet>,
+        CoachTimesheetRepositoryCustom {
+
+    boolean existsByCoachAssignment_AssignmentIdAndWorkingDate(UUID assignmentId, LocalDate workingDate);
+
+    @EntityGraph(value = "CoachTimesheet.withDetails")
+    Optional<CoachTimesheet> findWithDetailsByTimesheetId(UUID timesheetId);
+
+    @EntityGraph(value = "CoachTimesheet.withDetails")
+    List<CoachTimesheet> findByCoachAssignment_Coach_UserIdAndWorkingDateBetween(
+            UUID coachId,
+            LocalDate fromDate,
+            LocalDate toDate
+    );
+
+    @Query("""
+            SELECT ct FROM CoachTimesheet ct
+            JOIN FETCH ct.coachAssignment ca
+            JOIN FETCH ca.coach
+            JOIN FETCH ca.classSchedule cs
+            LEFT JOIN FETCH cs.branch
+            WHERE ca.coach.userId = :coachId
+            AND ct.workingDate >= :fromDate
+            AND ct.workingDate <= :toDate
+            """)
+    List<CoachTimesheet> findByCoachAndDateRangeWithDetails(
+            @Param("coachId") UUID coachId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate
+    );
+}

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -50,4 +51,7 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, UUID
     Page<ClassSession> findAll(@NonNull Specification<ClassSession> spec, @NonNull Pageable pageable);
 
     List<ClassSession> findBySessionDateAndClassSchedule_ScheduleIdIn(LocalDate today, List<String> enrolledScheduleIds);
+
+    @EntityGraph(attributePaths = {"classSchedule", "classSchedule.branch"})
+    Optional<ClassSession> findFirstBySessionDateAndClassSchedule_ScheduleId(LocalDate sessionDate, String scheduleId);
 }

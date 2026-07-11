@@ -82,4 +82,21 @@ public class ClassSchedule {
             throw new IllegalStateException("Giờ kết thúc phải sau giờ bắt đầu");
         }
     }
+
+    @Override
+    public String toString(){
+        return "ClassSchedule{" +
+                "scheduleId='" + scheduleId + '\'' +
+                ", branch=" + (branch != null ? branch.getBranchId() : null) +
+                ", weekday=" + weekday +
+                ", level=" + level +
+                ", startTime=" + startTime +
+                ", endTime=" + endTime +
+                ", shift=" + shift +
+                ", location=" + location +
+                ", scheduleStatus=" + scheduleStatus +
+                ", monthlyFee=" + monthlyFee +
+                ", quarterlyFee=" + quarterlyFee +
+                '}';
+    }
 }

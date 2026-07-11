@@ -1,7 +1,5 @@
 package com.dat.backend_v2_1.domain.Operation;
 
-import com.dat.backend_v2_1.domain.Core.ClassSchedule;
-import com.dat.backend_v2_1.domain.Core.Coach;
 import com.dat.backend_v2_1.enums.Operation.CoachTimesheetStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -18,6 +16,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Getter
@@ -27,16 +26,37 @@ import java.util.UUID;
 @AllArgsConstructor
 @Entity
 @EntityListeners(AuditingEntityListener.class)
+@NamedEntityGraph(
+        name = "CoachTimesheet.withDetails",
+        attributeNodes = {
+                @NamedAttributeNode(value = "coachAssignment", subgraph = "assignment-subgraph")
+        },
+        subgraphs = {
+                @NamedSubgraph(
+                        name = "assignment-subgraph",
+                        attributeNodes = {
+                                @NamedAttributeNode("coach"),
+                                @NamedAttributeNode(value = "classSchedule", subgraph = "schedule-subgraph")
+                        }
+                ),
+                @NamedSubgraph(
+                        name = "schedule-subgraph",
+                        attributeNodes = @NamedAttributeNode("branch")
+                )
+        }
+)
 @Table(
         name = "coach_timesheet",
         schema = "operation",
-        // --- QUAN TRỌNG: Ràng buộc duy nhất (Unique Constraint) ---
-        // Đặt tên constraint (name) để dễ debug khi có lỗi Duplicate entry
         uniqueConstraints = {
                 @UniqueConstraint(
                         name = "uk_coach_schedule_date",
-                        columnNames = {"coach_user_id", "schedule_id", "working_date"}
+                        columnNames = {"coach_assignemnt", "working_date"}
                 )
+        },
+        indexes = {
+                @Index(name = "idx_ct_working_date", columnList = "working_date DESC"),
+                @Index(name = "idx_ct_status", columnList = "status")
         }
 )
 @FieldDefaults(level = AccessLevel.PRIVATE)
@@ -47,21 +67,12 @@ public class CoachTimesheet {
     @UuidGenerator
     @JdbcTypeCode(SqlTypes.UUID)
     @Column(name = "timesheet_id", updatable = false, nullable = false)
-    UUID timesheetId; // Đổi tên timesheetId -> id cho ngắn gọn, chuẩn JPA
+    UUID timesheetId;
 
-    // --- RELATIONSHIPS ---
-
-    @NotNull(message = "HLV không được để trống")
+    @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "coach_user_id", nullable = false) // Tên cột khớp với uniqueConstraints bên trên
-    Coach coach;
-
-    @NotNull(message = "Lịch dạy không được để trống")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "schedule_id", nullable = false) // Rút gọn tên cột cho sạch đẹp
-    ClassSchedule classSchedule;
-
-    // --- BUSINESS DATA ---
+    @JoinColumn(name = "coach_assignemnt", nullable = false)
+    CoachAssignment coachAssignment;
 
     @NotNull(message = "Ngày làm việc không được để trống")
     @PastOrPresent(message = "Ngày làm việc không hợp lệ")
@@ -69,20 +80,20 @@ public class CoachTimesheet {
     LocalDate workingDate;
 
     @Column(name = "check_in_time")
-    LocalDateTime checkInTime; // Thời gian thực tế HLV bấm nút "Check-in"
+    LocalDateTime checkInTime;
+
+    @Column(name = "check_out_time")
+    LocalDateTime checkOutTime;
 
     @NotNull
     @Enumerated(EnumType.STRING)
     @Builder.Default
     @Column(name = "status", length = 20, nullable = false)
-    CoachTimesheetStatus status = CoachTimesheetStatus.PENDING; // Mặc định là Chờ duyệt
+    CoachTimesheetStatus status = CoachTimesheetStatus.CHECKED_IN;
 
     @Size(max = 500)
     @Column(name = "note", length = 500)
     String note;
-
-    // --- AUDIT FIELDS ---
-    // Rất quan trọng với dữ liệu lương thưởng (chứng minh ai tạo/sửa bảng công)
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

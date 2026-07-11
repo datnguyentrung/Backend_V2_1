@@ -133,6 +133,11 @@ cache:
     one-week-seconds: 604800
     one-month-seconds: 2592000
 
+attendance:
+  early-check-in-minutes: ${ATTENDANCE_EARLY_CHECK_IN_MINUTES:${ATTENDANCE_GRACE_PERIOD_MINUTES:30}}
+  grace-period-minutes: ${ATTENDANCE_ON_TIME_GRACE_PERIOD_MINUTES:15}
+  late-check-in-limit-minutes: ${ATTENDANCE_LATE_CHECK_IN_LIMIT_MINUTES:30}
+
 bytescale:
   account-id: ${BYTESCALE_ACCOUNT_ID}
   api-key: ${BYTESCALE_API_KEY}

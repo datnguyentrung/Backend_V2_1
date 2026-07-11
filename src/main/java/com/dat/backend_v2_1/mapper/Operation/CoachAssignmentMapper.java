@@ -23,6 +23,7 @@ public interface CoachAssignmentMapper {
     CoachAssignment toEntity(CoachAssignmentReqDTO.CreateRequest request);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "assignedDate", source = "assignmentDate")
     void updateEntityFromDto(CoachAssignmentReqDTO.UpdateRequest request, @MappingTarget CoachAssignment entity);
 
     // Mapping entity to Response DTO (Detail)

@@ -143,7 +143,7 @@ bytescale:
   api-key: ${BYTESCALE_API_KEY}
 
 cors:
-  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4173,http://localhost:5173,http://localhost:5174,http://localhost:8000,https://tkdvanquan.vercel.app,https://taekwondovanquan.vercel.app,https://datnguyentrung-ai-receptionist-be.hf.space,https://dk8nhdz4-5173.asse.devtunnels.ms/}
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4173,http://localhost:5173,http://localhost:5174,http://localhost:8000,https://tkdvanquan.vercel.app,https://taekwondovanquan.vercel.app,https://datnguyentrung-ai-receptionist-be.hf.space,https://wscwpbx7-5173.asse.devtunnels.ms/}
 
 server:
   port: ${PORT:8080}

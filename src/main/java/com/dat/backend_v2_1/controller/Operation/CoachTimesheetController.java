@@ -26,11 +26,11 @@ import java.util.UUID;
 public class CoachTimesheetController {
     private final CoachTimesheetService coachTimesheetService;
 
-    @PostMapping("/scan")
+    @PostMapping("/check-in")
     @PreAuthorize("@securityRule.isCoach(authentication)")
-    public ResponseEntity<CoachTimesheetDTO.Response> scan(
-            @Valid @RequestBody CoachTimesheetDTO.ScanRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(coachTimesheetService.scan(request));
+    public ResponseEntity<CoachTimesheetDTO.Response> checkIn(
+            @Valid @RequestBody CoachTimesheetDTO.CheckInRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(coachTimesheetService.checkIn(request));
     }
 
     @GetMapping("/{timesheetId}")

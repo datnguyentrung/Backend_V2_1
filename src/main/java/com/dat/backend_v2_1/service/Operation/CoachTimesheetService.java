@@ -51,7 +51,7 @@ public class CoachTimesheetService {
     private final SecurityRule securityRule;
 
     @Transactional(rollbackFor = Exception.class)
-    public CoachTimesheetDTO.Response scan(CoachTimesheetDTO.ScanRequest request) {
+    public CoachTimesheetDTO.Response checkIn(CoachTimesheetDTO.CheckInRequest request) {
         LocalDateTime now = LocalDateTime.now(defaultZoneId);
         LocalDate today = now.toLocalDate();
 

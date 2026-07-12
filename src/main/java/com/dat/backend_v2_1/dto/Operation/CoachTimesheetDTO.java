@@ -23,7 +23,7 @@ public class CoachTimesheetDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class ScanRequest {
+    public static class CheckInRequest {
         @NotBlank(message = "Mã nhân viên không được để trống")
         String staffCode;
     }

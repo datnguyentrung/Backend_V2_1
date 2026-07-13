@@ -20,6 +20,8 @@ import com.dat.backend_v2_1.mapper.Operation.CoachTimesheetMapper;
 import com.dat.backend_v2_1.repository.Core.CoachRepository;
 import com.dat.backend_v2_1.repository.Operation.ClassSessionRepository;
 import com.dat.backend_v2_1.repository.Operation.CoachTimesheetRepository;
+import com.dat.backend_v2_1.service.NotificationService;
+import com.dat.backend_v2_1.service.Security.AuthTokenService;
 import com.dat.backend_v2_1.specification.CoachTimesheetSpecification;
 import com.dat.backend_v2_1.util.error.AppException;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -49,6 +52,75 @@ public class CoachTimesheetService {
     private final AttendanceProperties attendanceProperties;
     private final ZoneId defaultZoneId;
     private final SecurityRule securityRule;
+    private final NotificationService notificationService;
+    private final AuthTokenService authTokenService;
+
+    private void sendAttendanceNotification(CoachTimesheet coachTimesheet) {
+        Coach coach = coachTimesheet.getCoachAssignment().getCoach();
+        ClassSchedule schedule = coachTimesheet.getCoachAssignment().getClassSchedule();
+        String scheduleId = schedule.getScheduleId();
+
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy", Locale.forLanguageTag("vi-VN"));
+        String formattedTime = coachTimesheet.getCheckInTime() != null
+                ? coachTimesheet.getCheckInTime().atZone(defaultZoneId).format(timeFormatter)
+                : coachTimesheet.getCreatedAt().atZone(defaultZoneId).format(timeFormatter);
+
+        String title;
+        String body;
+
+        switch (coachTimesheet.getStatus()) {
+            case CHECKED_IN:
+                title = "Diem danh HLV thanh cong";
+                body = String.format("HLV %s da check-in lop %s tai co so %s (ca %s).\nLuc: %s",
+                        coach.getFullName(),
+                        scheduleId,
+                        scheduleId.charAt(1),
+                        scheduleId.charAt(4),
+                        formattedTime);
+                break;
+            case ADJUSTED:
+                title = "Cap nhat cham cong HLV";
+                body = String.format("Cham cong cua HLV %s cho lop %s da duoc dieu chinh.\nThoi gian: %s",
+                        coach.getFullName(),
+                        scheduleId,
+                        formattedTime);
+                break;
+            case APPROVED:
+                title = "Cham cong HLV da duoc duyet";
+                body = String.format("Bang cong cua HLV %s cho lop %s ngay %s da duoc duyet.",
+                        coach.getFullName(),
+                        scheduleId,
+                        coachTimesheet.getWorkingDate());
+                break;
+            case REJECTED:
+                title = "Cham cong HLV bi tu choi";
+                body = String.format("Bang cong cua HLV %s cho lop %s ngay %s bi tu choi.",
+                        coach.getFullName(),
+                        scheduleId,
+                        coachTimesheet.getWorkingDate());
+                break;
+            case CANCELLED:
+                return;
+            case PENDING:
+            default:
+                title = "Thong bao cham cong HLV";
+                body = String.format("Cap nhat trang thai cham cong cho HLV %s: %s.",
+                        coach.getFullName(),
+                        coachTimesheet.getStatus());
+        }
+
+        List<String> coachFcmTokens = authTokenService.getAllFcmTokensByUserId(coach.getUserId());
+
+        if (!coachFcmTokens.isEmpty()) {
+            Map<String, String> dataPayload = new HashMap<>();
+            dataPayload.put("screen", "CoachTimesheet");
+            dataPayload.put("coachId", coach.getUserId().toString());
+            dataPayload.put("timesheetId", coachTimesheet.getTimesheetId().toString());
+
+            notificationService.sendMulticastNotification(coachFcmTokens, title, body, dataPayload);
+        }
+
+    }
 
     @Transactional(rollbackFor = Exception.class)
     public CoachTimesheetDTO.Response checkIn(CoachTimesheetDTO.CheckInRequest request) {
@@ -226,6 +298,7 @@ public class CoachTimesheetService {
                     .status(CoachTimesheetStatus.CHECKED_IN)
                     .note("Coach check-in by staffCode scan")
                     .build());
+            sendAttendanceNotification(saved);
             return coachTimesheetMapper.toResponse(saved);
         } catch (DataIntegrityViolationException ex) {
             throw new AppException(ErrorCode.COACH_TIMESHEET_ALREADY_EXISTS);

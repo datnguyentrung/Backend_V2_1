@@ -4,6 +4,8 @@ import com.dat.backend_v2_1.domain.Security.AuthToken;
 import com.dat.backend_v2_1.domain.Security.User;
 import com.dat.backend_v2_1.repository.Security.AuthTokenRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -34,6 +36,7 @@ public class AuthTokenService {
                 .orElse(null);
     }
 
+    @CacheEvict(value = "fcmTokensByRole", allEntries = true)
     public void logoutUserTokens(String idUserStr, String idDevice) {
         UUID userId;
         try {
@@ -62,6 +65,7 @@ public class AuthTokenService {
         // Ta có thể bỏ qua (return) mà không cần báo lỗi.
     }
 
+    @CacheEvict(value = "fcmTokensByRole", allEntries = true)
     public void updateUserTokens(String token, String idUser, String idDevice, String fcmToken) {
         UUID userId;
         try {
@@ -119,6 +123,7 @@ public class AuthTokenService {
                 .orElseThrow(() -> new RuntimeException("Phiên đăng nhập không tồn tại hoặc Token sai"));
     }
 
+    @CacheEvict(value = "fcmTokensByRole", allEntries = true)
     public void updateFcmTokenOnly(String refreshToken, String fcmToken) {
         AuthToken authToken = authTokenRepository.findByRefreshToken(refreshToken)
                 .orElseThrow(() -> new RuntimeException("Phiên đăng nhập không tồn tại hoặc Token sai"));
@@ -137,6 +142,24 @@ public class AuthTokenService {
                 .collect(Collectors.toList());
     }
 
+    @Cacheable(value = "fcmTokensByRole", key = "#roleCode", unless = "#result == null || #result.isEmpty()")
+    public List<String> getAllFcmTokensByRoleCode(String roleCode) {
+        List<UUID> userIds = userService.getAllUsersByRoleCode(roleCode).stream()
+                .map(User::getUserId)
+                .toList();
+
+        if (userIds.isEmpty()) {
+            return List.of();
+        }
+
+        return authTokenRepository.findAllByUser_UserIdInAndRevokedFalse(userIds).stream()
+                .map(AuthToken::getFcmToken)
+                .filter(fcmToken -> fcmToken != null && !fcmToken.isEmpty())
+                .distinct()
+                .toList();
+    }
+
+    @CacheEvict(value = "fcmTokensByRole", allEntries = true)
     public void deleteFcmTokenOnly(String fcmToken) {
         if (fcmToken == null || fcmToken.isEmpty()) {
             return;

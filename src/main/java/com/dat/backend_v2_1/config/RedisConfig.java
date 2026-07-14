@@ -161,6 +161,7 @@ public class RedisConfig implements CachingConfigurer {
         specificCacheConfigs.put("studentEnrollmentsByCode", defaultConfig.entryTtl(ttlConfig.randomOneDay()));
         specificCacheConfigs.put("studentEnrollmentsByClass", defaultConfig.entryTtl(ttlConfig.randomOneDay()));
         specificCacheConfigs.put("singleEnrollment", defaultConfig.entryTtl(ttlConfig.randomOneDay()));
+        specificCacheConfigs.put("fcmTokensByRole", defaultConfig.entryTtl(ttlConfig.randomOneHour()));
 
         // ===== NHÓM 2: DỮ LIỆU ÍT ĐỔI (Thông tin cơ bản) -> TTL: 1 TUẦN =====
         specificCacheConfigs.put("coach", defaultConfig.entryTtl(ttlConfig.randomOneWeek()));

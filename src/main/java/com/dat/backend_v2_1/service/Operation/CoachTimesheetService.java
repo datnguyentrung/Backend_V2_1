@@ -44,6 +44,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 public class CoachTimesheetService {
+    private static final String HEAD_COACH_ROLE_CODE = "HEAD_COACH";
+
     private final CoachTimesheetRepository coachTimesheetRepository;
     private final CoachAssignmentService coachAssignmentService;
     private final CoachRepository coachRepository;
@@ -61,63 +63,85 @@ public class CoachTimesheetService {
         String scheduleId = schedule.getScheduleId();
 
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy", Locale.forLanguageTag("vi-VN"));
+        DateTimeFormatter sessionTimeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.forLanguageTag("vi-VN"));
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.forLanguageTag("vi-VN"));
         String formattedTime = coachTimesheet.getCheckInTime() != null
                 ? coachTimesheet.getCheckInTime().atZone(defaultZoneId).format(timeFormatter)
                 : coachTimesheet.getCreatedAt().atZone(defaultZoneId).format(timeFormatter);
+        String coachDisplayName = "HLV " + coach.getFullName();
+        String sessionStartTime = schedule.getStartTime().format(sessionTimeFormatter);
+        String workingDate = coachTimesheet.getWorkingDate().format(dateFormatter);
 
         String title;
         String body;
 
         switch (coachTimesheet.getStatus()) {
             case CHECKED_IN:
-                title = "Diem danh HLV thanh cong";
-                body = String.format("HLV %s da check-in lop %s tai co so %s (ca %s).\nLuc: %s",
-                        coach.getFullName(),
+                title = "Điểm danh HLV thành công";
+                body = String.format("%s đã điểm danh thành công cho lớp %s tại cơ sở %s, ca %s.\nGiờ bắt đầu buổi học: %s.\nThời điểm điểm danh: %s.",
+                        coachDisplayName,
                         scheduleId,
                         scheduleId.charAt(1),
                         scheduleId.charAt(4),
+                        sessionStartTime,
                         formattedTime);
                 break;
             case ADJUSTED:
-                title = "Cap nhat cham cong HLV";
-                body = String.format("Cham cong cua HLV %s cho lop %s da duoc dieu chinh.\nThoi gian: %s",
-                        coach.getFullName(),
+                title = "Cập nhật chấm công HLV";
+                body = String.format("Bảng công của %s cho lớp %s ngày %s đã được điều chỉnh.\nGiờ bắt đầu buổi học: %s.\nThời gian ghi nhận: %s.",
+                        coachDisplayName,
                         scheduleId,
+                        workingDate,
+                        sessionStartTime,
                         formattedTime);
                 break;
             case APPROVED:
-                title = "Cham cong HLV da duoc duyet";
-                body = String.format("Bang cong cua HLV %s cho lop %s ngay %s da duoc duyet.",
-                        coach.getFullName(),
+                title = "Bảng công HLV đã được duyệt";
+                body = String.format("Bảng công của %s cho lớp %s ngày %s đã được duyệt.\nGiờ bắt đầu buổi học: %s.\nThời điểm điểm danh: %s.",
+                        coachDisplayName,
                         scheduleId,
-                        coachTimesheet.getWorkingDate());
+                        workingDate,
+                        sessionStartTime,
+                        formattedTime);
                 break;
             case REJECTED:
-                title = "Cham cong HLV bi tu choi";
-                body = String.format("Bang cong cua HLV %s cho lop %s ngay %s bi tu choi.",
-                        coach.getFullName(),
+                title = "Bảng công HLV bị từ chối";
+                body = String.format("Bảng công của %s cho lớp %s ngày %s đã bị từ chối.\nGiờ bắt đầu buổi học: %s.\nThời điểm điểm danh: %s.",
+                        coachDisplayName,
                         scheduleId,
-                        coachTimesheet.getWorkingDate());
+                        workingDate,
+                        sessionStartTime,
+                        formattedTime);
                 break;
             case CANCELLED:
                 return;
             case PENDING:
             default:
-                title = "Thong bao cham cong HLV";
-                body = String.format("Cap nhat trang thai cham cong cho HLV %s: %s.",
-                        coach.getFullName(),
-                        coachTimesheet.getStatus());
+                title = "Thông báo chấm công HLV";
+                body = String.format("Bảng công của %s cho lớp %s ngày %s đã được cập nhật trạng thái: %s.\nGiờ bắt đầu buổi học: %s.\nThời gian ghi nhận: %s.",
+                        coachDisplayName,
+                        scheduleId,
+                        workingDate,
+                        coachTimesheet.getStatus(),
+                        sessionStartTime,
+                        formattedTime);
         }
 
-        List<String> coachFcmTokens = authTokenService.getAllFcmTokensByUserId(coach.getUserId());
+        List<String> notificationTokens = new ArrayList<>();
+        notificationTokens.addAll(authTokenService.getAllFcmTokensByUserId(coach.getUserId()));
+        notificationTokens.addAll(authTokenService.getAllFcmTokensByRoleCode(HEAD_COACH_ROLE_CODE));
+        notificationTokens = notificationTokens.stream()
+                .filter(token -> token != null && !token.isEmpty())
+                .distinct()
+                .toList();
 
-        if (!coachFcmTokens.isEmpty()) {
+        if (!notificationTokens.isEmpty()) {
             Map<String, String> dataPayload = new HashMap<>();
             dataPayload.put("screen", "CoachTimesheet");
             dataPayload.put("coachId", coach.getUserId().toString());
             dataPayload.put("timesheetId", coachTimesheet.getTimesheetId().toString());
 
-            notificationService.sendMulticastNotification(coachFcmTokens, title, body, dataPayload);
+            notificationService.sendMulticastNotification(notificationTokens, title, body, dataPayload);
         }
 
     }

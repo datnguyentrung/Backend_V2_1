@@ -4,6 +4,7 @@ import com.dat.backend_v2_1.domain.Security.AuthToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -16,6 +17,8 @@ public interface AuthTokenRepository extends JpaRepository<AuthToken, UUID> {
     Optional<AuthToken> findByRefreshToken(String refreshToken);
 
     List<AuthToken> findAllByUser_UserIdAndRevokedFalse(UUID userId);
+
+    List<AuthToken> findAllByUser_UserIdInAndRevokedFalse(Collection<UUID> userIds);
 
     Optional<AuthToken> findByFcmToken(String fcmToken);
 }

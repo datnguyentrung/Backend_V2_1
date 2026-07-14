@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -38,6 +39,10 @@ public class UserService {
         user.setRole(role);
         user.setPasswordHash(passwordEncoder.encode("123456"));
         user.setStatus(UserStatus.ACTIVE);
+    }
+
+    public List<User> getAllUsersByRoleCode(String roleCode){
+        return userRepository.findAllByRole_Code(roleCode);
     }
 
     // Lấy user theo idUser

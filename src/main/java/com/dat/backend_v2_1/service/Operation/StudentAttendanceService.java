@@ -224,6 +224,7 @@ public class StudentAttendanceService {
                         .studentEnrollment(enrollment)
                         .sessionDate(today)
                         .attendanceStatus(status)
+                        .evaluationStatus(EvaluationStatus.PENDING) // Mặc định là PENDING, HLV sẽ đánh giá sau
                         .checkInTime(now)
                         .note("Điểm danh tự động qua API")
                         .build());
@@ -270,48 +271,48 @@ public class StudentAttendanceService {
 //            //@CacheEvict(value = "studentDetail", allEntries = true),
 //            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
 //    })
-    public void updateAttendanceStatus(
+    public StudentAttendanceDTO.Response updateAttendanceStatus(
             String coachId,
             StudentAttendanceDTO.UpdateStatusRequest request,
             UUID attendanceId
     ) {
-        // 1. Validate Coach (Helper method đã tách ra)
         Coach currentCoach = coachService.validateCoachAndGetActive(coachId);
 
-        // 2. Lấy dữ liệu
         StudentAttendance attendance = studentAttendanceRepository.findById(attendanceId)
                 .orElseThrow(() -> new NoSuchElementException(
                         "Không tìm thấy bản ghi điểm danh với ID: " + attendanceId
                 ));
 
-        // Business Rule: Không được phép thay đổi bản ghi đã được xin phép (EXCUSED)
-        if (attendance.getAttendanceStatus() == AttendanceStatus.EXCUSED || request.getAttendanceStatus() == AttendanceStatus.MAKEUP) {
-            log.warn("Coach {} attempted to modify excused attendance record {}",
-                    currentCoach.getFullName(), attendanceId);
+        if (attendance.getAttendanceStatus() == AttendanceStatus.EXCUSED
+                || request.getAttendanceStatus() == AttendanceStatus.MAKEUP) {
             throw new IllegalStateException("Không thể thay đổi bản ghi điểm danh đã được xin phép.");
         }
 
-        // 3. Update logic
         attendance.setAttendanceStatus(request.getAttendanceStatus());
         attendance.setCheckInTime(LocalDateTime.now());
         attendance.setRecordedByCoach(currentCoach);
 
-        if (request.getAttendanceStatus() == AttendanceStatus.ABSENT) {
-            attendance.setCheckInTime(null); // Nếu vắng thì không có check-in time
+        if (
+                request.getAttendanceStatus() == AttendanceStatus.ABSENT
+                        || request.getAttendanceStatus() == AttendanceStatus.EXCUSED
+        ) {
+            attendance.setCheckInTime(null);
             attendance.setRecordedByCoach(null);
             attendance.setEvaluationStatus(null);
             attendance.setEvaluatedByCoach(null);
+            attendance.setNote(null); // nếu có field note/remark thì nên clear luôn
         }
 
-        // Gửi thông báo cho học viên (trừ trạng thái ABSENT không gửi)
         if (request.getAttendanceStatus() != AttendanceStatus.ABSENT) {
             sendAttendanceNotification(attendance);
         }
 
-        publishScoreRecalculateEvent(attendance.getStudentEnrollment().getStudent(), attendance.getSessionDate());
+        publishScoreRecalculateEvent(
+                attendance.getStudentEnrollment().getStudent(),
+                attendance.getSessionDate()
+        );
 
-        log.info("Coach {} updated attendance {} status to {}",
-                currentCoach.getFullName(), attendanceId, request.getAttendanceStatus());
+        return studentAttendanceMapper.toResponse(attendance);
     }
 
     private void sendAttendanceNotification(
@@ -520,6 +521,11 @@ public class StudentAttendanceService {
                 .orElseThrow(() -> new NoSuchElementException(
                         String.format("Không tìm thấy bản ghi điểm danh với ID: %s", attendanceId)
                 ));
+
+        if (attendance.getAttendanceStatus() == AttendanceStatus.ABSENT
+                || attendance.getAttendanceStatus() == AttendanceStatus.EXCUSED) {
+            throw new IllegalStateException("Không thể đánh giá học viên vắng hoặc vắng có phép.");
+        }
 
         // Update evaluation
         attendance.setEvaluationStatus(request.getEvaluationStatus());

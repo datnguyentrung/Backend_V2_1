@@ -78,6 +78,12 @@ public class ClassScheduleReqDTO {
         private ScheduleLocation location;
 
         private ScheduleStatus scheduleStatus;
+
+        @Positive(message = "Học phí tháng phải lớn hơn 0")
+        private BigDecimal monthlyFee;
+
+        @Positive(message = "Học phí quý phải lớn hơn 0")
+        private BigDecimal quarterlyFee;
     }
 }
 

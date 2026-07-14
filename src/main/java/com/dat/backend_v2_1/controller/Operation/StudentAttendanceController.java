@@ -73,7 +73,7 @@ public class StudentAttendanceController {
 
     @PreAuthorize("@securityRule.isCoach(authentication)")
     @PatchMapping("/{attendanceId}/status")
-    public ResponseEntity<Void> updateAttendanceStatus(
+    public ResponseEntity<StudentAttendanceDTO.Response> updateAttendanceStatus(
             Authentication authentication, // Giả sử dùng Spring Security
             @PathVariable UUID attendanceId,
             @RequestBody @Valid StudentAttendanceDTO.UpdateStatusRequest request
@@ -83,10 +83,13 @@ public class StudentAttendanceController {
         log.info("Coach {} updating attendance {} to status {}",
                 coachId, attendanceId, request.getAttendanceStatus());
 
-        studentAttendanceService.updateAttendanceStatus(coachId, request, attendanceId);
-
-        // Cách 1: Trả về 204 No Content (Chuẩn REST khi không trả về dữ liệu)
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(
+                studentAttendanceService.updateAttendanceStatus(
+                        authentication.getName(),
+                        request,
+                        attendanceId
+                )
+        );
     }
 
     @PreAuthorize("@securityRule.isCoach(authentication)")

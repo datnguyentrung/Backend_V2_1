@@ -1,9 +1,14 @@
 package com.dat.backend_v2_1.controller.Core;
 
+import com.dat.backend_v2_1.config.SecurityRule;
 import com.dat.backend_v2_1.dto.Core.ClassScheduleReqDTO;
 import com.dat.backend_v2_1.dto.Core.ClassScheduleResDTO;
 import com.dat.backend_v2_1.enums.Core.*;
+import com.dat.backend_v2_1.enums.ErrorCode;
+import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import com.dat.backend_v2_1.service.Core.ClassScheduleService;
+import com.dat.backend_v2_1.service.Operation.CoachAssignmentService;
+import com.dat.backend_v2_1.util.error.AppException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,9 +16,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 /**
  * Controller quản lý lịch học (Class Schedule)
@@ -26,6 +34,8 @@ import java.util.List;
 public class ClassScheduleController {
 
     private final ClassScheduleService classScheduleService;
+    private final CoachAssignmentService coachAssignmentService;
+    private final SecurityRule securityRule;
 
     /**
      * Lấy danh sách lịch học với các bộ lọc tùy chọn
@@ -53,15 +63,32 @@ public class ClassScheduleController {
             @RequestParam(required = false) ScheduleShift scheduleShift,
             @RequestParam(required = false) ScheduleLocation scheduleLocation,
             @RequestParam(required = false) ScheduleStatus scheduleStatus,
-            @RequestParam(required = false) List<String> scheduleIds
+            @RequestParam(required = false) List<String> scheduleIds,
+
+            Authentication authentication
     ) {
-        log.info("Request to get class schedules with filters - branchId: {}, weekday: {}, level: {}, shift: {}, location: {}, status: {}, scheduleIds: {}",
-                branchId, weekday, scheduleLevel, scheduleShift, scheduleLocation, scheduleStatus, scheduleIds);
+        List<String> finalScheduleIds = scheduleIds;
 
-        List<ClassScheduleResDTO.ClassScheduleDetail> schedules = classScheduleService.getAllClassSchedules(
-                branchId, weekday, scheduleLevel, scheduleShift, scheduleLocation, scheduleStatus, scheduleIds);
+        if (!securityRule.isManagerSenior(authentication)) {
+            List<String> allowedScheduleIds = getAssignedScheduleIds(authentication);
+            finalScheduleIds = scheduleIds == null || scheduleIds.isEmpty()
+                    ? allowedScheduleIds
+                    : allowedScheduleIds.stream()
+                    .filter(scheduleIds::contains)
+                    .toList();
+        }
 
-        return ResponseEntity.ok(schedules);
+        return ResponseEntity.ok(
+                classScheduleService.filterClassSchedules(
+                        branchId,
+                        weekday,
+                        scheduleLevel,
+                        scheduleShift,
+                        scheduleLocation,
+                        scheduleStatus,
+                        finalScheduleIds
+                )
+        );
     }
 
     /**
@@ -75,8 +102,14 @@ public class ClassScheduleController {
     @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping("/{scheduleId}")
     public ResponseEntity<ClassScheduleResDTO.ClassScheduleDetail> getClassScheduleDetail(
-            @PathVariable String scheduleId) throws JsonProcessingException {
+            @PathVariable String scheduleId,
+            Authentication authentication) throws JsonProcessingException {
         log.info("Request to get class schedule detail: {}", scheduleId);
+
+        if (!securityRule.isManagerSenior(authentication)
+                && !getAssignedScheduleIds(authentication).contains(scheduleId)) {
+            throw new AppException(ErrorCode.ACCESS_DENIED);
+        }
 
         ClassScheduleResDTO.ClassScheduleDetail schedule = classScheduleService.getClassScheduleDetail(scheduleId);
 
@@ -168,5 +201,18 @@ public class ClassScheduleController {
 
         // Trả về HTTP 204 No Content (Thành công nhưng không có body)
         return ResponseEntity.noContent().build();
+    }
+
+    private List<String> getAssignedScheduleIds(Authentication authentication) {
+        return coachAssignmentService
+                .findCoachAssignmentsByCoachId(
+                        UUID.fromString(authentication.getName()),
+                        CoachAssignmentStatus.ACTIVE
+                )
+                .stream()
+                .filter(item -> item.getClassSchedule() != null)
+                .map(item -> item.getClassSchedule().getScheduleId())
+                .filter(Objects::nonNull)
+                .toList();
     }
 }

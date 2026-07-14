@@ -87,7 +87,7 @@ public class ClassScheduleService {
      */
     @Cacheable(value = "classScheduleList", unless = "#result == null || #result.isEmpty()")
     @Transactional(readOnly = true)
-    public List<ClassScheduleResDTO.ClassScheduleDetail> getAllClassSchedules(
+    public List<ClassScheduleResDTO.ClassScheduleDetail> filterClassSchedules(
             Long branchId,
             Weekday weekday,
             ScheduleLevel scheduleLevel,
@@ -95,6 +95,10 @@ public class ClassScheduleService {
             ScheduleLocation scheduleLocation,
             ScheduleStatus scheduleStatus,
             List<String> scheduleIds) {
+
+        if (scheduleIds != null && scheduleIds.isEmpty()) {
+            return Collections.emptyList();
+        }
 
         List<ClassSchedule> schedules = classScheduleRepository.findAllWithFilters(
                 branchId,

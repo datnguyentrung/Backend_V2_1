@@ -2,10 +2,12 @@ package com.dat.backend_v2_1.domain.Security;
 
 import com.dat.backend_v2_1.enums.Security.UserStatus;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UuidGenerator;
 import org.hibernate.type.SqlTypes;
@@ -13,79 +15,90 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.UUID;
+import java.util.*;
 
 @Getter
 @Setter
-@SuperBuilder // Thay cho @Builder để hỗ trợ kế thừa
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
 @EntityListeners(AuditingEntityListener.class)
-// Quan trọng: Định nghĩa chiến lược kế thừa.
-// JOINED: Tạo 2 bảng riêng biệt, bảng con trỏ ID về bảng cha.
-@Inheritance(strategy = InheritanceType.JOINED)
 @Table(
         name = "user",
         schema = "security",
         indexes = {
                 @Index(name = "idx_user_phone", columnList = "phone_number"),
-                @Index(name = "idx_user_role", columnList = "role_code")
+                @Index(name = "idx_user_status", columnList = "status")
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_user_phone", columnNames = "phone_number")
         }
-) // Tên bảng nên viết thường (lowercase)
+)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class User {
 
     @Id
-    @GeneratedValue(generator = "uuid-hibernate-generator")
+    @GeneratedValue
     @UuidGenerator
     @JdbcTypeCode(SqlTypes.UUID)
-    @Column(name = "user_id", updatable = false, nullable = false)
+    @Column(name = "user_id", nullable = false, updatable = false)
     UUID userId;
 
-    @NotBlank(message = "Họ tên không được để trống")
-    @Size(max = 100, message = "Họ tên không quá 100 ký tự")
-    @Column(name = "full_name", nullable = false, length = 100)
-    String fullName;
+    @NotBlank(message = "Phone number must not be blank")
+    @Size(max = 20)
+    @Pattern(regexp = "^0(3[2-9]|5[689]|7[06-9]|8[1-689]|9[0-46-9])\\d{7}$",
+            message = "Phone number must be a normalized Vietnamese mobile number")
+    @Column(name = "phone_number", nullable = false, unique = true, length = 20)
+    String phoneNumber;
 
-    @Column(name = "gender")
-    Boolean gender; // true: Nam, false: Nữ, null: Không xác định
-
-    @NotNull
-    @Column(name = "password_hash", nullable = false)
+    @NotBlank(message = "Password hash must not be blank")
+    @Column(name = "password_hash", nullable = false, length = 255)
     String passwordHash;
 
-    @NotNull
+    @NotNull(message = "User status must not be null")
     @Enumerated(EnumType.STRING)
-    @Builder.Default // Giá trị mặc định khi dùng Builder
+    @Builder.Default
     @Column(name = "status", nullable = false, length = 20)
     UserStatus status = UserStatus.ACTIVE;
 
-    @CreatedDate // Tự động set khi tạo mới
+    @Builder.Default
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_role",
+            schema = "security",
+            joinColumns = @JoinColumn(name = "user_id", referencedColumnName = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_code", referencedColumnName = "role_code"),
+            uniqueConstraints = @UniqueConstraint(
+                    name = "uk_user_role",
+                    columnNames = {"user_id", "role_code"}
+            )
+    )
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    Set<Role> roles = new HashSet<>();
+
+    @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     LocalDateTime createdAt;
 
-    @LastModifiedDate // Tự động cập nhật thời gian khi bản ghi bị thay đổi
+    @LastModifiedDate
     @Column(name = "updated_at")
     LocalDateTime updatedAt;
 
     @Column(name = "last_login_at")
     LocalDateTime lastLoginAt;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "role_code", nullable = false, referencedColumnName = "role_code")
+    @Builder.Default
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
-    Role role;
+    @EqualsAndHashCode.Exclude
+    List<UserProfile> profiles = new ArrayList<>();
 
-    @Pattern(regexp = "^$|^(0|\\+84)(\\s|\\.)?((3[2-9])|(5[689])|(7[06-9])|(8[1-689])|(9[0-46-9]))(\\d)(\\s|\\.)?(\\d{3})(\\s|\\.)?(\\d{3})$",
-            message = "Số điện thoại không đúng định dạng VN")
-    @Column(name = "phone_number", length = 20)
-    String phoneNumber;
-
-    @NotNull(message = "Ngày sinh không được để trống")
-    @Past(message = "Ngày sinh không hợp lệ (Phải là ngày trong quá khứ)")
-    @Column(name = "birth_date", nullable = false)
-    LocalDate birthDate;
+    @Builder.Default
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    List<AuthToken> authTokens = new ArrayList<>();
 }

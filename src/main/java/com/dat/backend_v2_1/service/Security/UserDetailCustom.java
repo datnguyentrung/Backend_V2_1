@@ -2,55 +2,51 @@ package com.dat.backend_v2_1.service.Security;
 
 import com.dat.backend_v2_1.domain.Security.User;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
+import com.dat.backend_v2_1.util.PhoneNumberUtil;
 import org.jspecify.annotations.NonNull;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
+import java.util.List;
 
 @Component("userDetailsService")
 public class UserDetailCustom implements UserDetailsService {
+    private final UserService userService;
 
-    @Autowired
-    private UserService userService;
+    public UserDetailCustom(UserService userService) {
+        this.userService = userService;
+    }
 
-    /**
-     * Load user details by phone number for Spring Security authentication
-     *
-     * @param phoneNumber the phone number identifying the user
-     * @return UserDetails object containing user authentication information
-     * @throws UsernameNotFoundException if user is not found or account is not active
-     */
     @Override
     public UserDetails loadUserByUsername(@NonNull String phoneNumber) throws UsernameNotFoundException {
-        User user = userService.getUserByPhoneNumber(phoneNumber);
-
-        if (user == null) {
-            throw new UsernameNotFoundException("User not found with phone number: " + phoneNumber);
+        String normalizedPhone;
+        try {
+            normalizedPhone = PhoneNumberUtil.normalize(phoneNumber);
+        } catch (IllegalArgumentException e) {
+            throw new UsernameNotFoundException("Invalid phone number");
         }
 
-        // Check if user account is active and not banned/deactivated
-        boolean isAccountNonLocked = user.getStatus() != UserStatus.BANNED;
-        boolean isEnabled = user.getStatus() == UserStatus.ACTIVE;
+        User user = userService.getUserWithRolesByPhoneNumber(normalizedPhone);
+        boolean active = user.getStatus() == UserStatus.ACTIVE;
+        boolean locked = user.getStatus() == UserStatus.LOCKED || user.getStatus() == UserStatus.BANNED;
+        boolean disabled = user.getStatus() == UserStatus.DISABLED || user.getStatus() == UserStatus.DEACTIVATED
+                || user.getStatus() == UserStatus.PENDING;
 
-        // Build authorities from user role (Role.code already contains "ROLE_" prefix)
-        SimpleGrantedAuthority authority = user.getRole() != null
-                ? new SimpleGrantedAuthority(user.getRole().getCode())
-                : new SimpleGrantedAuthority("ROLE_USER");
+        List<SimpleGrantedAuthority> authorities = user.getRoles().stream()
+                .map(role -> new SimpleGrantedAuthority(role.getCode()))
+                .toList();
 
-        // Use Spring Security's User class with builder pattern to avoid confusion with entity User
         return org.springframework.security.core.userdetails.User
-                .withUsername(phoneNumber)
+                .withUsername(normalizedPhone)
                 .password(user.getPasswordHash())
-                .authorities(Collections.singletonList(authority))
+                .authorities(authorities)
                 .accountExpired(false)
-                .accountLocked(!isAccountNonLocked)
+                .accountLocked(locked)
                 .credentialsExpired(false)
-                .disabled(!isEnabled)
+                .disabled(!active || disabled)
                 .build();
     }
 }

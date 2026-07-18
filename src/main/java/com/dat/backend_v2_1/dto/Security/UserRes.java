@@ -73,7 +73,7 @@ public class UserRes {
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
         LocalDateTime lastLoginAt;
 
-        String role;
+        List<String> roles;
 
         String fullName;
 

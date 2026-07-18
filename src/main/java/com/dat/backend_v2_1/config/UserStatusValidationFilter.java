@@ -12,123 +12,92 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
 
-/**
- * Filter kiểm tra UserStatus phải là ACTIVE cho mọi API authenticated.
- * Filter này chạy SAU KHI JWT được decode và Authentication đã được set vào SecurityContext.
- */
 @Slf4j
 @Component
 public class UserStatusValidationFilter extends OncePerRequestFilter {
 
-    // Danh sách các endpoint không cần check status (public endpoints)
     private static final List<String> EXCLUDED_PATHS = List.of(
             "/api/v1/auth/login",
             "/api/v1/auth/logout",
             "/api/v1/auth/refresh"
     );
 
-    // 🚀 ĐÃ THÊM: Danh sách các API Hệ thống (chạy tự động qua X-API-KEY, không có JWT)
     private static final List<String> SYSTEM_ENDPOINTS = List.of(
             "/api/v1/leaderboards/sync-batch"
     );
 
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+    protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-
-        // Bỏ qua nếu là request OPTIONS (Pre-flight của CORS)
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
-            return true;
-        }
-
-        // 🚀 ĐÃ SỬA: Nếu đường dẫn nằm trong danh sách hệ thống -> BỎ QUA filter kiểm tra Status này
-        return SYSTEM_ENDPOINTS.contains(path);
-    }
-
-    private boolean isSystemAuthentication(Authentication authentication) {
-        return authentication != null
-                && authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .anyMatch(authority -> authority != null && authority.contains("SYSTEM"));
+        return "OPTIONS".equalsIgnoreCase(request.getMethod()) || SYSTEM_ENDPOINTS.contains(path);
     }
 
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest request,
-            @NonNull HttpServletResponse response,
-            @NonNull FilterChain filterChain
-    ) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,
+                                    @NonNull HttpServletResponse response,
+                                    @NonNull FilterChain filterChain) throws ServletException, IOException {
         String requestPath = request.getRequestURI();
 
-        // Bỏ qua các endpoint public
         if (isExcludedPath(requestPath)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Lấy Authentication từ SecurityContext (đã được set bởi JwtAuthenticationFilter trước đó)
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        // Nếu request không authenticated (anonymous) -> Cho qua, để SecurityConfig xử lý authorize
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Request từ X-API-KEY được cấp ROLE_SYSTEM, không có user status trong JWT
         if (isSystemAuthentication(authentication)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        // Request đã authenticated -> Kiểm tra UserStatus
         try {
             String statusString = SecurityUtil.getCurrentUserStatus()
                     .orElseThrow(() -> new RuntimeException("Missing user status in token"));
-
             UserStatus status = UserStatus.valueOf(statusString);
-
-            // Nếu không phải ACTIVE -> Trả về 403 Forbidden
             if (status != UserStatus.ACTIVE) {
-                log.warn("Access denied for user with status: {} on path: {}", status, requestPath);
-                response.setStatus(HttpStatus.FORBIDDEN.value());
-                response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write(
-                        String.format("{\"error\":\"Forbidden\",\"message\":\"Tài khoản của bạn chưa được kích hoạt " +
-                                "(Status: %s)\"}", status)
-                );
-                return; // Dừng filter chain, không cho request đi tiếp
+                forbidden(response, "Account is not active");
+                return;
             }
 
-        } catch (IllegalArgumentException e) {
-            log.error("Invalid user status in token for path: {}", requestPath, e);
-            response.setStatus(HttpStatus.FORBIDDEN.value());
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"error\":\"Forbidden\",\"message\":\"Invalid User Status in Token\"}");
-            return;
+            if (!requestPath.startsWith("/api/v1/auth/") && authentication.getPrincipal() instanceof Jwt jwt) {
+                if (jwt.getClaim("activePersonId") == null || jwt.getClaim("activeContextType") == null) {
+                    forbidden(response, "Active context is required");
+                    return;
+                }
+            }
         } catch (Exception e) {
-            log.error("Error validating user status for path: {}", requestPath, e);
-            response.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"error\":\"Internal Server Error\",\"message\":\"Failed to validate user " +
-                    "status\"}");
+            log.warn("Security token validation failed on path {}", requestPath, e);
+            forbidden(response, "Invalid security token");
             return;
         }
 
-        // Status hợp lệ (ACTIVE) -> Cho request đi tiếp
         filterChain.doFilter(request, response);
     }
 
-    /**
-     * Kiểm tra xem path có nằm trong danh sách excluded không
-     */
+    private boolean isSystemAuthentication(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> authority != null && authority.contains("SYSTEM"));
+    }
+
     private boolean isExcludedPath(String requestPath) {
         return EXCLUDED_PATHS.stream().anyMatch(requestPath::startsWith);
+    }
+
+    private void forbidden(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpStatus.FORBIDDEN.value());
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"error\":\"Forbidden\",\"message\":\"" + message + "\"}");
     }
 }

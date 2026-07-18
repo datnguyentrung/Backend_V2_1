@@ -1,6 +1,7 @@
 package com.dat.backend_v2_1.repository.Security;
 
 import com.dat.backend_v2_1.domain.Security.User;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -12,5 +13,11 @@ import java.util.UUID;
 public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByPhoneNumber(String phoneNumber);
 
-    List<User> findAllByRole_Code(String roleCode);
+    @EntityGraph(attributePaths = "roles")
+    Optional<User> findWithRolesByPhoneNumber(String phoneNumber);
+
+    @EntityGraph(attributePaths = "roles")
+    Optional<User> findWithRolesByUserId(UUID userId);
+
+    List<User> findAllByRoles_Code(String roleCode);
 }

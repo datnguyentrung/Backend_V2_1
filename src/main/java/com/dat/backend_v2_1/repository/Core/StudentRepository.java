@@ -3,13 +3,11 @@ package com.dat.backend_v2_1.repository.Core;
 import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.dto.Core.StudentResDTO;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -25,41 +23,27 @@ public interface StudentRepository extends JpaRepository<Student, UUID>,
         JpaSpecificationExecutor<Student>,
         StudentRepositoryCustom {
 
-    /**
-     * Override default findAll(Specification, Pageable) to add EntityGraph.
-     * This eliminates N+1 queries for branch, role, and parent when listing students.
-     * These are all @ManyToOne (single-valued), so pagination stays at SQL level (no in-memory pagination).
-     */
     @Override
-    @EntityGraph(attributePaths = {"branch", "role", "parent"})
+    @EntityGraph(attributePaths = {"branch"})
     Page<Student> findAll(@Nullable Specification<Student> spec, Pageable pageable);
-
-    boolean existsByPhoneNumber(@NotBlank(message = "Số điện thoại không được để trống") @Pattern(regexp = "^(0|\\+84)(\\s|\\.)?((3[2-9])|(5[689])|(7[06-9])|(8[1-689])|(9[0-46-9]))(\\d)(\\s|\\.)?(\\d{3})(\\s|\\.)?(\\d{3})$",
-            message = "Số điện thoại không đúng định dạng Việt Nam") String phoneNumber);
 
     boolean existsByNationalCode(String nationalCode);
 
     boolean existsByStudentCode(String generatedCode);
 
     @Query(value = """
-            
-                SELECT DISTINCT s FROM Student s
+            SELECT DISTINCT s FROM Student s
             LEFT JOIN FETCH s.branch
-            LEFT JOIN FETCH s.role
             LEFT JOIN StudentEnrollment se ON se.student = s
             WHERE (:isFilterSchedule = false OR se.classSchedule.scheduleId IN :scheduleIds)
-              AND (LOWER(s.fullName) LIKE :search
-                   OR LOWER(s.studentCode) LIKE :search
-                   OR LOWER(s.phoneNumber) LIKE :search)
+              AND (LOWER(s.fullName) LIKE :search OR LOWER(s.studentCode) LIKE :search)
               AND (:status IS NULL OR s.studentStatus = :status)
             """,
             countQuery = """
                     SELECT COUNT(DISTINCT s) FROM Student s
                     LEFT JOIN StudentEnrollment se ON se.student = s
                     WHERE (:isFilterSchedule = false OR se.classSchedule.scheduleId IN :scheduleIds)
-                      AND (LOWER(s.fullName) LIKE :search
-                           OR LOWER(s.studentCode) LIKE :search
-                           OR LOWER(s.phoneNumber) LIKE :search)
+                      AND (LOWER(s.fullName) LIKE :search OR LOWER(s.studentCode) LIKE :search)
                       AND (:status IS NULL OR s.studentStatus = :status)
                     """)
     Page<Student> findStudentsWithFilter(
@@ -75,9 +59,7 @@ public interface StudentRepository extends JpaRepository<Student, UUID>,
             FROM Student s
             LEFT JOIN StudentEnrollment se ON se.student = s
             WHERE (:isFilterSchedule = false OR se.classSchedule.scheduleId IN :scheduleIds)
-              AND (LOWER(s.fullName) LIKE :search
-                   OR LOWER(s.studentCode) LIKE :search
-                   OR LOWER(s.phoneNumber) LIKE :search)
+              AND (LOWER(s.fullName) LIKE :search OR LOWER(s.studentCode) LIKE :search)
             GROUP BY s.studentStatus
             """)
     List<StudentStatusCount> countStudentsByStatusWithFilter(
@@ -86,35 +68,27 @@ public interface StudentRepository extends JpaRepository<Student, UUID>,
             @Param("isFilterSchedule") boolean isFilterSchedule
     );
 
-    List<Student> findByParent_UserId(UUID parentUserId);
-
     @Query("""
-                SELECT s.studentCode AS studentCode,
-                       s.fullName AS fullName,
-                       s.belt AS belt
-                FROM Student s
-                WHERE s.studentCode IN :studentCodes
+            SELECT s.studentCode AS studentCode,
+                   s.fullName AS fullName,
+                   s.belt AS belt
+            FROM Student s
+            WHERE s.studentCode IN :studentCodes
             """)
     List<StudentResDTO.StudentRankInfo> findRankInfoByStudentCodeIn(@Param("studentCodes") List<String> studentCodes);
 
     List<Student> findAllByStudentStatus(StudentStatus studentStatus);
 
-    public interface StudentStatusCount {
+    interface StudentStatusCount {
         StudentStatus getStatus();
 
         Long getCount();
     }
 
-    /**
-     * Tối ưu: Lấy số lượng học viên theo tất cả trạng thái trong 1 query duy nhất
-     * Thay vì gọi countByStudentStatus 3 lần riêng biệt (3 queries)
-     *
-     * @return List of Object[] where arr[0] is StudentStatus and arr[1] is count
-     */
     @Query("""
-                SELECT s.studentStatus, COUNT(s)
-                FROM Student s
-                GROUP BY s.studentStatus
+            SELECT s.studentStatus, COUNT(s)
+            FROM Student s
+            GROUP BY s.studentStatus
             """)
     List<Object[]> countStudentsByStatusGrouped();
 

@@ -15,6 +15,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,6 +29,7 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.util.Collection;
 import java.util.List;
 
 @Configuration
@@ -59,8 +61,16 @@ public class SecurityConfiguration {
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
         return new JwtAuthenticationConverter() {{
             setJwtGrantedAuthoritiesConverter(jwt -> {
+                Object rolesClaim = jwt.getClaim("roles");
+                if (rolesClaim instanceof Collection<?> roles) {
+                    return roles.stream()
+                            .map(String::valueOf)
+                            .map(SimpleGrantedAuthority::new)
+                            .map(GrantedAuthority.class::cast)
+                            .toList();
+                }
                 String role = jwt.getClaim("role");
-                return List.of(new SimpleGrantedAuthority(role));
+                return role == null ? List.of() : List.<GrantedAuthority>of(new SimpleGrantedAuthority(role));
             });
         }};
     }
@@ -112,6 +122,7 @@ public class SecurityConfiguration {
                                 ).permitAll() // Thêm dòng này
                                 .requestMatchers(
                                         "/api/v1/auth/login",
+                                        "/api/v1/auth/refresh",
                                         "/api/v1/auth/logout",
                                         "/api/v1/user"
                                 ).permitAll()

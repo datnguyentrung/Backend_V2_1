@@ -1,7 +1,5 @@
 package com.dat.backend_v2_1.domain.Core;
 
-import com.dat.backend_v2_1.domain.Security.User;
-import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
@@ -11,17 +9,14 @@ import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.SuperBuilder;
-import org.hibernate.annotations.Array;
-import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
-import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 
 @Getter
 @Setter
-@SuperBuilder // Bắt buộc dùng SuperBuilder vì kế thừa từ User
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
@@ -29,60 +24,68 @@ import java.time.LocalDate;
         name = "student",
         schema = "core",
         indexes = {
-                @Index(name = "idx_student_status", columnList = "student_status"),
-                @Index(name = "idx_student_branch", columnList = "branch_id"),
-                @Index(name = "idx_student_parent", columnList = "parent_user_id") // BỔ SUNG DÒNG NÀY
+                @Index(
+                        name = "idx_student_status",
+                        columnList = "student_status"
+                ),
+                @Index(
+                        name = "idx_student_branch",
+                        columnList = "branch_id"
+                )
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_student_code",
+                        columnNames = "student_code"
+                )
         }
 )
-@PrimaryKeyJoinColumn(name = "user_id") // Khóa chính cũng là FK trỏ về bảng User
-@EqualsAndHashCode(callSuper = true) // So sánh object bao gồm cả các field của User
+@PrimaryKeyJoinColumn(
+        name = "person_id",
+        foreignKey = @ForeignKey(name = "fk_student_person")
+)
+@EqualsAndHashCode(callSuper = true)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @OnDelete(action = OnDeleteAction.CASCADE)
-public class Student extends User {
+public class Student extends Person {
 
     @NotBlank(message = "Mã học viên không được để trống")
-    @Size(max = 50, message = "Mã học viên tối đa 20 ký tự")
-    @Column(name = "student_code", nullable = false, unique = true, length = 50)
+    @Size(max = 50, message = "Mã học viên tối đa 50 ký tự")
+    @Column(
+            name = "student_code",
+            nullable = false,
+            unique = true,
+            length = 50
+    )
     String studentCode;
 
     @NotNull(message = "Ngày bắt đầu tập không được để trống")
     @PastOrPresent(message = "Ngày bắt đầu không được ở tương lai")
-    @Column(name = "start_date", nullable = false)
+    @Builder.Default
+    @Column(
+            name = "start_date",
+            nullable = false
+    )
     LocalDate startDate = LocalDate.now();
 
-    // Đổi tên biến status -> studentStatus để tránh trùng với User.status
-    // User.status: Active/Locked (Trạng thái tài khoản hệ thống)
-    // Student.studentStatus: Studying/Paused/Dropout (Trạng thái học tập)
     @NotNull(message = "Trạng thái học viên không được để trống")
     @Enumerated(EnumType.STRING)
     @Builder.Default
-    @Column(name = "student_status", nullable = false, length = 20)
+    @Column(
+            name = "student_status",
+            nullable = false,
+            length = 20
+    )
     StudentStatus studentStatus = StudentStatus.ACTIVE;
 
-    @NotNull(message = "Chi nhánh không được để trống")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "branch_id", nullable = false) // FK trỏ sang bảng Branch
+    @NotNull(message = "Cơ sở không được để trống")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
+            name = "branch_id",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_student_branch")
+    )
     @ToString.Exclude
     Branch branch;
 
-    @NotNull(message = "Đai không được để trống")
-    @Enumerated(EnumType.STRING)
-    @Column(name = "belt", length = 20)
-    @Builder.Default
-    Belt belt = Belt.C10;
-
-    //    @Transient
-    @JdbcTypeCode(SqlTypes.VECTOR)
-    @Array(length = 512)
-    @Column(name = "face_embedding", columnDefinition = "vector(512)")
-    float[] faceEmbedding;
-
-    //    @NotNull(message = "Người bảo hộ không được để trống")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_user_id", nullable = true) // FK trỏ sang bảng User (có thể là Coach hoặc Parent khác)
-            User parent; // Thêm trường parent để lưu thông tin người giới thiệu (có thể là Coach hoặc Student khác)
-
-    @Size(max = 50, message = "Mã hội viên tối đa 50 ký tự")
-    @Column(name = "national_code", unique = true, length = 50)
-    String nationalCode;
 }

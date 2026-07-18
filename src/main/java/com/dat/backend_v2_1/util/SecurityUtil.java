@@ -1,8 +1,6 @@
 package com.dat.backend_v2_1.util;
 
-
 import com.dat.backend_v2_1.dto.Security.LoginRes;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.util.Base64;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -19,19 +17,13 @@ import javax.crypto.spec.SecretKeySpec;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class SecurityUtil {
-    private final JwtEncoder jwtEncoder;
-
-    public SecurityUtil(JwtEncoder jwtEncoder) {
-        this.jwtEncoder = jwtEncoder;
-    }
-
     public static final MacAlgorithm JWT_ALGORITHM = MacAlgorithm.HS512;
+
+    private final JwtEncoder jwtEncoder;
 
     @Value("${jwt.base64-secret}")
     private String jwtKey;
@@ -39,49 +31,60 @@ public class SecurityUtil {
     @Value("${jwt.access-token-validity-in-seconds}")
     private long accessTokenExpiration;
 
-    @Value("${jwt.refresh-token-validity-in-seconds}")
-    private long refreshTokenExpiration;
+    public SecurityUtil(JwtEncoder jwtEncoder) {
+        this.jwtEncoder = jwtEncoder;
+    }
 
-    public String createAccessToken(UUID idUser, LoginRes.UserLogin userLogin) {
-
+    public String createAccessToken(UUID userId, String sessionId, LoginRes.UserLogin userLogin,
+                                    LoginRes.UserContextRes activeContext) {
         LocalDateTime now = LocalDateTime.now();
         Instant instant = now.atZone(ZoneId.systemDefault()).toInstant();
         Instant validity = instant.plusSeconds(this.accessTokenExpiration);
 
-        JwtClaimsSet claimsSet = JwtClaimsSet.builder()
+        JwtClaimsSet.Builder claims = JwtClaimsSet.builder()
                 .issuedAt(instant)
                 .expiresAt(validity)
-                .subject(idUser.toString())
-                .claim("user", userLogin)
-                .claim("role", userLogin.getRole())
-                .build();
+                .subject(userId.toString())
+                .claim("sessionId", sessionId)
+                .claim("roles", userLogin.getRoles())
+                .claim("user", userLogin);
+
+        if (activeContext != null) {
+            claims.claim("activePersonId", activeContext.getPersonId().toString())
+                    .claim("activeContextType", activeContext.getContextType());
+        } else {
+            claims.claim("activePersonId", null)
+                    .claim("activeContextType", null);
+        }
 
         JwsHeader jwsHeader = JwsHeader.with(JWT_ALGORITHM).build();
-        return this.jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claimsSet))
-                .getTokenValue();
+        return this.jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claims.build())).getTokenValue();
     }
 
-//    public String createRefreshToken(UUID idUser, LoginRes userLogin) {
-//        LocalDateTime now = LocalDateTime.now();
-//        LocalDateTime validity = now.plus(this.refreshTokenExpiration, ChronoUnit.SECONDS);
-//
-//        JwtClaimsSet claimsSet = JwtClaimsSet.builder()
-//                .issuedAt(now)
-//                .expiresAt(validity)
-//                .subject(idUser.toString())
-//                .claim("user", userLogin.getUser())
-//                .claim("role", userLogin.getUser().getRole())
-//                .claim("id_device", userLogin.getIdDevice())
-//                .build();
-//
-//        JwsHeader jwsHeader = JwsHeader.with(JWT_ALGORITHM).build();
-//        return this.jwtEncoder.encode(JwtEncoderParameters.from(jwsHeader, claimsSet))
-//                .getTokenValue();
-//    }
-
-    public static Optional<String> getCurrentUserLogin() {
+    public static Optional<String> getCurrentUserId() {
         SecurityContext securityContext = SecurityContextHolder.getContext();
         return Optional.ofNullable(extractPrincipal(securityContext.getAuthentication()));
+    }
+
+    public static Optional<String> getCurrentSessionId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof Jwt jwt) {
+            return Optional.ofNullable(jwt.getClaimAsString("sessionId"));
+        }
+        return Optional.empty();
+    }
+
+    public static Optional<String> getCurrentActivePersonId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof Jwt jwt) {
+            return Optional.ofNullable(jwt.getClaimAsString("activePersonId"));
+        }
+        return Optional.empty();
+    }
+
+    @Deprecated
+    public static Optional<String> getCurrentUserLogin() {
+        return getCurrentUserId();
     }
 
     private static String extractPrincipal(Authentication authentication) {
@@ -97,28 +100,10 @@ public class SecurityUtil {
         return null;
     }
 
-    public static Optional<String> getCurrentUserJWT() {
-        SecurityContext securityContext = SecurityContextHolder.getContext();
-        return Optional.ofNullable(securityContext.getAuthentication())
-                .filter(authentication -> authentication.getCredentials() instanceof String)
-                .map(authentication -> (String) authentication.getCredentials());
-    }
-
-    private SecretKey getSecretKey() {
-        byte[] keyBytes = Base64.from(jwtKey).decode();
-        return new SecretKeySpec(keyBytes, 0, keyBytes.length, JWT_ALGORITHM.getName());
-    }
-
     public Jwt checkValidRefreshToken(String refreshToken) {
         NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(
                 getSecretKey()).macAlgorithm(JWT_ALGORITHM).build();
-        try {
-            return jwtDecoder.decode(refreshToken);
-//            System.out.println(">>> Refresh Token ok!");
-        } catch (Exception e) {
-            System.out.println(">>> Refresh Token error: " + e.getMessage());
-            throw e;
-        }
+        return jwtDecoder.decode(refreshToken);
     }
 
     public static Optional<String> getCurrentUserRole() {
@@ -126,8 +111,6 @@ public class SecurityUtil {
         Authentication authentication = context.getAuthentication();
         if (authentication == null) {
             return Optional.empty();
-        } else {
-            authentication.getAuthorities();
         }
 
         return authentication.getAuthorities().stream()
@@ -136,27 +119,17 @@ public class SecurityUtil {
     }
 
     public static Optional<String> getCurrentUserStatus() {
-        SecurityContext context = SecurityContextHolder.getContext();
-        Authentication authentication = context.getAuthentication();
-
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof Jwt jwt) {
-            // Lấy user object từ claims
-            Object userClaim = jwt.getClaim("user");
-            if (userClaim instanceof Map<?, ?> userMap) {
-                Object status = userMap.get("status");
-                return status != null ? Optional.of(status.toString()) : Optional.empty();
-            }
+            Map<String, Object> userMap = jwt.getClaim("user");
+            Object status = userMap == null ? null : userMap.get("status");
+            return status == null ? Optional.empty() : Optional.of(status.toString());
         }
-
         return Optional.empty();
     }
 
-    public static LoginRes.UserLogin getCurrentUser(Jwt jwt) {
-        Map<String, Object> userMap = jwt.getClaim("user");
-
-        // Dùng ObjectMapper để convert Map sang Object
-        ObjectMapper mapper = new ObjectMapper();
-
-        return mapper.convertValue(userMap, LoginRes.UserLogin.class);
+    private SecretKey getSecretKey() {
+        byte[] keyBytes = Base64.from(jwtKey).decode();
+        return new SecretKeySpec(keyBytes, 0, keyBytes.length, JWT_ALGORITHM.getName());
     }
 }

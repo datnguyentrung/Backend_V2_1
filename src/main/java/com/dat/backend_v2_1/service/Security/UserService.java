@@ -3,11 +3,15 @@ package com.dat.backend_v2_1.service.Security;
 import com.dat.backend_v2_1.domain.Security.Role;
 import com.dat.backend_v2_1.domain.Security.User;
 import com.dat.backend_v2_1.dto.Security.ChangePasswordReq;
+import com.dat.backend_v2_1.dto.Security.UserReq;
+import com.dat.backend_v2_1.dto.Security.UserRes;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
 import com.dat.backend_v2_1.repository.Security.UserRepository;
+import com.dat.backend_v2_1.util.PhoneNumberUtil;
+import com.dat.backend_v2_1.util.error.BusinessException;
 import com.dat.backend_v2_1.util.error.InvalidPasswordException;
 import com.dat.backend_v2_1.util.error.UserNotFoundException;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,39 +20,58 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class UserService {
-    @Autowired
-    private UserRepository userRepository;
+    private static final String DEFAULT_PASSWORD_HASH = "$2a$10$pDCb306dF99wUKluGLnm4ek0aVPkrxkk5V9D1a0fnuw7O5uGE0lHy";
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private RoleService roleService;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final RoleService roleService;
+    private final UserRoleService userRoleService;
 
     @Value("${password.time_password_change_days}")
     private long timePasswordChange;
 
-    // Hàm dùng chung để gán thông tin User
-    public <T extends User> void setupBaseUser(T user, String roleCode) {
-        Role role = roleService.getRoleByCode(roleCode);
+    @Transactional(rollbackFor = Exception.class)
+    public UserRes.UserDetail createUserWithDefaultPassword(UserReq request) {
+        String normalizedPhone = PhoneNumberUtil.normalize(request.getPhoneNumber());
+        if (userRepository.findByPhoneNumber(normalizedPhone).isPresent()) {
+            throw new BusinessException("Phone number already exists");
+        }
 
-        user.setRole(role);
-        user.setPasswordHash(passwordEncoder.encode("123456"));
+        User user = new User();
+        user.setPhoneNumber(normalizedPhone);
+        user.setPasswordHash(DEFAULT_PASSWORD_HASH);
         user.setStatus(UserStatus.ACTIVE);
+        user = userRepository.save(user);
+        userRoleService.assignRoles(user, request.getRoleCodes());
+
+        return toUserDetail(getUserWithRolesById(user.getUserId()));
     }
 
-    public List<User> getAllUsersByRoleCode(String roleCode){
-        return userRepository.findAllByRole_Code(roleCode);
+    public User createLoginUser(String phoneNumber, String rawPassword, Set<String> roleCodes) {
+        String normalizedPhone = PhoneNumberUtil.normalize(phoneNumber);
+        if (userRepository.findByPhoneNumber(normalizedPhone).isPresent()) {
+            throw new IllegalArgumentException("Phone number already exists");
+        }
+        User user = new User();
+        user.setPhoneNumber(normalizedPhone);
+        user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        user.setStatus(UserStatus.ACTIVE);
+        roleCodes.forEach(code -> user.getRoles().add(roleService.getRoleReferenceByCode(normalizeRoleCode(code))));
+        return userRepository.save(user);
     }
 
-    // Lấy user theo idUser
+    public List<User> getAllUsersByRoleCode(String roleCode) {
+        return userRepository.findAllByRoles_Code(normalizeRoleCode(roleCode));
+    }
+
     public User getUserById(String userId) {
-        return userRepository.findById(UUID.fromString(userId))
-                .orElseThrow(() -> new UserNotFoundException("User not found with idUser: " + userId));
+        return getUserById(UUID.fromString(userId));
     }
 
     public User getUserById(UUID userId) {
@@ -56,9 +79,21 @@ public class UserService {
                 .orElseThrow(() -> new UserNotFoundException("User not found with idUser: " + userId));
     }
 
+    public User getUserWithRolesById(UUID userId) {
+        return userRepository.findWithRolesByUserId(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found with idUser: " + userId));
+    }
+
     public User getUserByPhoneNumber(String phoneNumber) throws UserNotFoundException {
-        return userRepository.findByPhoneNumber(phoneNumber)
-                .orElseThrow(() -> new UserNotFoundException("User not found with phone number: " + phoneNumber));
+        String normalizedPhone = PhoneNumberUtil.normalize(phoneNumber);
+        return userRepository.findByPhoneNumber(normalizedPhone)
+                .orElseThrow(() -> new UserNotFoundException("User not found with phone number"));
+    }
+
+    public User getUserWithRolesByPhoneNumber(String phoneNumber) throws UserNotFoundException {
+        String normalizedPhone = PhoneNumberUtil.normalize(phoneNumber);
+        return userRepository.findWithRolesByPhoneNumber(normalizedPhone)
+                .orElseThrow(() -> new UserNotFoundException("User not found with phone number"));
     }
 
     @Transactional
@@ -71,16 +106,43 @@ public class UserService {
 
     public void changePassword(String phoneNumber, ChangePasswordReq passwordReq) {
         User user = getUserByPhoneNumber(phoneNumber);
+        changePassword(user, passwordReq);
+    }
+
+    public void changePasswordByUserId(UUID userId, ChangePasswordReq passwordReq) {
+        User user = getUserById(userId);
+        changePassword(user, passwordReq);
+    }
+
+    private void changePassword(User user, ChangePasswordReq passwordReq) {
 
         if (!passwordEncoder.matches(passwordReq.getOldPassword(), user.getPasswordHash())) {
-            throw new InvalidPasswordException("Mật khẩu cũ không đúng");
+            throw new InvalidPasswordException("Mat khau cu khong dung");
         }
 
         if (!passwordReq.getNewPassword().equals(passwordReq.getConfirmPassword())) {
-            throw new InvalidPasswordException("Xác nhận mật khẩu không khớp");
+            throw new InvalidPasswordException("Xac nhan mat khau khong khop");
         }
 
         user.setPasswordHash(passwordEncoder.encode(passwordReq.getNewPassword()));
         userRepository.save(user);
+    }
+
+    public void addRole(User user, String roleCode) {
+        Role role = roleService.getRoleReferenceByCode(normalizeRoleCode(roleCode));
+        user.getRoles().add(role);
+    }
+
+    private String normalizeRoleCode(String roleCode) {
+        return roleCode == null || roleCode.startsWith("ROLE_") ? roleCode : "ROLE_" + roleCode;
+    }
+
+    private UserRes.UserDetail toUserDetail(User user) {
+        return UserRes.UserDetail.builder()
+                .userId(user.getUserId())
+                .phoneNumber(user.getPhoneNumber())
+                .status(user.getStatus())
+                .roles(user.getRoles().stream().map(Role::getCode).sorted().toList())
+                .build();
     }
 }

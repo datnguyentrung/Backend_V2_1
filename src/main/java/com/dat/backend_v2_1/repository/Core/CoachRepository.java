@@ -10,8 +10,6 @@ import java.util.UUID;
 @Repository
 public interface CoachRepository extends JpaRepository<Coach, UUID> {
 
-    boolean existsByPhoneNumber(String phoneNumber);
-
     boolean existsByStaffCode(String staffCode);
 
     Optional<Coach> findByStaffCode(String staffCode);

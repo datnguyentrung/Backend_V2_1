@@ -6,6 +6,9 @@ import com.dat.backend_v2_1.dto.Security.UserRes;
 import com.dat.backend_v2_1.enums.Security.UserStatus;
 import org.mapstruct.*;
 
+import java.util.List;
+import java.util.Set;
+
 @Mapper(
         componentModel = "spring",
         unmappedTargetPolicy = ReportingPolicy.IGNORE,
@@ -17,35 +20,27 @@ public interface UserMapper {
     UserRes toUserRes(User user);
 
     @Mapping(target = "idUser", source = "userId")
-    @Mapping(target = "userCode", source = "user", qualifiedByName = "getUserCode")
-    @Mapping(target = "idRole", source = "role", qualifiedByName = "getRoleName")
-        // Xử lý object Role ra String
+    @Mapping(target = "idRole", source = "roles", qualifiedByName = "getRoleNames")
     UserRes.UserInfo toUserInfo(User user);
 
     @Mapping(target = "isActive", source = "status", qualifiedByName = "mapActiveStatus")
-    @Mapping(target = "name", source = "fullName") // Mapping khác tên: fullName -> name
     @Mapping(target = "phone", source = "phoneNumber")
     UserRes.UserProfile toUserProfile(User user);
 
     @Named("mapActiveStatus")
     default Boolean mapActiveStatus(UserStatus status) {
-        if (status == null) return false;
         return status == UserStatus.ACTIVE;
     }
 
-    // Logic: Lấy code Role từ Object Role
-    @Named("getRoleName")
-    default String getRoleName(Role role) {
-        if (role == null) return null;
-        // Role.code là khóa chính (VD: ROLE_STUDENT, ROLE_COACH)
-        return role.getCode();
+    @Named("getRoleNames")
+    default String getRoleNames(Set<Role> roles) {
+        if (roles == null || roles.isEmpty()) {
+            return null;
+        }
+        return String.join(",", roles.stream().map(Role::getCode).sorted().toList());
     }
 
-    // Logic: Lấy userCode từ User
-    // User base class không có staffCode/studentCode, nên trả về null
-    // CoachMapper và StudentMapper sẽ override để lấy staffCode/studentCode
-    @Named("getUserCode")
-    default String getUserCode(User user) {
-        return null; // User base class không có code
+    default List<String> mapRoles(Set<Role> roles) {
+        return roles == null ? List.of() : roles.stream().map(Role::getCode).sorted().toList();
     }
 }

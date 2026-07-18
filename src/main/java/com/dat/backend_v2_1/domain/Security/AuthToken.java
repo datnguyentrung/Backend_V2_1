@@ -1,5 +1,6 @@
 package com.dat.backend_v2_1.domain.Security;
 
+import com.dat.backend_v2_1.domain.Core.Person;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -14,59 +15,79 @@ import java.util.UUID;
 
 @Getter
 @Setter
-@Builder // Giúp tạo object dễ dàng hơn: AuthToken.builder()...build()
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
 @Table(
-        name = "auth_tokens", // Tên bảng số nhiều, snake_case
+        name = "auth_tokens",
         schema = "security",
         indexes = {
-                @Index(name = "idx_refresh_token", columnList = "refresh_token") // Index để tìm kiếm nhanh
+                @Index(name = "idx_auth_token_session", columnList = "session_id"),
+                @Index(name = "idx_auth_token_refresh_hash", columnList = "refresh_token_hash"),
+                @Index(name = "idx_auth_token_user", columnList = "user_id")
         }
 )
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class AuthToken {
 
     @Id
-    @GeneratedValue(generator = "uuid-hibernate-generator")
-    @UuidGenerator // Hibernate 6+ (Tự động sinh UUID chuẩn)
+    @GeneratedValue
+    @UuidGenerator
     @JdbcTypeCode(SqlTypes.UUID)
     @Column(name = "token_id", updatable = false, nullable = false)
-    UUID tokenId; // Đặt là 'id' thay vì 'tokenId' cho đúng chuẩn JPA
+    UUID tokenId;
 
-    // Quan hệ ManyToOne nên để LAZY để tránh query thừa khi không cần info User
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false) // Tên cột foreign key chuẩn: user_id
+    @Column(name = "session_id", nullable = false, unique = true, length = 64)
+    String sessionId;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_auth_token_user"))
     @OnDelete(action = OnDeleteAction.CASCADE)
-    @ToString.Exclude // Ngắt vòng lặp vô hạn khi in log
-            User user;
+    @ToString.Exclude
+    User user;
 
-    @Column(name = "refresh_token", nullable = false, unique = true, length = 1024)
-    String refreshToken; // Token thường dài, nên set length lớn hoặc dùng @Lob nếu cần
+    @Column(name = "refresh_token_hash", nullable = false, unique = true, length = 64)
+    String refreshTokenHash;
 
-    @Column(name = "device_info")
+    @Column(name = "device_info", length = 255)
     String deviceInfo;
 
-    @Column(name = "expires_at", nullable = false)
-    LocalDateTime expiresAt; // Đã sửa lỗi chính tả (expriresAt -> expiresAt)
+    @Column(name = "fcm_token", length = 500)
+    String fcmToken;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "active_person_id", foreignKey = @ForeignKey(name = "fk_auth_token_active_person"))
+    @ToString.Exclude
+    Person activePerson;
+
+    @Column(name = "active_context_type", length = 30)
+    String activeContextType;
+
+    @Column(name = "expires_at", nullable = false)
+    LocalDateTime expiresAt;
+
+    @Builder.Default
     @Column(name = "revoked", nullable = false)
-    @Builder.Default // Khi dùng Builder, giá trị này mặc định là false
-    boolean revoked = false; // Dùng boolean nguyên thủy (tránh null), mặc định là false
+    boolean revoked = false;
+
+    @Column(name = "revoked_at")
+    LocalDateTime revokedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     LocalDateTime createdAt;
 
-    @Column(name = "fcm_token", length = 500) // Token Firebase khá dài, nên để 500 cho chắc
-    String fcmToken;
+    @Column(name = "last_used_at")
+    LocalDateTime lastUsedAt;
 
-    // Tự động set thời gian tạo
+    @Version
+    @Column(name = "version", nullable = false)
+    long version;
+
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        if (this.revoked) { // Đảm bảo logic nếu không dùng Builder
-            // logic này thừa nếu đã init = false, nhưng giữ để chắc chắn
-        }
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.lastUsedAt = now;
     }
 }

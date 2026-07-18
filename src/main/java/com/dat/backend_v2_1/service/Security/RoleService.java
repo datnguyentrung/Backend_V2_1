@@ -23,4 +23,8 @@ public class RoleService {
         return roleRepository.findByCode(roleCode)
                 .orElseThrow(() -> new IllegalArgumentException("Role with code " + roleCode + " not found"));
     }
+
+    public Role getRoleReferenceByCode(String roleCode) {
+        return roleRepository.getReferenceById(roleCode);
+    }
 }

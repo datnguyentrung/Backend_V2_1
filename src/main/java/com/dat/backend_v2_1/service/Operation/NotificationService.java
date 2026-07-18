@@ -209,7 +209,9 @@ public class NotificationService {
                 .filter(userId -> !foundUserIds.contains(userId))
                 .toList();
         if (!missingUserIds.isEmpty()) {
-            throw new IllegalArgumentException("Recipient users not found: " + missingUserIds);
+//            throw new IllegalArgumentException("Recipient users not found: " + missingUserIds);
+            // Không sao cả, chỉ báo là Phụ huynh chưa đăng ký tài khoản, vẫn lưu thông báo nhưng không gửi cho họ
+            log.warn("Recipient users not found: {}", missingUserIds);
         }
 
         com.dat.backend_v2_1.domain.Operation.Notification notification =

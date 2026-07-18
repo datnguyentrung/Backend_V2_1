@@ -24,7 +24,7 @@ public interface CoachTimesheetRepository extends JpaRepository<CoachTimesheet, 
     Optional<CoachTimesheet> findWithDetailsByTimesheetId(UUID timesheetId);
 
     @EntityGraph(value = "CoachTimesheet.withDetails")
-    List<CoachTimesheet> findByCoachAssignment_Coach_UserIdAndWorkingDateBetween(
+    List<CoachTimesheet> findByCoachAssignment_Coach_PersonIdAndWorkingDateBetween(
             UUID coachId,
             LocalDate fromDate,
             LocalDate toDate
@@ -36,7 +36,7 @@ public interface CoachTimesheetRepository extends JpaRepository<CoachTimesheet, 
             JOIN FETCH ca.coach
             JOIN FETCH ca.classSchedule cs
             LEFT JOIN FETCH cs.branch
-            WHERE ca.coach.userId = :coachId
+            WHERE ca.coach.personId = :coachId
             AND ct.workingDate >= :fromDate
             AND ct.workingDate <= :toDate
             """)

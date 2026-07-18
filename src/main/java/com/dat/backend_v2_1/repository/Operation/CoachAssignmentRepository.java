@@ -26,7 +26,7 @@ public interface CoachAssignmentRepository extends JpaRepository<CoachAssignment
 
     @Query("""
             SELECT ca FROM CoachAssignment ca
-            WHERE ca.coach.userId = :coachId
+            WHERE ca.coach.personId = :coachId
             AND ca.classSchedule.scheduleId IN :scheduleIds
             AND ca.status = :status
             """)
@@ -40,7 +40,7 @@ public interface CoachAssignmentRepository extends JpaRepository<CoachAssignment
             SELECT ca FROM CoachAssignment ca
             JOIN FETCH ca.classSchedule cs
             JOIN FETCH cs.branch
-            WHERE ca.coach.userId = :coachId AND ca.status = :status
+            WHERE ca.coach.personId = :coachId AND ca.status = :status
             """)
     List<CoachAssignment> findByCoach_UserIdAndStatusWithClassSchedule(
             @Param("coachId") UUID coachId,
@@ -51,7 +51,7 @@ public interface CoachAssignmentRepository extends JpaRepository<CoachAssignment
             SELECT ca FROM CoachAssignment ca
             JOIN FETCH ca.classSchedule cs
             LEFT JOIN FETCH cs.branch
-            WHERE ca.coach.userId IN :coachIds AND ca.status = :status
+            WHERE ca.coach.personId IN :coachIds AND ca.status = :status
             """)
     List<CoachAssignment> findByCoachIdInAndStatusWithClassSchedule(
             @Param("coachIds") List<UUID> coachIds,
@@ -70,7 +70,7 @@ public interface CoachAssignmentRepository extends JpaRepository<CoachAssignment
     @EntityGraph(value = "CoachAssignment.withDetails")
     @Query("""
             SELECT ca FROM CoachAssignment ca
-            WHERE ca.coach.userId = :coachId
+            WHERE ca.coach.personId = :coachId
             AND ca.classSchedule.scheduleId = :scheduleId
             AND ca.status = :status
             AND ca.assignedDate <= :workDate
@@ -85,7 +85,7 @@ public interface CoachAssignmentRepository extends JpaRepository<CoachAssignment
 
     @Query("""
             SELECT COUNT(ca) > 0 FROM CoachAssignment ca
-            WHERE ca.coach.userId = :coachId
+            WHERE ca.coach.personId = :coachId
             AND (:excludedId IS NULL OR ca.assignmentId <> :excludedId)
             AND ca.status IN :statuses
             AND ca.classSchedule.weekday = :weekday

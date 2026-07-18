@@ -55,5 +55,5 @@ public interface StudentAttendanceRepository extends JpaRepository<StudentAttend
             @Param("sessionDate") @NotNull(message = "Ngày học không được để trống") LocalDate sessionDate
     );
 
-    List<StudentAttendance> findByStudentEnrollment_Student_UserIdAndSessionDate(UUID studentEnrollmentStudentUserId, LocalDate sessionDate);
+    List<StudentAttendance> findByStudentEnrollment_Student_PersonIdAndSessionDate(UUID studentEnrollmentStudentUserId, LocalDate sessionDate);
 }

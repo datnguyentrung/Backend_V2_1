@@ -29,6 +29,8 @@ public class CoachResDTO {
         // === Thông tin từ Coach (Child Entity) ===
         String staffCode;
 
+        String nationalCode;
+
         CoachStatus coachStatus; // Trạng thái công việc (ACTIVE, ON_LEAVE, etc.)
 
         List<CoachAssignmentResDTO.SimpleResponse> currentAssignments; // Thông tin phân công hiện tại (nếu có)

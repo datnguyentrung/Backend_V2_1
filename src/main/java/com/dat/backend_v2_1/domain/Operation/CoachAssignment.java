@@ -43,7 +43,7 @@ import java.util.UUID;
         name = "coach_assignment",
         schema = "operation",
         indexes = {
-                @Index(name = "idx_assignment_coach", columnList = "coach_user_id"),
+                @Index(name = "idx_assignment_coach", columnList = "coach_id"),
                 @Index(name = "idx_assignment_schedule", columnList = "schedule_id"),
                 @Index(name = "idx_assignment_status_dates", columnList = "assignment_status, assigned_date, end_date")
         }
@@ -60,7 +60,7 @@ public class CoachAssignment {
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "coach_user_id", nullable = false)
+    @JoinColumn(name = "coach_id", nullable = false)
     Coach coach;
 
     @NotNull

@@ -82,12 +82,7 @@ public class StudentAttendanceSpecification {
                         criteriaBuilder.lower(studentJoin.get("studentCode")),
                         searchPattern
                 );
-                Predicate phoneMatch = criteriaBuilder.like(
-                        criteriaBuilder.lower(studentJoin.get("phoneNumber")),
-                        searchPattern
-                );
-
-                predicates.add(criteriaBuilder.or(nameMatch, codeMatch, phoneMatch));
+                predicates.add(criteriaBuilder.or(nameMatch, codeMatch));
             }
 
             // 2. Filter theo ngày học
@@ -199,12 +194,7 @@ public class StudentAttendanceSpecification {
                     criteriaBuilder.lower(studentJoin.get("studentCode")),
                     searchPattern
             );
-            Predicate phoneMatch = criteriaBuilder.like(
-                    criteriaBuilder.lower(studentJoin.get("phoneNumber")),
-                    searchPattern
-            );
-
-            return criteriaBuilder.or(nameMatch, codeMatch, phoneMatch);
+            return criteriaBuilder.or(nameMatch, codeMatch);
         };
     }
 

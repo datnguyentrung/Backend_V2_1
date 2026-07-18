@@ -39,12 +39,7 @@ public class StudentSpecification {
                         criteriaBuilder.lower(root.get("studentCode")),
                         searchPattern
                 );
-                Predicate phoneMatch = criteriaBuilder.like(
-                        criteriaBuilder.lower(root.get("phoneNumber")),
-                        searchPattern
-                );
-
-                predicates.add(criteriaBuilder.or(nameMatch, codeMatch, phoneMatch));
+                predicates.add(criteriaBuilder.or(nameMatch, codeMatch));
             }
 
             // 2. Filter by studentStatus
@@ -58,7 +53,9 @@ public class StudentSpecification {
             }
 
             if (belts != null && !belts.isEmpty()) {
-                predicates.add(criteriaBuilder.equal(root.get("belts"), belts));
+                predicates.add(
+                        root.get("belt").in(belts)
+                );
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
@@ -86,12 +83,7 @@ public class StudentSpecification {
                         criteriaBuilder.lower(root.get("studentCode")),
                         searchPattern
                 );
-                Predicate phoneMatch = criteriaBuilder.like(
-                        criteriaBuilder.lower(root.get("phoneNumber")),
-                        searchPattern
-                );
-
-                predicates.add(criteriaBuilder.or(nameMatch, codeMatch, phoneMatch));
+                predicates.add(criteriaBuilder.or(nameMatch, codeMatch));
             }
 
             if (scheduleIds != null && !scheduleIds.isEmpty()) {
@@ -111,7 +103,7 @@ public class StudentSpecification {
         Subquery<UUID> subquery = query.subquery(UUID.class);
         Root<StudentEnrollment> enrollmentRoot = subquery.from(StudentEnrollment.class);
 
-        subquery.select(enrollmentRoot.get("student").get("userId"))
+        subquery.select(enrollmentRoot.get("student").get("personId"))
                 .where(
                         criteriaBuilder.equal(enrollmentRoot.get("student"), root),
                         enrollmentRoot.get("classSchedule").get("scheduleId").in(scheduleIds)

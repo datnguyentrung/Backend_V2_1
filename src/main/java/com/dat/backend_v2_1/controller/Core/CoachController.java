@@ -106,12 +106,12 @@ public class CoachController {
      * DELETE /api/v1/coaches/{userId}/permanent
      * ⚠️ CẢNH BÁO: Không thể hoàn tác!
      */
-    @DeleteMapping("/{userId}/permanent")
+    @DeleteMapping("/{staffCode}/permanent")
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
-    public ResponseEntity<Void> permanentlyDeleteCoach(@PathVariable UUID userId) {
-        log.warn("⚠️ Request PERMANENTLY delete coach: {}", userId);
+    public ResponseEntity<Void> permanentlyDeleteCoach(@PathVariable String staffCode) {
+        log.warn("⚠️ Request PERMANENTLY delete coach: {}", staffCode);
 
-        coachService.permanentlyDeleteCoach(userId);
+        coachService.permanentlyDeleteCoach(staffCode);
 
         return ResponseEntity.ok().build();
     }

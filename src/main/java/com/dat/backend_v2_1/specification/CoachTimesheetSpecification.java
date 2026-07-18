@@ -40,7 +40,7 @@ public class CoachTimesheetSpecification {
             Join<ClassSchedule, Branch> branchJoin = scheduleJoin.join("branch", JoinType.LEFT);
 
             if (coachId != null) {
-                predicates.add(cb.equal(coachJoin.get("userId"), coachId));
+                predicates.add(cb.equal(coachJoin.get("personId"), coachId));
             }
             if (coachAssignmentId != null) {
                 predicates.add(cb.equal(assignmentJoin.get("assignmentId"), coachAssignmentId));

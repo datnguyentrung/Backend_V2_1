@@ -75,7 +75,7 @@ public class StudentController {
 
     /**
      * Lấy thông tin chi tiết học viên
-     * GET /api/v1/students/{userId}
+     * GET /api/v1/students/{studentCode}
      */
 //    @PreAuthorize("@securityRule.isS(authentication)")
     @GetMapping("/{studentCode}")
@@ -101,17 +101,17 @@ public class StudentController {
 
     /**
      * Cập nhật thông tin học viên
-     * PUT /api/v1/students/{userId}
+     * PUT /api/v1/students/{personId}
      */
-    @PutMapping("/{userId}")
+    @PutMapping("/{personId}")
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<StudentResDTO.StudentDetail> updateStudent(
-            @PathVariable UUID userId,
+            @PathVariable UUID personId,
             @RequestBody @Valid StudentReqDTO.StudentUpdate updateDTO) {
-        log.info("Request update student: {}", userId);
+        log.info("Request update student: {}", personId);
 
-        // Set userId từ path variable
-        updateDTO.setUserId(userId);
+        // Set personId từ path variable
+        updateDTO.setPersonId(personId);
 
         StudentResDTO.StudentDetail updatedStudent = studentService.updateStudent(updateDTO);
 
@@ -120,7 +120,7 @@ public class StudentController {
 
     /**
      * Xóa học viên (Soft Delete)
-     * DELETE /api/v1/students/{userId}
+     * DELETE /api/v1/students/{studentCode}
      */
     @DeleteMapping("/{studentCode}")
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
@@ -134,7 +134,7 @@ public class StudentController {
 
     /**
      * Xóa vĩnh viễn học viên (Hard Delete) - ADMIN ONLY
-     * DELETE /api/v1/students/{userId}/permanent
+     * DELETE /api/v1/students/{studentCode}/permanent
      * ⚠️ CẢNH BÁO: Không thể hoàn tác!
      */
     @DeleteMapping("/{studentCode}/permanent")
@@ -147,3 +147,4 @@ public class StudentController {
         return ResponseEntity.ok().build();
     }
 }
+

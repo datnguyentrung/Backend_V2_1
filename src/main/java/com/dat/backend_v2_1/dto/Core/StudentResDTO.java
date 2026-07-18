@@ -6,6 +6,7 @@ import com.dat.backend_v2_1.dto.Security.UserRes;
 import com.dat.backend_v2_1.enums.Core.Belt;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.SuperBuilder;
@@ -58,7 +59,21 @@ public class StudentResDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class StudentDetail extends UserRes.UserDetail {
+        private UUID personId;
+
         private String studentCode;
+
+        @Override
+        @JsonIgnore
+        public UUID getUserId() {
+            return super.getUserId();
+        }
+
+        @Override
+        @JsonIgnore
+        public void setUserId(UUID userId) {
+            super.setUserId(userId);
+        }
 
         private String nationalCode; // CCCD/CMND
 
@@ -115,7 +130,7 @@ public class StudentResDTO {
     @NoArgsConstructor // Quan trọng: Bắt buộc phải có để Jackson làm việc
     @AllArgsConstructor
     public static class StudentSummary {
-        private UUID userId;
+        private UUID personId;
         private String fullName;
         //        private String email;
         private String code; // Mã sinh viên

@@ -1,12 +1,11 @@
 package com.dat.backend_v2_1.repository.Operation;
 
 import com.dat.backend_v2_1.domain.Operation.NotificationRecipient;
-import com.dat.backend_v2_1.enums.Operation.NotificationRecipientStatus;
-import com.dat.backend_v2_1.enums.Operation.NotificationType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,57 +16,18 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface NotificationRecipientRepository extends JpaRepository<NotificationRecipient, UUID> {
+public interface NotificationRecipientRepository extends JpaRepository<NotificationRecipient, UUID>, JpaSpecificationExecutor<NotificationRecipient> {
 
-    @EntityGraph(attributePaths = "notification")
-    @Query(value = """
-            SELECT nr
-            FROM NotificationRecipient nr
-            WHERE nr.recipientUser.userId = :userId
-              AND (:read IS NULL OR nr.read = :read)
-              AND (:status IS NULL OR nr.recipientStatus = :status)
-              AND (:type IS NULL OR nr.notification.notificationType = :type)
-              AND (:fromCreatedAt IS NULL OR nr.createdAt >= :fromCreatedAt)
-              AND (:toCreatedAt IS NULL OR nr.createdAt <= :toCreatedAt)
-              AND (:fromReadAt IS NULL OR nr.readAt >= :fromReadAt)
-              AND (:toReadAt IS NULL OR nr.readAt <= :toReadAt)
-              AND (:search IS NULL OR :search = ''
-                   OR LOWER(nr.notification.title) LIKE LOWER(CONCAT('%', :search, '%'))
-                   OR LOWER(nr.notification.body) LIKE LOWER(CONCAT('%', :search, '%')))
-            """,
-            countQuery = """
-                    SELECT COUNT(nr)
-                    FROM NotificationRecipient nr
-                    WHERE nr.recipientUser.userId = :userId
-                      AND (:read IS NULL OR nr.read = :read)
-                      AND (:status IS NULL OR nr.recipientStatus = :status)
-                      AND (:type IS NULL OR nr.notification.notificationType = :type)
-                      AND (:fromCreatedAt IS NULL OR nr.createdAt >= :fromCreatedAt)
-                      AND (:toCreatedAt IS NULL OR nr.createdAt <= :toCreatedAt)
-                      AND (:fromReadAt IS NULL OR nr.readAt >= :fromReadAt)
-                      AND (:toReadAt IS NULL OR nr.readAt <= :toReadAt)
-                      AND (:search IS NULL OR :search = ''
-                           OR LOWER(nr.notification.title) LIKE LOWER(CONCAT('%', :search, '%'))
-                           OR LOWER(nr.notification.body) LIKE LOWER(CONCAT('%', :search, '%')))
-                    """)
-    Page<NotificationRecipient> filterForUser(
-            @Param("userId") UUID userId,
-            @Param("read") Boolean read,
-            @Param("status") NotificationRecipientStatus status,
-            @Param("type") NotificationType type,
-            @Param("fromCreatedAt") LocalDateTime fromCreatedAt,
-            @Param("toCreatedAt") LocalDateTime toCreatedAt,
-            @Param("fromReadAt") LocalDateTime fromReadAt,
-            @Param("toReadAt") LocalDateTime toReadAt,
-            @Param("search") String search,
-            Pageable pageable
-    );
+    @EntityGraph(attributePaths = {"notification", "recipientUser"})
+    Page<NotificationRecipient> findAll(org.springframework.data.jpa.domain.Specification<NotificationRecipient> spec, Pageable pageable);
 
-    @EntityGraph(attributePaths = "notification")
+    @EntityGraph(attributePaths = {"notification", "recipientUser"})
     Optional<NotificationRecipient> findByNotificationRecipientIdAndRecipientUser_UserId(
             UUID notificationRecipientId,
             UUID userId
     );
+
+    boolean existsByNotificationRecipientIdAndRecipientUser_UserId(UUID notificationRecipientId, UUID userId);
 
     long countByRecipientUser_UserIdAndReadFalse(UUID userId);
 

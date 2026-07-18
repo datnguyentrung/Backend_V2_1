@@ -41,7 +41,7 @@ public class CoachController {
 
     /**
      * Lấy thông tin chi tiết huấn luyện viên
-     * GET /api/v1/coaches/{userId}
+     * GET /api/v1/coaches/{staffCode}
      */
     @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping("/{staffCode}")
@@ -70,17 +70,17 @@ public class CoachController {
 
     /**
      * Cập nhật thông tin huấn luyện viên
-     * PUT /api/v1/coaches/{userId}
+     * PUT /api/v1/coaches/{personId}
      */
-    @PutMapping("/{userId}")
+    @PutMapping("/{personId}")
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<CoachResDTO.CoachDetail> updateCoach(
-            @PathVariable UUID userId,
+            @PathVariable UUID personId,
             @RequestBody @Valid CoachReqDTO.CoachUpdate updateDTO) {
-        log.info("Request update coach: {}", userId);
+        log.info("Request update coach: {}", personId);
 
-        // Set userId từ path variable
-        updateDTO.setUserId(userId);
+        // Set personId từ path variable
+        updateDTO.setPersonId(personId);
 
         CoachResDTO.CoachDetail updatedCoach = coachService.updateCoach(updateDTO);
 
@@ -89,21 +89,21 @@ public class CoachController {
 
     /**
      * Xóa huấn luyện viên (Soft Delete)
-     * DELETE /api/v1/coaches/{userId}
+     * DELETE /api/v1/coaches/{personId}
      */
-    @DeleteMapping("/{userId}")
+    @DeleteMapping("/{personId}")
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
-    public ResponseEntity<Void> deleteCoach(@PathVariable UUID userId) {
-        log.info("Request delete coach: {}", userId);
+    public ResponseEntity<Void> deleteCoach(@PathVariable UUID personId) {
+        log.info("Request delete coach: {}", personId);
 
-        coachService.deleteCoach(userId);
+        coachService.deleteCoach(personId);
 
         return ResponseEntity.ok().build();
     }
 
     /**
      * Xóa vĩnh viễn huấn luyện viên (Hard Delete) - ADMIN ONLY
-     * DELETE /api/v1/coaches/{userId}/permanent
+     * DELETE /api/v1/coaches/{staffCode}/permanent
      * ⚠️ CẢNH BÁO: Không thể hoàn tác!
      */
     @DeleteMapping("/{staffCode}/permanent")
@@ -116,3 +116,4 @@ public class CoachController {
         return ResponseEntity.ok().build();
     }
 }
+

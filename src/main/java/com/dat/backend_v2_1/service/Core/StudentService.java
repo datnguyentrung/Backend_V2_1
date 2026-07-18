@@ -70,7 +70,7 @@ public class StudentService {
 
     @Transactional(rollbackFor = Exception.class)
     public StudentResDTO.StudentDetail updateStudent(StudentReqDTO.StudentUpdate updateDTO) {
-        Student student = getStudentById(updateDTO.getUserId());
+        Student student = getStudentById(updateDTO.getPersonId());
 
         if (updateDTO.getNationalCode() != null &&
                 !updateDTO.getNationalCode().equals(student.getNationalCode()) &&

@@ -165,6 +165,14 @@ public class AuthTokenService {
                 .collect(Collectors.toList());
     }
 
+    public List<String> getAllFcmTokensByActivePersonId(UUID personId) {
+        List<AuthToken> tokens = authTokenRepository.findAllByActivePerson_PersonIdAndRevokedFalse(personId);
+        return tokens.stream()
+                .map(AuthToken::getFcmToken)
+                .filter(fcmToken -> fcmToken != null && !fcmToken.isEmpty())
+                .collect(Collectors.toList());
+    }
+
     public List<AuthToken> getSessionsByUserId(UUID userId) {
         return authTokenRepository.findAllByUser_UserId(userId);
     }

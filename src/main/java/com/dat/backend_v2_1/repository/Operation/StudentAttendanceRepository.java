@@ -43,7 +43,7 @@ public interface StudentAttendanceRepository extends JpaRepository<StudentAttend
     );
 
     @Query(value = """
-            SELECT se.student_user_id
+            SELECT se.student_id
             FROM operation.student_attendance sa
             INNER JOIN operation.student_enrollment se
                 ON sa.student_enrollment_id = se.enrollment_id

@@ -91,7 +91,7 @@ public class CoachAssignmentController {
     public ResponseEntity<List<CoachAssignmentResDTO.Response>> getCoachAssignments(
             @PathVariable UUID coachId,
             @RequestParam(defaultValue = "ACTIVE") CoachAssignmentStatus status) {
-        return ResponseEntity.ok(coachAssignmentService.findDetailedCoachAssignmentsByUserId(coachId, status));
+        return ResponseEntity.ok(coachAssignmentService.findDetailedCoachAssignmentsByCoachId(coachId, status));
     }
 
     @GetMapping("/exists")

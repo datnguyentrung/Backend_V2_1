@@ -110,7 +110,7 @@ public class CoachService {
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {})
     public CoachResDTO.CoachDetail updateCoach(CoachReqDTO.CoachUpdate updateDTO) {
-        Coach coach = getCoachById(updateDTO.getUserId());
+        Coach coach = getCoachById(updateDTO.getPersonId());
         if (updateDTO.getBirthDate() != null) coach.setBirthDate(updateDTO.getBirthDate());
         if (updateDTO.getBelt() != null) coach.setBelt(updateDTO.getBelt());
         if (updateDTO.getFullName() != null) coach.setFullName(NameConverter.formatVietnameseName(updateDTO.getFullName()));

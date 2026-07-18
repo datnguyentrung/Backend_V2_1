@@ -42,7 +42,7 @@ public interface CoachAssignmentRepository extends JpaRepository<CoachAssignment
             JOIN FETCH cs.branch
             WHERE ca.coach.personId = :coachId AND ca.status = :status
             """)
-    List<CoachAssignment> findByCoach_UserIdAndStatusWithClassSchedule(
+    List<CoachAssignment> findByCoach_PersonIdAndStatusWithClassSchedule(
             @Param("coachId") UUID coachId,
             @Param("status") CoachAssignmentStatus status
     );

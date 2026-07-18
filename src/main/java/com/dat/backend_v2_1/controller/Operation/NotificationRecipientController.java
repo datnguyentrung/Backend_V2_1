@@ -39,7 +39,7 @@ public class NotificationRecipientController {
     public ResponseEntity<NotificationDTO.RecipientListResponse> getMine(
             @RequestParam(required = false) Boolean read,
             @RequestParam(required = false) NotificationRecipientStatus status,
-            @RequestParam(required = false) NotificationType type,
+            @RequestParam(name = "type", required = false) NotificationType type,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fromCreatedAt,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime toCreatedAt,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime fromReadAt,

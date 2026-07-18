@@ -31,7 +31,8 @@ public interface CoachMapper {
     @Mapping(target = "isActive", expression = "java(coach.getCoachStatus() == com.dat.backend_v2_1.enums.Core.CoachStatus.ACTIVE)")
     UserRes.UserProfile toUserProfile(Coach coach);
 
-    @Mapping(target = "userId", source = "personId")
+    @Mapping(target = "personId", source = "personId")
+    @Mapping(target = "userId", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "email", source = "email")
     @Mapping(target = "staffCode", source = "staffCode")
@@ -39,7 +40,8 @@ public interface CoachMapper {
     @Mapping(target = "currentAssignments", ignore = true)
     CoachResDTO.CoachDetail toCoachDetail(Coach coach);
 
-    @Mapping(target = "userId", source = "coach.personId")
+    @Mapping(target = "personId", source = "coach.personId")
+    @Mapping(target = "userId", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "email", source = "coach.email")
     @Mapping(target = "staffCode", source = "coach.staffCode")

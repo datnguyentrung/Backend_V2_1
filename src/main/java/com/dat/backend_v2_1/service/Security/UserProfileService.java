@@ -12,6 +12,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class UserProfileService {
@@ -57,5 +60,9 @@ public class UserProfileService {
                 .relationshipType(userProfile.getRelationshipType())
                 .active(userProfile.getActive())
                 .build();
+    }
+
+    public List<UserProfile> getAllByPersonIdAndActiveTrue(UUID personId) {
+        return userProfileRepository.findAllByPerson_PersonIdAndActive(personId, true);
     }
 }

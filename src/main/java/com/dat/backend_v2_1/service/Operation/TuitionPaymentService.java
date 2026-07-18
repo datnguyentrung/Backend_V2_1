@@ -4,7 +4,6 @@ import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
 import com.dat.backend_v2_1.domain.Operation.TuitionPayment;
 import com.dat.backend_v2_1.domain.Operation.TuitionPaymentDetail;
-import com.dat.backend_v2_1.dto.Core.StudentResDTO;
 import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDTO;
 import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDetailDTO;
 import com.dat.backend_v2_1.dto.PageResponse;
@@ -65,7 +64,7 @@ public class TuitionPaymentService {
         StudentEnrollment enrollment = studentEnrollmentRepository.findById(request.getEnrollmentId())
                 .orElseThrow(() -> new AppException(ErrorCode.ENROLLMENT_NOT_FOUND));
 
-        if (!enrollment.getStudent().getUserId().equals(request.getStudentId())) {
+        if (!enrollment.getStudent().getPersonId().equals(request.getStudentId())) {
             throw new BusinessException("Enrollment không thuộc về học viên này");
         }
         if (enrollment.getStatus() != StudentEnrollmentStatus.ACTIVE) {
@@ -107,7 +106,7 @@ public class TuitionPaymentService {
         tuitionPaymentRepository.save(payment);
 
         log.info("Created TuitionPayment [{}] for student [{}], total: {}",
-                payment.getPaymentId(), student.getUserId(), totalAmount);
+                payment.getPaymentId(), student.getPersonId(), totalAmount);
 
         // 8. Phân bổ từng tháng vào TuitionPaymentDetail
         List<TuitionPaymentDetail> details = new ArrayList<>();
@@ -132,29 +131,7 @@ public class TuitionPaymentService {
                 details.size(), payment.getPaymentId());
 
         // 9. Xây dựng response
-        List<TuitionPaymentDetailDTO.TuitionPaymentDetailResponse> detailResponses = details.stream()
-                .map(d -> TuitionPaymentDetailDTO.TuitionPaymentDetailResponse.builder()
-                        .detailId(d.getDetailId())
-                        .enrollmentId(enrollment.getEnrollmentId())
-                        .scheduleId(enrollment.getClassSchedule().getScheduleId())
-                        .forMonth(d.getForMonth())
-                        .forYear(d.getForYear())
-                        .amountAllocated(d.getAmountAllocated())
-                        .build())
-                .collect(Collectors.toList());
-
-        return TuitionPaymentDTO.TuitionPaymentResponse.builder()
-                .paymentId(payment.getPaymentId())
-                .student(StudentResDTO.StudentSummary.builder()
-                        .userId(student.getUserId())
-                        .fullName(student.getFullName())
-                        .code(student.getStudentCode())
-                        .build())
-                .totalAmount(totalAmount)
-                .note(payment.getNote())
-                .createdAt(payment.getCreatedAt())
-                .details(detailResponses)
-                .build();
+        return tuitionPaymentMapper.toResponse(payment, details);
     }
 
     // =========================================================================
@@ -184,7 +161,7 @@ public class TuitionPaymentService {
 
         if (activeEnrollments.isEmpty()) {
             return TuitionPaymentDetailDTO.TuitionStatusResponse.builder()
-                    .studentId(student.getUserId())
+                    .studentId(student.getPersonId())
                     .studentCode(student.getStudentCode())
                     .fullName(student.getFullName())
                     .hasPaidCurrentMonth(false)
@@ -208,32 +185,13 @@ public class TuitionPaymentService {
                 .findPaidEnrollmentsForYear(enrollmentIds, currentYear);
 
         // Map enrollmentId → detail để tra cứu O(1)
-        Map<UUID, TuitionPaymentDetail> paidMap = paidDetails.stream()
-                .collect(Collectors.toMap(
-                        detail -> detail.getEnrollment().getEnrollmentId(),
-                        detail -> detail,
-                        // 2. Thêm merge function để tránh lỗi Duplicate Key nếu query theo năm trả về nhiều record cho 1 lớp
-                        (existing, replacement) -> existing
-                ));
+        List<TuitionPaymentDetailDTO.ActiveClassStatus> classStatuses =
+                tuitionPaymentMapper.toActiveClassStatuses(activeEnrollments, paidDetails);
 
-        // Xây dựng danh sách trạng thái từng lớp
-        List<TuitionPaymentDetailDTO.ActiveClassStatus> classStatuses = activeEnrollments.stream()
-                .map(enr -> {
-                    TuitionPaymentDetail paidDetail = paidMap.get(enr.getEnrollmentId());
-                    return TuitionPaymentDetailDTO.ActiveClassStatus.builder()
-                            .enrollmentId(enr.getEnrollmentId())
-                            .scheduleId(enr.getClassSchedule().getScheduleId())
-                            .paid(Boolean.FALSE) // TODO: sau thay bằng paidDetail != null
-                            .amountAllocated(paidDetail != null ? paidDetail.getAmountAllocated() : null)
-                            .build();
-                })
-                .collect(Collectors.toList());
-
-        // Tất cả lớp đều đóng → cho qua cửa
         boolean allPaid = classStatuses.stream().allMatch(TuitionPaymentDetailDTO.ActiveClassStatus::isPaid);
 
         return TuitionPaymentDetailDTO.TuitionStatusResponse.builder()
-                .studentId(student.getUserId())
+                .studentId(student.getPersonId())
                 .studentCode(student.getStudentCode())
                 .fullName(student.getFullName())
                 .hasPaidCurrentMonth(allPaid)
@@ -264,13 +222,7 @@ public class TuitionPaymentService {
                 .findAllByStudentIdWithDetails(studentId);
 
         return details.stream()
-                .map(d -> TuitionPaymentDTO.PaymentHistoryItem.builder()
-                        .forMonth(d.getForMonth())
-                        .forYear(d.getForYear())
-                        .amountAllocated(d.getAmountAllocated())
-                        .className(d.getEnrollment().getClassSchedule().getScheduleId())
-                        .paidAt(d.getTuitionPayment().getCreatedAt())
-                        .build())
+                .map(tuitionPaymentMapper::toPaymentHistoryItem)
                 .collect(Collectors.toList());
     }
 
@@ -289,13 +241,7 @@ public class TuitionPaymentService {
                 .findByEnrollmentIdWithPayment(enrollmentId);
 
         return details.stream()
-                .map(d -> TuitionPaymentDTO.PaymentHistoryItem.builder()
-                        .forMonth(d.getForMonth())
-                        .forYear(d.getForYear())
-                        .amountAllocated(d.getAmountAllocated())
-                        .className(enrollment.getClassSchedule().getScheduleId())
-                        .paidAt(d.getTuitionPayment().getCreatedAt())
-                        .build())
+                .map(detail -> tuitionPaymentMapper.toPaymentHistoryItem(detail, enrollment))
                 .collect(Collectors.toList());
     }
 

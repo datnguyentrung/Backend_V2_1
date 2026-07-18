@@ -7,6 +7,7 @@ import com.dat.backend_v2_1.domain.Core.Coach;
 import com.dat.backend_v2_1.domain.Operation.ClassSession;
 import com.dat.backend_v2_1.domain.Operation.CoachAssignment;
 import com.dat.backend_v2_1.domain.Operation.CoachTimesheet;
+import com.dat.backend_v2_1.domain.Security.User;
 import com.dat.backend_v2_1.dto.Operation.CoachTimesheetDTO;
 import com.dat.backend_v2_1.dto.PageResponse;
 import com.dat.backend_v2_1.enums.Core.CoachStatus;
@@ -130,7 +131,7 @@ public class CoachTimesheetService {
         }
 
         List<String> notificationTokens = new ArrayList<>();
-        notificationTokens.addAll(authTokenService.getAllFcmTokensByUserId(coach.getUserId()));
+        notificationTokens.addAll(authTokenService.getAllFcmTokensByActivePersonId(coach.getPersonId()));
         notificationTokens.addAll(authTokenService.getAllFcmTokensByRoleCode(HEAD_COACH_ROLE_CODE));
         notificationTokens = notificationTokens.stream()
                 .filter(token -> token != null && !token.isEmpty())
@@ -138,15 +139,15 @@ public class CoachTimesheetService {
                 .toList();
 
         List<UUID> recipientUserIds = new ArrayList<>();
-        recipientUserIds.add(coach.getUserId());
+        recipientUserIds.add(coach.getPersonId());
         recipientUserIds.addAll(userService.getAllUsersByRoleCode(HEAD_COACH_ROLE_CODE).stream()
-                .map(user -> user.getUserId())
+                .map(User::getUserId)
                 .toList());
         recipientUserIds = recipientUserIds.stream().distinct().toList();
 
         Map<String, String> dataPayload = new HashMap<>();
         dataPayload.put("screen", "CoachTimesheet");
-        dataPayload.put("coachId", coach.getUserId().toString());
+        dataPayload.put("coachId", coach.getPersonId().toString());
         dataPayload.put("timesheetId", coachTimesheet.getTimesheetId().toString());
 
         notificationService.sendMulticastNotification(
@@ -172,7 +173,7 @@ public class CoachTimesheetService {
         validateCoachActive(coach);
 
         List<CoachAssignment> activeAssignments = coachAssignmentService
-                .getAllCoachAssignmentsByListCoachIds(List.of(coach.getUserId()), CoachAssignmentStatus.ACTIVE);
+                .getAllCoachAssignmentsByListCoachIds(List.of(coach.getPersonId()), CoachAssignmentStatus.ACTIVE);
         if (activeAssignments.isEmpty()) {
             throw new AppException(ErrorCode.COACH_ASSIGNMENT_INVALID);
         }
@@ -404,7 +405,7 @@ public class CoachTimesheetService {
             return;
         }
         UUID currentCoachId = currentUserId(authentication);
-        UUID ownerCoachId = timesheet.getCoachAssignment().getCoach().getUserId();
+        UUID ownerCoachId = timesheet.getCoachAssignment().getCoach().getPersonId();
         if (!currentCoachId.equals(ownerCoachId)) {
             throw new AppException(ErrorCode.ACCESS_DENIED);
         }

@@ -31,4 +31,6 @@ public interface AuthTokenRepository extends JpaRepository<AuthToken, UUID> {
     Optional<AuthToken> findByFcmToken(String fcmToken);
 
     List<AuthToken> findAllByUser_UserId(UUID userId);
+
+    List<AuthToken> findAllByActivePerson_PersonIdAndRevokedFalse(UUID activePersonPersonId);
 }

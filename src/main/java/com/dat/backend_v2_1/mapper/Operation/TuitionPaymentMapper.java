@@ -2,6 +2,7 @@ package com.dat.backend_v2_1.mapper.Operation;
 
 import com.dat.backend_v2_1.domain.Operation.TuitionPayment;
 import com.dat.backend_v2_1.domain.Operation.TuitionPaymentDetail;
+import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
 import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDTO;
 import com.dat.backend_v2_1.dto.Operation.TuitionPaymentDetailDTO;
 import com.dat.backend_v2_1.mapper.Core.StudentMapper;
@@ -10,6 +11,9 @@ import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Mapper(
         componentModel = "spring",
@@ -40,4 +44,41 @@ public interface TuitionPaymentMapper {
     @Mapping(target = "details", source = "details")
     // MapStruct tự động lặp list và gọi hàm toDetailResponse
     TuitionPaymentDTO.TuitionPaymentResponse toResponse(TuitionPayment payment, List<TuitionPaymentDetail> details);
+
+    @Mapping(target = "className", source = "enrollment.classSchedule.scheduleId")
+    @Mapping(target = "paidAt", source = "tuitionPayment.createdAt")
+    TuitionPaymentDTO.PaymentHistoryItem toPaymentHistoryItem(TuitionPaymentDetail detail);
+
+    default TuitionPaymentDTO.PaymentHistoryItem toPaymentHistoryItem(
+            TuitionPaymentDetail detail,
+            StudentEnrollment enrollment) {
+        TuitionPaymentDTO.PaymentHistoryItem item = toPaymentHistoryItem(detail);
+        item.setClassName(enrollment.getClassSchedule().getScheduleId());
+        return item;
+    }
+
+    default TuitionPaymentDetailDTO.ActiveClassStatus toActiveClassStatus(
+            StudentEnrollment enrollment,
+            TuitionPaymentDetail paidDetail) {
+        return TuitionPaymentDetailDTO.ActiveClassStatus.builder()
+                .enrollmentId(enrollment.getEnrollmentId())
+                .scheduleId(enrollment.getClassSchedule().getScheduleId())
+                .paid(paidDetail != null)
+                .amountAllocated(paidDetail != null ? paidDetail.getAmountAllocated() : null)
+                .build();
+    }
+
+    default List<TuitionPaymentDetailDTO.ActiveClassStatus> toActiveClassStatuses(
+            List<StudentEnrollment> activeEnrollments,
+            List<TuitionPaymentDetail> paidDetails) {
+        Map<UUID, TuitionPaymentDetail> paidMap = paidDetails.stream()
+                .collect(Collectors.toMap(
+                        detail -> detail.getEnrollment().getEnrollmentId(),
+                        detail -> detail,
+                        (existing, replacement) -> existing
+                ));
+        return activeEnrollments.stream()
+                .map(enrollment -> toActiveClassStatus(enrollment, paidMap.get(enrollment.getEnrollmentId())))
+                .toList();
+    }
 }

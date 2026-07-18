@@ -91,9 +91,4 @@ public class Person {
     @LastModifiedDate
     @Column(name = "updated_at")
     LocalDateTime updatedAt;
-
-    @Transient
-    public UUID getUserId() {
-        return personId;
-    }
 }

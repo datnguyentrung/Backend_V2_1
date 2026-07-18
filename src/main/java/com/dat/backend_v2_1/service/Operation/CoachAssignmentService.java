@@ -72,7 +72,7 @@ public class CoachAssignmentService {
 
         List<CoachAssignment> assignments = schedules.stream().map(schedule -> {
             validateClassActive(schedule);
-            validateNoOverlap(coach.getUserId(), schedule, request.getAssignmentDate(), effectiveEnd, blockingStatuses, null);
+            validateNoOverlap(coach.getPersonId(), schedule, request.getAssignmentDate(), effectiveEnd, blockingStatuses, null);
 
             CoachAssignment entity = coachAssignmentMapper.toEntity(request);
             entity.setCoach(coach);
@@ -82,7 +82,7 @@ public class CoachAssignmentService {
         }).toList();
 
         List<CoachAssignment> saved = coachAssignmentRepository.saveAll(assignments);
-        log.info("Assigned coach {} to {} classes", coach.getUserId(), saved.size());
+        log.info("Assigned coach {} to {} classes", coach.getPersonId(), saved.size());
         return saved;
     }
 
@@ -121,7 +121,7 @@ public class CoachAssignmentService {
 
         if (targetStatus.blocksNewAssignment()) {
             validateNoOverlap(
-                    assignment.getCoach().getUserId(),
+                    assignment.getCoach().getPersonId(),
                     assignment.getClassSchedule(),
                     start,
                     effectiveEnd,
@@ -191,21 +191,21 @@ public class CoachAssignmentService {
         return assignment;
     }
 
-    @Cacheable(value = "coachAssignments", key = "#userId.toString() + '_' + #status.name()", unless = "#result == null || #result.isEmpty()")
+    @Cacheable(value = "coachAssignments", key = "#coachId.toString() + '_' + #status.name()", unless = "#result == null || #result.isEmpty()")
     @Transactional(readOnly = true)
-    public List<CoachAssignmentResDTO.SimpleResponse> findCoachAssignmentsByCoachId(UUID userId, CoachAssignmentStatus status) {
-        coachRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
-        return coachAssignmentRepository.findByCoach_UserIdAndStatusWithClassSchedule(userId, status)
+    public List<CoachAssignmentResDTO.SimpleResponse> findCoachAssignmentsByCoachId(UUID coachId, CoachAssignmentStatus status) {
+        coachRepository.findById(coachId).orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
+        return coachAssignmentRepository.findByCoach_PersonIdAndStatusWithClassSchedule(coachId, status)
                 .stream()
                 .map(coachAssignmentMapper::toSimpleResponse)
                 .toList();
     }
 
-    @Cacheable(value = "detailedCoachAssignments", key = "#userId.toString() + '_' + #status.name()", unless = "#result == null || #result.isEmpty()")
+    @Cacheable(value = "detailedCoachAssignments", key = "#coachId.toString() + '_' + #status.name()", unless = "#result == null || #result.isEmpty()")
     @Transactional(readOnly = true)
-    public List<CoachAssignmentResDTO.Response> findDetailedCoachAssignmentsByUserId(UUID userId, CoachAssignmentStatus status) {
-        coachRepository.findById(userId).orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
-        return coachAssignmentRepository.findByCoach_UserIdAndStatusWithClassSchedule(userId, status)
+    public List<CoachAssignmentResDTO.Response> findDetailedCoachAssignmentsByCoachId(UUID coachId, CoachAssignmentStatus status) {
+        coachRepository.findById(coachId).orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
+        return coachAssignmentRepository.findByCoach_PersonIdAndStatusWithClassSchedule(coachId, status)
                 .stream()
                 .map(coachAssignmentMapper::toResponse)
                 .toList();

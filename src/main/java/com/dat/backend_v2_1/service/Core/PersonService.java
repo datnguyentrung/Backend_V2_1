@@ -2,6 +2,7 @@ package com.dat.backend_v2_1.service.Core;
 
 import com.dat.backend_v2_1.dto.Core.PersonDTO;
 import com.dat.backend_v2_1.dto.PageResponse;
+import com.dat.backend_v2_1.mapper.Core.PersonMapper;
 import com.dat.backend_v2_1.repository.Core.PersonRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PersonService {
 
     private final PersonRepository personRepository;
+    private final PersonMapper personMapper;
 
     @Transactional(readOnly = true)
     public PageResponse<PersonDTO.SearchItem> searchStudentsAndCoaches(String search, Pageable pageable) {
@@ -22,18 +24,6 @@ public class PersonService {
                 : "%" + search.trim().toLowerCase() + "%";
         Page<PersonRepository.PersonSearchProjection> people =
                 personRepository.searchStudentsAndCoaches(normalizedSearch, pageable);
-        return PageResponse.of(people, this::toSearchItem);
-    }
-
-    private PersonDTO.SearchItem toSearchItem(PersonRepository.PersonSearchProjection person) {
-        return PersonDTO.SearchItem.builder()
-                .personId(person.getPersonId())
-                .fullName(person.getFullName())
-                .birthDate(person.getBirthDate())
-                .belt(person.getBelt())
-                .personType(person.getPersonType())
-                .code(person.getCode())
-                .status(person.getStatus())
-                .build();
+        return PageResponse.of(people, personMapper::toSearchItem);
     }
 }

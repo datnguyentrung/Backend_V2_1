@@ -76,7 +76,7 @@ public class UserController {
 
             if (!securityRule.isManagerSenior(authentication)) {
                 List<CoachAssignmentResDTO.Response> coachAssignments =
-                        coachAssignmentService.findDetailedCoachAssignmentsByUserId(activePersonId == null ? userUuid : activePersonId, CoachAssignmentStatus.ACTIVE);
+                        coachAssignmentService.findDetailedCoachAssignmentsByCoachId(activePersonId == null ? userUuid : activePersonId, CoachAssignmentStatus.ACTIVE);
                 if (userRes.getUserInfo() != null) {
                     userRes.getUserInfo().setAssignedClasses(coachAssignments);
                 }

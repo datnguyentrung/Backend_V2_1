@@ -47,6 +47,8 @@ public interface UserProfileRepository extends JpaRepository<UserProfile, UUID> 
             RelationshipType relationshipType
     );
 
+    List<UserProfile> findAllByPerson_PersonIdAndActive(UUID personPersonId, Boolean active);
+
     interface UserContextRow {
         UUID getPersonId();
 

@@ -28,7 +28,8 @@ public interface StudentMapper {
     @Mapping(target = "phone", ignore = true)
     UserRes.UserProfile toUserProfile(Student student);
 
-    @Mapping(target = "userId", source = "personId")
+    @Mapping(target = "personId", source = "personId")
+    @Mapping(target = "userId", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "branchId", source = "branch.branchId")
     @Mapping(target = "branchName", source = "branch.branchName")
@@ -36,7 +37,8 @@ public interface StudentMapper {
     @Mapping(target = "enrollments", ignore = true)
     StudentResDTO.StudentDetail toStudentDetail(Student student);
 
-    @Mapping(target = "userId", source = "student.personId")
+    @Mapping(target = "personId", source = "student.personId")
+    @Mapping(target = "userId", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "branchId", source = "student.branch.branchId")
     @Mapping(target = "branchName", source = "student.branch.branchName")
@@ -52,7 +54,7 @@ public interface StudentMapper {
     @Mapping(target = "roleName", ignore = true)
     StudentResDTO.StudentOverview toStudentOverview(Student student);
 
-    @Mapping(target = "userId", source = "personId")
+    @Mapping(target = "personId", source = "personId")
     @Mapping(target = "code", source = "studentCode")
     StudentResDTO.StudentSummary toStudentSummary(Student student);
 }

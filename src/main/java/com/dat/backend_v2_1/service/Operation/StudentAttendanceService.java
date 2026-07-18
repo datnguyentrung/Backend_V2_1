@@ -6,6 +6,8 @@ import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.domain.Operation.ClassSession;
 import com.dat.backend_v2_1.domain.Operation.StudentAttendance;
 import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
+import com.dat.backend_v2_1.domain.Security.User;
+import com.dat.backend_v2_1.domain.Security.UserProfile;
 import com.dat.backend_v2_1.dto.Operation.StudentAttendanceDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.dto.PageResponse;
@@ -25,6 +27,7 @@ import com.dat.backend_v2_1.repository.Operation.StudentAttendanceRepository;
 import com.dat.backend_v2_1.service.Core.CoachService;
 import com.dat.backend_v2_1.service.Core.StudentService;
 import com.dat.backend_v2_1.service.Security.AuthTokenService;
+import com.dat.backend_v2_1.service.Security.UserProfileService;
 import com.dat.backend_v2_1.specification.StudentAttendanceSpecification;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -65,6 +68,8 @@ public class StudentAttendanceService {
     @Autowired
     @Lazy
     private StudentAttendanceService self; // Self-injection để gọi method có @Transactional từ cùng class
+    @Autowired
+    private UserProfileService userProfileService;
 
     private void publishScoreRecalculateEvent(Student student, LocalDate sessionDate) {
         if (student == null || sessionDate == null) return;
@@ -172,14 +177,14 @@ public class StudentAttendanceService {
 
         // 2. Lấy danh sách đăng ký lớp
         List<StudentEnrollment> enrollments = studentEnrollmentService
-                .findStudentEnrollmentsByStudentId(student.getUserId());
+                .findStudentEnrollmentsByStudentId(student.getPersonId());
 
         if (enrollments.isEmpty()) {
             throw new NoSuchElementException("Học viên không có đăng ký lớp nào");
         }
 
         // 3. Lấy danh sách ID đã điểm danh hôm nay
-        List<UUID> attendedEnrollmentIds = getAttendancesByUserIdAndSessionDate(student.getUserId(), today)
+        List<UUID> attendedEnrollmentIds = getAttendancesByUserIdAndSessionDate(student.getPersonId(), today)
                 .stream()
                 .map(a -> a.getStudentEnrollment().getEnrollmentId())
                 .toList();
@@ -383,15 +388,18 @@ public class StudentAttendanceService {
         }
 
         // 4. Lấy danh sách Token của user (Học viên hoặc Phụ huynh)
-        List<String> studentFcmTokens = authTokenService.getAllFcmTokensByUserId(student.getUserId());
+        List<String> studentFcmTokens = authTokenService.getAllFcmTokensByActivePersonId(student.getPersonId());
+        List<UUID> studentUserIds = userProfileService.getAllByPersonIdAndActiveTrue(student.getPersonId()).stream()
+                .map(UserProfile::getUser).map(User::getUserId)
+                .collect(Collectors.toList());
         Map<String, String> dataPayload = new HashMap<>();
         dataPayload.put("screen", "AttendanceHistory");
-        dataPayload.put("studentId", student.getUserId().toString());
+        dataPayload.put("personId", student.getPersonId().toString());
         dataPayload.put("attendanceId", attendance.getAttendanceId().toString());
 
         notificationService.sendMulticastNotification(
                 studentFcmTokens,
-                List.of(student.getUserId()),
+                studentUserIds,
                 title,
                 body,
                 NotificationType.ATTENDANCE,
@@ -472,17 +480,20 @@ public class StudentAttendanceService {
         body = bodyBuilder.toString();
 
         // Lấy danh sách Token của user (Học viên hoặc Phụ huynh)
-        List<String> studentFcmTokens = authTokenService.getAllFcmTokensByUserId(student.getUserId());
+        List<String> studentFcmTokens = authTokenService.getAllFcmTokensByActivePersonId(student.getPersonId());
+        List<UUID> studentUserIds = userProfileService.getAllByPersonIdAndActiveTrue(student.getPersonId()).stream()
+                .map(UserProfile::getUser).map(User::getUserId)
+                .collect(Collectors.toList());
 
         Map<String, String> dataPayload = new HashMap<>();
         dataPayload.put("screen", "AttendanceHistory");
-        dataPayload.put("studentId", student.getUserId().toString());
+        dataPayload.put("studentId", student.getPersonId().toString());
         dataPayload.put("attendanceId", attendance.getAttendanceId().toString());
         dataPayload.put("type", "evaluation");
 
         notificationService.sendMulticastNotification(
                 studentFcmTokens,
-                List.of(student.getUserId()),
+                studentUserIds,
                 title,
                 body,
                 NotificationType.ATTENDANCE,
@@ -658,7 +669,7 @@ public class StudentAttendanceService {
 
         List<StudentAttendance> newAttendances = new ArrayList<>();
         for (StudentEnrollment enrollment : activeStudents) {
-            if (!existingStudentIdsSet.contains(enrollment.getStudent().getUserId())) {
+            if (!existingStudentIdsSet.contains(enrollment.getStudent().getPersonId())) {
                 newAttendances.add(StudentAttendance.builder()
                         .studentEnrollment(enrollment)
                         .sessionDate(sessionDate)

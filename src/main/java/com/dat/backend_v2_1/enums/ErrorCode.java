@@ -34,7 +34,8 @@ public enum ErrorCode {
     CHECK_IN_TOO_EARLY(400, "Chưa đến thời gian được phép chấm công"),
     CHECK_IN_TOO_LATE(400, "Đã quá thời gian được phép chấm công"),
     ACCESS_DENIED(403, "Không có quyền truy cập dữ liệu này"),
-    INVALID_DATE_RANGE(400, "Khoảng ngày không hợp lệ");
+    INVALID_DATE_RANGE(400, "Khoảng ngày không hợp lệ"),
+    NOTIFICATION_RECIPIENT_NOT_FOUND(404, "Notification not found");
 
     private final int statusCode;
     private final String message;

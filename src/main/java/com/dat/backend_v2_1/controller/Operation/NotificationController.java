@@ -1,4 +1,4 @@
-package com.dat.backend_v2_1.controller;
+package com.dat.backend_v2_1.controller.Operation;
 
 import com.dat.backend_v2_1.dto.Security.LoginReq;
 import com.dat.backend_v2_1.dto.Operation.NotificationDTO;

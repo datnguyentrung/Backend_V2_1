@@ -43,7 +43,7 @@ public interface CoachAssignmentMapper {
             return null;
         }
         return CoachResDTO.CoachSummary.builder()
-                .userId(coach.getUserId())
+                .personId(coach.getPersonId())
                 .fullName(coach.getFullName())
                 .staffCode(coach.getStaffCode())
                 .build();

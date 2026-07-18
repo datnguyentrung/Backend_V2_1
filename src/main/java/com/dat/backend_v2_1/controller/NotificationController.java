@@ -1,13 +1,18 @@
 package com.dat.backend_v2_1.controller;
 
 import com.dat.backend_v2_1.dto.Security.LoginReq;
+import com.dat.backend_v2_1.dto.Operation.NotificationDTO;
+import com.dat.backend_v2_1.service.Operation.NotificationService;
 import com.dat.backend_v2_1.service.Security.AuthTokenService;
+import com.dat.backend_v2_1.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -16,6 +21,21 @@ import org.springframework.web.bind.annotation.*;
 public class NotificationController {
 
     private final AuthTokenService authTokenService;
+    private final NotificationService notificationService;
+
+    @PostMapping
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
+    public ResponseEntity<NotificationDTO.NotificationResponse> create(
+            @Valid @RequestBody NotificationDTO.CreateRequest request
+    ) {
+        return ResponseEntity.status(201).body(notificationService.create(request));
+    }
+
+    @GetMapping("/{notificationId}")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
+    public ResponseEntity<NotificationDTO.NotificationResponse> getDetail(@PathVariable UUID notificationId) {
+        return ResponseEntity.ok(notificationService.getDetail(notificationId));
+    }
 
     /**
      * API cập nhật hoặc thêm mới FCM Token gắn liền với phiên đăng nhập của User
@@ -25,7 +45,9 @@ public class NotificationController {
     @PostMapping("/update-fcm")
     public ResponseEntity<?> updateFcmToken(@Valid @RequestBody LoginReq.UpdateFcmReq req) {
         try {
-            authTokenService.updateFcmTokenOnly(req.getRefreshToken(), req.getFcmToken());
+            String sessionId = SecurityUtil.getCurrentSessionId()
+                    .orElseThrow(() -> new RuntimeException("Missing session"));
+            authTokenService.updateFcmTokenForSession(sessionId, req.getFcmToken());
             return ResponseEntity.ok("Cập nhật FCM Token thành công");
         } catch (RuntimeException e) {
             log.error("Lỗi cập nhật FCM Token: {}", e.getMessage());

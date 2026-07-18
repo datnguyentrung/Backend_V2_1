@@ -15,6 +15,7 @@ import com.dat.backend_v2_1.enums.Core.ScheduleStatus;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
 import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
+import com.dat.backend_v2_1.enums.Operation.NotificationType;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
 import com.dat.backend_v2_1.event.ScoreRecalculateEvent;
 import com.dat.backend_v2_1.mapper.Operation.StudentAttendanceMapper;
@@ -23,7 +24,6 @@ import com.dat.backend_v2_1.repository.Operation.ClassSessionRepository;
 import com.dat.backend_v2_1.repository.Operation.StudentAttendanceRepository;
 import com.dat.backend_v2_1.service.Core.CoachService;
 import com.dat.backend_v2_1.service.Core.StudentService;
-import com.dat.backend_v2_1.service.NotificationService;
 import com.dat.backend_v2_1.service.Security.AuthTokenService;
 import com.dat.backend_v2_1.specification.StudentAttendanceSpecification;
 import jakarta.validation.Valid;
@@ -155,7 +155,7 @@ public class StudentAttendanceService {
 
     public List<StudentAttendance> getAttendancesByUserIdAndSessionDate(UUID studentUserId, LocalDate sessionDate) {
         return studentAttendanceRepository
-                .findByStudentEnrollment_Student_UserIdAndSessionDate(studentUserId, sessionDate);
+                .findByStudentEnrollment_Student_PersonIdAndSessionDate(studentUserId, sessionDate);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -383,18 +383,22 @@ public class StudentAttendanceService {
         }
 
         // 4. Lấy danh sách Token của user (Học viên hoặc Phụ huynh)
-        List<String> studentFcmTokens = authTokenService.getAllFcmTokensByUserId(student.getParent().getUserId());
+        List<String> studentFcmTokens = authTokenService.getAllFcmTokensByUserId(student.getUserId());
+        Map<String, String> dataPayload = new HashMap<>();
+        dataPayload.put("screen", "AttendanceHistory");
+        dataPayload.put("studentId", student.getUserId().toString());
+        dataPayload.put("attendanceId", attendance.getAttendanceId().toString());
 
-        // 5. Gửi thông báo
-        if (!studentFcmTokens.isEmpty()) {
-            // Có thể truyền thêm data để khi bấm vào thông báo thì mở màn hình Lịch sử điểm danh
-            Map<String, String> dataPayload = new HashMap<>();
-            dataPayload.put("screen", "AttendanceHistory");
-            dataPayload.put("studentId", student.getUserId().toString());
-            dataPayload.put("attendanceId", attendance.getAttendanceId().toString());
-
-            notificationService.sendMulticastNotification(studentFcmTokens, title, body, dataPayload);
-        }
+        notificationService.sendMulticastNotification(
+                studentFcmTokens,
+                List.of(student.getUserId()),
+                title,
+                body,
+                NotificationType.ATTENDANCE,
+                "STUDENT_ATTENDANCE",
+                attendance.getAttendanceId().toString(),
+                dataPayload
+        );
     }
 
     /**
@@ -470,19 +474,24 @@ public class StudentAttendanceService {
         // Lấy danh sách Token của user (Học viên hoặc Phụ huynh)
         List<String> studentFcmTokens = authTokenService.getAllFcmTokensByUserId(student.getUserId());
 
-        // Gửi thông báo
-        if (!studentFcmTokens.isEmpty()) {
-            // Data payload để navigation
-            Map<String, String> dataPayload = new HashMap<>();
-            dataPayload.put("screen", "AttendanceHistory");
-            dataPayload.put("studentId", student.getUserId().toString());
-            dataPayload.put("attendanceId", attendance.getAttendanceId().toString());
-            dataPayload.put("type", "evaluation");
+        Map<String, String> dataPayload = new HashMap<>();
+        dataPayload.put("screen", "AttendanceHistory");
+        dataPayload.put("studentId", student.getUserId().toString());
+        dataPayload.put("attendanceId", attendance.getAttendanceId().toString());
+        dataPayload.put("type", "evaluation");
 
-            notificationService.sendMulticastNotification(studentFcmTokens, title, body, dataPayload);
-            log.info("Sent evaluation notification to student {} (Evaluation: {})",
-                    student.getFullName(), attendance.getEvaluationStatus());
-        }
+        notificationService.sendMulticastNotification(
+                studentFcmTokens,
+                List.of(student.getUserId()),
+                title,
+                body,
+                NotificationType.ATTENDANCE,
+                "STUDENT_ATTENDANCE",
+                attendance.getAttendanceId().toString(),
+                dataPayload
+        );
+        log.info("Sent evaluation notification to student {} (Evaluation: {})",
+                student.getFullName(), attendance.getEvaluationStatus());
     }
 
     /**

@@ -15,13 +15,14 @@ import com.dat.backend_v2_1.enums.Core.Weekday;
 import com.dat.backend_v2_1.enums.ErrorCode;
 import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import com.dat.backend_v2_1.enums.Operation.CoachTimesheetStatus;
+import com.dat.backend_v2_1.enums.Operation.NotificationType;
 import com.dat.backend_v2_1.enums.Operation.SessionStatus;
 import com.dat.backend_v2_1.mapper.Operation.CoachTimesheetMapper;
 import com.dat.backend_v2_1.repository.Core.CoachRepository;
 import com.dat.backend_v2_1.repository.Operation.ClassSessionRepository;
 import com.dat.backend_v2_1.repository.Operation.CoachTimesheetRepository;
-import com.dat.backend_v2_1.service.NotificationService;
 import com.dat.backend_v2_1.service.Security.AuthTokenService;
+import com.dat.backend_v2_1.service.Security.UserService;
 import com.dat.backend_v2_1.specification.CoachTimesheetSpecification;
 import com.dat.backend_v2_1.util.error.AppException;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +57,7 @@ public class CoachTimesheetService {
     private final SecurityRule securityRule;
     private final NotificationService notificationService;
     private final AuthTokenService authTokenService;
+    private final UserService userService;
 
     private void sendAttendanceNotification(CoachTimesheet coachTimesheet) {
         Coach coach = coachTimesheet.getCoachAssignment().getCoach();
@@ -135,14 +137,28 @@ public class CoachTimesheetService {
                 .distinct()
                 .toList();
 
-        if (!notificationTokens.isEmpty()) {
-            Map<String, String> dataPayload = new HashMap<>();
-            dataPayload.put("screen", "CoachTimesheet");
-            dataPayload.put("coachId", coach.getUserId().toString());
-            dataPayload.put("timesheetId", coachTimesheet.getTimesheetId().toString());
+        List<UUID> recipientUserIds = new ArrayList<>();
+        recipientUserIds.add(coach.getUserId());
+        recipientUserIds.addAll(userService.getAllUsersByRoleCode(HEAD_COACH_ROLE_CODE).stream()
+                .map(user -> user.getUserId())
+                .toList());
+        recipientUserIds = recipientUserIds.stream().distinct().toList();
 
-            notificationService.sendMulticastNotification(notificationTokens, title, body, dataPayload);
-        }
+        Map<String, String> dataPayload = new HashMap<>();
+        dataPayload.put("screen", "CoachTimesheet");
+        dataPayload.put("coachId", coach.getUserId().toString());
+        dataPayload.put("timesheetId", coachTimesheet.getTimesheetId().toString());
+
+        notificationService.sendMulticastNotification(
+                notificationTokens,
+                recipientUserIds,
+                title,
+                body,
+                NotificationType.COACH_TIMESHEET,
+                "COACH_TIMESHEET",
+                coachTimesheet.getTimesheetId().toString(),
+                dataPayload
+        );
 
     }
 

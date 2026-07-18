@@ -5,49 +5,49 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.FirebaseMessaging;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Base64;
 
 @Configuration
+@ConditionalOnProperty(name = "firebase.enabled", havingValue = "true", matchIfMissing = true)
 public class FirebaseConfig {
-    // Spring Boot tự động bốc dữ liệu từ application.yml ném vào biến này
-    @Value("${firebase.config-base64}")
+
+    @Value("${firebase.config-base64:}")
     private String base64Config;
 
     @Bean
     public FirebaseApp firebaseApp() throws IOException {
-        if (FirebaseApp.getApps().isEmpty()) {
-            InputStream serviceAccount;
+        if (!FirebaseApp.getApps().isEmpty()) {
+            return FirebaseApp.getInstance();
+        }
 
-            // Kiểm tra xem biến cấu hình lấy từ file .yml có dữ liệu không
-            if (base64Config != null && !base64Config.isEmpty()) {
-                // Môi trường Deploy trên Render (Đã cấu hình biến env)
-                byte[] decodedBytes = java.util.Base64.getDecoder().decode(base64Config.trim());
-                serviceAccount = new java.io.ByteArrayInputStream(decodedBytes);
-                System.out.println("🔥 [Firebase] Khởi tạo thành công từ YML Base64!");
-            } else {
-                // Môi trường chạy dưới máy Local (Dùng file json trong resources)
-                ClassPathResource resource = new ClassPathResource("serviceAccountKey.json");
-                serviceAccount = resource.getInputStream();
-                System.out.println("🔥 [Firebase] Khởi tạo thành công từ file local JSON!");
-            }
-
+        try (InputStream serviceAccount = openServiceAccount()) {
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .build();
 
             return FirebaseApp.initializeApp(options);
         }
-        return FirebaseApp.getInstance();
     }
 
-    // BỔ SUNG THÊM: Tạo Bean cho FirebaseMessaging
     @Bean
     public FirebaseMessaging firebaseMessaging(FirebaseApp firebaseApp) {
         return FirebaseMessaging.getInstance(firebaseApp);
+    }
+
+    private InputStream openServiceAccount() throws IOException {
+        if (base64Config != null && !base64Config.isBlank()) {
+            byte[] decodedBytes = Base64.getDecoder().decode(base64Config.trim());
+            return new java.io.ByteArrayInputStream(decodedBytes);
+        }
+
+        ClassPathResource resource = new ClassPathResource("serviceAccountKey.json");
+        return resource.getInputStream();
     }
 }

@@ -18,7 +18,7 @@ public interface TuitionPaymentRepository extends JpaRepository<TuitionPayment, 
     /**
      * Lấy tất cả payment của 1 học viên, sắp xếp mới nhất trước
      */
-    List<TuitionPayment> findByStudent_UserIdOrderByCreatedAtDesc(UUID studentId);
+    List<TuitionPayment> findByStudent_PersonIdOrderByCreatedAtDesc(UUID studentId);
 
     /**
      * Truy vấn lịch sử đóng phí (Payment + Detail) theo studentId
@@ -26,7 +26,7 @@ public interface TuitionPaymentRepository extends JpaRepository<TuitionPayment, 
     @Query("""
             SELECT tp FROM TuitionPayment tp
             JOIN FETCH tp.student s
-            WHERE s.userId = :studentId
+            WHERE s.personId = :studentId
             ORDER BY tp.createdAt DESC
             """)
     List<TuitionPayment> findPaymentsWithStudentByStudentId(@Param("studentId") UUID studentId);

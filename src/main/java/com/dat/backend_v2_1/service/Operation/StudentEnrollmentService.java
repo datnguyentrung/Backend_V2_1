@@ -23,9 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -46,37 +44,61 @@ public class StudentEnrollmentService {
             @CacheEvict(value = "classScheduleList", allEntries = true)
     })
     public List<StudentEnrollment> createStudentEnrollment(StudentEnrollmentReqDTO.CreateRequest request) {
-        Student student = studentRepository.findByStudentCode(request.getStudentId())
-                .orElseThrow(() -> new BusinessException("Không tìm thấy học viên với ID: " + request.getStudentId()));
+        Student student = studentRepository.findByStudentCode(request.getStudentCode())
+                .orElseThrow(() -> new AppException(ErrorCode.STUDENT_NOT_FOUND));
 
-        List<ClassSchedule> schedules = classScheduleService.findByScheduleIds(request.getScheduleIds());
+        return createStudentEnrollment(student, request, false);
+    }
 
-        if (schedules.size() != request.getScheduleIds().size()) {
+    @Transactional(rollbackFor = Exception.class)
+    @Caching(evict = {
+            @CacheEvict(value = "studentEnrollmentsByClassDTO", allEntries = true),
+            @CacheEvict(value = "classScheduleDetail", allEntries = true),
+            @CacheEvict(value = "classScheduleList", allEntries = true)
+    })
+    public List<StudentEnrollment> createStudentEnrollmentForNewStudent(
+            Student student,
+            StudentEnrollmentReqDTO.CreateRequest request
+    ) {
+        return createStudentEnrollment(student, request, true);
+    }
+
+    private List<StudentEnrollment> createStudentEnrollment(
+            Student student,
+            StudentEnrollmentReqDTO.CreateRequest request,
+            boolean skipExistingEnrollmentCheck
+    ) {
+        List<String> distinctScheduleIds = request.getScheduleIds().stream()
+                .distinct()
+                .toList();
+
+        if (distinctScheduleIds.size() != request.getScheduleIds().size()) {
+            throw new AppException(ErrorCode.STUDENT_ALREADY_ENROLLED);
+        }
+
+        List<ClassSchedule> schedules = classScheduleService.findByScheduleIds(distinctScheduleIds);
+
+        if (schedules.size() != distinctScheduleIds.size()) {
             throw new AppException(ErrorCode.CLASS_NOT_FOUND);
         }
 
-        /**
-         * Không dùng cache ở đây.
-         * Đây là internal write logic, cần dữ liệu mới nhất từ DB để check trùng enrollment.
-         */
-        List<StudentEnrollment> currentEnrollments =
-                studentEnrollmentRepository.findByStudent_UserIdAndStatusWithClassSchedule(
-                        student.getUserId(),
+        if (!skipExistingEnrollmentCheck) {
+            List<String> alreadyEnrolledScheduleIds =
+                    studentEnrollmentRepository.findActiveScheduleIdsByStudentPersonIdAndScheduleIds(
+                        student.getPersonId(),
+                        distinctScheduleIds,
                         StudentEnrollmentStatus.ACTIVE
                 );
 
-        Set<String> currentlyEnrolledScheduleIds = currentEnrollments.stream()
-                .map(e -> e.getClassSchedule().getScheduleId())
-                .collect(Collectors.toSet());
+            if (!alreadyEnrolledScheduleIds.isEmpty()) {
+                log.warn("Student {} already in classes {}", student.getPersonId(), alreadyEnrolledScheduleIds);
+                throw new AppException(ErrorCode.STUDENT_ALREADY_ENROLLED);
+            }
+        }
 
         List<StudentEnrollment> enrollmentsToSave = new ArrayList<>();
 
         for (ClassSchedule schedule : schedules) {
-            if (currentlyEnrolledScheduleIds.contains(schedule.getScheduleId())) {
-                log.warn("Student {} already in class {}", student.getUserId(), schedule.getScheduleId());
-                throw new AppException(ErrorCode.STUDENT_ALREADY_ENROLLED);
-            }
-
             StudentEnrollment enrollment = studentEnrollmentMapper.toEntity(request);
             enrollment.setStudent(student);
             enrollment.setClassSchedule(schedule);
@@ -87,7 +109,7 @@ public class StudentEnrollmentService {
 
         List<StudentEnrollment> savedEnrollments = studentEnrollmentRepository.saveAll(enrollmentsToSave);
 
-        log.info("Successfully enrolled student {} to {} classes", student.getUserId(), savedEnrollments.size());
+        log.info("Successfully enrolled student {} to {} classes", student.getPersonId(), savedEnrollments.size());
 
         return savedEnrollments;
     }
@@ -157,7 +179,7 @@ public class StudentEnrollmentService {
                 .orElseThrow(() -> new BusinessException("Không tìm thấy học viên với mã: " + userId));
 
         List<StudentEnrollment> enrollments =
-                studentEnrollmentRepository.findByStudent_UserIdAndStatusWithClassSchedule(
+                studentEnrollmentRepository.findByStudent_PersonIdAndStatusWithClassSchedule(
                         userId,
                         StudentEnrollmentStatus.ACTIVE
                 );
@@ -202,7 +224,7 @@ public class StudentEnrollmentService {
             UUID studentUserId,
             String classScheduleId
     ) {
-        return studentEnrollmentRepository.findByStudent_UserIdAndClassSchedule_ScheduleIdAndStatus(
+        return studentEnrollmentRepository.findByStudent_PersonIdAndClassSchedule_ScheduleIdAndStatus(
                 studentUserId,
                 classScheduleId,
                 StudentEnrollmentStatus.ACTIVE

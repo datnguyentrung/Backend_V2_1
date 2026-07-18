@@ -176,7 +176,7 @@ public class TuitionPaymentService {
 
         // Lấy tất cả enrollment đang ACTIVE
         List<StudentEnrollment> activeEnrollments = studentEnrollmentRepository
-                .findByStudent_UserIdAndStatusWithClassSchedule(studentId, StudentEnrollmentStatus.ACTIVE);
+                .findByStudent_PersonIdAndStatusWithClassSchedule(studentId, StudentEnrollmentStatus.ACTIVE);
 
         LocalDate now = LocalDate.now();
         int currentMonth = now.getMonthValue();

@@ -39,7 +39,7 @@ public interface TuitionPaymentDetailRepository extends JpaRepository<TuitionPay
             JOIN FETCH tpd.tuitionPayment tp
             JOIN FETCH tpd.enrollment enr
             JOIN FETCH enr.classSchedule cs
-            WHERE tp.student.userId = :studentId
+            WHERE tp.student.personId = :studentId
             ORDER BY tpd.forYear DESC, tpd.forMonth DESC
             """)
     List<TuitionPaymentDetail> findAllByStudentIdWithDetails(@Param("studentId") UUID studentId);

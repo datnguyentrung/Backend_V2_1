@@ -44,7 +44,7 @@ public class StudentEnrollmentController {
      * Cho phép đăng ký một học viên vào một hoặc nhiều lớp học cùng lúc.
      * Hệ thống sẽ kiểm tra trùng lặp và validate thông tin trước khi tạo enrollment.
      *
-     * @param request Thông tin đăng ký (studentId, scheduleIds, joinDate, note)
+     * @param request Thông tin đăng ký (studentCode, scheduleIds, joinDate, note)
      * @return 201 Created - Đăng ký thành công
      * 400 Bad Request - Dữ liệu không hợp lệ
      * 404 Not Found - Không tìm thấy học viên hoặc lớp học
@@ -55,7 +55,7 @@ public class StudentEnrollmentController {
     public ResponseEntity<List<StudentEnrollment>> createStudentEnrollment(
             @RequestBody @Valid StudentEnrollmentReqDTO.CreateRequest request) {
         log.info("Request create enrollment for student: {} to {} classes",
-                request.getStudentId(), request.getScheduleIds().size());
+                request.getStudentCode(), request.getScheduleIds().size());
 
         List<StudentEnrollment> studentEnrollments = studentEnrollmentService.createStudentEnrollment(request);
 

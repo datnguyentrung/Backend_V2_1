@@ -7,6 +7,7 @@ import lombok.Data;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 public class StudentEnrollmentReqDTO {
@@ -21,7 +22,7 @@ public class StudentEnrollmentReqDTO {
     @Data
     public static class CreateRequest {
         @NotNull(message = "Học viên không được để trống")
-        private String studentId; // Nhận String (UUID)
+        private String studentCode;
 
         @NotEmpty(message = "Vui lòng chọn ít nhất một lớp học")
         private List<String> scheduleIds; // Hỗ trợ đăng ký nhiều lớp 1 lúc

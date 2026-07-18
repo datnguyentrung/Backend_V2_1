@@ -33,7 +33,7 @@ import java.util.UUID;
         schema = "operation",
         // Index giúp tìm kiếm nhanh: Tìm lịch sử lớp học của 1 học sinh, hoặc tìm danh sách học viên của 1 lớp học
         indexes = {
-                @Index(name = "idx_enrollment_student", columnList = "student_user_id"),
+                @Index(name = "idx_enrollment_student", columnList = "student_id"),
                 @Index(name = "idx_enrollment_schedule", columnList = "schedule_id"),
                 @Index(name = "idx_enrollment_status", columnList = "enrollment_status") // Hay lọc theo trạng thái
         }
@@ -51,7 +51,7 @@ public class StudentEnrollment {
 
     @NotNull(message = "Học viên không được để trống")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_user_id", nullable = false)
+    @JoinColumn(name = "student_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     Student student;
 

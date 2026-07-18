@@ -15,17 +15,28 @@ import java.util.UUID;
 
 @Repository
 public interface StudentEnrollmentRepository extends JpaRepository<StudentEnrollment, UUID> {
-    boolean existsByStudent_UserIdAndClassSchedule_ScheduleIdAndStatus(
-            UUID student_userId, String classSchedule_scheduleId, @NotNull StudentEnrollmentStatus status
+    boolean existsByStudent_PersonIdAndClassSchedule_ScheduleIdAndStatus(
+            UUID studentPersonId, String classScheduleScheduleId, @NotNull StudentEnrollmentStatus status
     );
 
-    // Fix N+1 problem: Use JOIN FETCH to eagerly load classSchedule and branch
     @Query("SELECT se FROM StudentEnrollment se " +
             "JOIN FETCH se.classSchedule cs " +
             "JOIN FETCH cs.branch " +
-            "WHERE se.student.userId = :userId AND se.status = :status")
-    List<StudentEnrollment> findByStudent_UserIdAndStatusWithClassSchedule(
-            @Param("userId") UUID userId,
+            "WHERE se.student.personId = :personId AND se.status = :status")
+    List<StudentEnrollment> findByStudent_PersonIdAndStatusWithClassSchedule(
+            @Param("personId") UUID personId,
+            @Param("status") StudentEnrollmentStatus status
+    );
+
+    @Query("""
+            SELECT se.classSchedule.scheduleId FROM StudentEnrollment se
+            WHERE se.student.personId = :personId
+            AND se.status = :status
+            AND se.classSchedule.scheduleId IN :scheduleIds
+            """)
+    List<String> findActiveScheduleIdsByStudentPersonIdAndScheduleIds(
+            @Param("personId") UUID personId,
+            @Param("scheduleIds") List<String> scheduleIds,
             @Param("status") StudentEnrollmentStatus status
     );
 
@@ -38,10 +49,6 @@ public interface StudentEnrollmentRepository extends JpaRepository<StudentEnroll
             @Param("status") StudentEnrollmentStatus status
     );
 
-    /**
-     * Optimized query to fetch active students by schedule ID with their full details.
-     * Uses EntityGraph to eagerly fetch Student entity, avoiding N+1 query problem.
-     */
     @EntityGraph(attributePaths = {"student"})
     @Query("""
             SELECT se FROM StudentEnrollment se
@@ -55,21 +62,22 @@ public interface StudentEnrollmentRepository extends JpaRepository<StudentEnroll
     );
 
     @Query("""
-                SELECT se FROM StudentEnrollment se
-                JOIN FETCH se.classSchedule cs
-                LEFT JOIN FETCH cs.branch
-                WHERE se.student.userId IN :userIds
-                AND se.status = :status
+            SELECT se FROM StudentEnrollment se
+            JOIN FETCH se.classSchedule cs
+            LEFT JOIN FETCH cs.branch
+            WHERE se.student.personId IN :personIds
+            AND se.status = :status
             """)
-    List<StudentEnrollment> findByStudent_UserIdsInAndStatusWithClassSchedule(
-            @Param("userIds") List<UUID> userIds,
+    List<StudentEnrollment> findByStudent_PersonIdsInAndStatusWithClassSchedule(
+            @Param("personIds") List<UUID> personIds,
             @Param("status") StudentEnrollmentStatus status
     );
 
-    Optional<StudentEnrollment> findByStudent_UserIdAndClassSchedule_ScheduleIdAndStatus(UUID studentUserId, String classScheduleScheduleId, StudentEnrollmentStatus status);
+    Optional<StudentEnrollment> findByStudent_PersonIdAndClassSchedule_ScheduleIdAndStatus(
+            UUID studentPersonId,
+            String classScheduleScheduleId,
+            StudentEnrollmentStatus status
+    );
 
-    /**
-     * Đếm số học viên trong một lớp theo trạng thái
-     */
     long countByClassSchedule_ScheduleIdAndStatus(String scheduleId, StudentEnrollmentStatus status);
 }

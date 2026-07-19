@@ -108,37 +108,54 @@ public class NotificationPreparationService {
     }
 
     private NotificationContent buildContent(AttendanceNotificationRow row) {
-        String scheduleId = row.getScheduleId() == null ? "N/A" : row.getScheduleId();
-        String coachName = row.getCoachName() == null ? "He thong" : row.getCoachName();
-        String studentName = row.getStudentName() == null ? "Hoc vien" : row.getStudentName();
+        String scheduleId = row.getScheduleId() == null ? "chưa cập nhật" : row.getScheduleId();
+        String coachName = row.getCoachName() == null ? "chưa cập nhật" : row.getCoachName();
+        String studentName = row.getStudentName() == null ? "học viên" : row.getStudentName();
         LocalDateTime time = row.getCheckInTime() != null ? row.getCheckInTime() : row.getCreatedAt();
         String formattedTime = time == null
-                ? ""
+                ? "chưa cập nhật"
                 : time.atZone(HO_CHI_MINH_ZONE).format(DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy", Locale.forLanguageTag("vi-VN")));
 
         return switch (row.getAttendanceStatus()) {
             case PRESENT -> new NotificationContent(
-                    "Diem danh thanh cong",
-                    String.format("HV %s da co mat tai lop %s. Luc: %s. HLV: %s", studentName, scheduleId, formattedTime, coachName)
+                    "Thông báo điểm danh",
+                    String.format("""
+                            Học viên %s đã có mặt tại lớp.
+                            Lớp: %s
+                            Thời gian: %s
+                            Huấn luyện viên: %s""", studentName, scheduleId, formattedTime, coachName)
             );
             case LATE -> new NotificationContent(
-                    "Thong bao di muon",
-                    String.format("He thong ghi nhan HV %s den lop muon tai lop %s. Check-in: %s. GV ghi nhan: %s",
+                    "Thông báo điểm danh",
+                    String.format("""
+                            Học viên %s được ghi nhận đến lớp muộn.
+                            Lớp: %s
+                            Thời gian check-in: %s
+                            Người ghi nhận: %s""",
                             studentName, scheduleId, formattedTime, coachName)
             );
             case EXCUSED -> new NotificationContent(
-                    "Nghi co phep",
-                    String.format("Da xac nhan don xin nghi cua HV %s. Thoi gian: %s. Nguoi duyet: %s",
+                    "Thông báo điểm danh",
+                    String.format("""
+                            Đơn xin nghỉ của học viên %s đã được xác nhận.
+                            Thời gian: %s
+                            Người duyệt: %s""",
                             studentName, formattedTime, coachName)
             );
             case MAKEUP -> new NotificationContent(
-                    "Diem danh hoc bu",
-                    String.format("HV %s duoc ghi nhan hoc bu tai lop %s. Thoi gian: %s. HLV: %s",
+                    "Thông báo điểm danh",
+                    String.format("""
+                            Học viên %s đã được ghi nhận học bù.
+                            Lớp: %s
+                            Thời gian: %s
+                            Huấn luyện viên: %s""",
                             studentName, scheduleId, formattedTime, coachName)
             );
             default -> new NotificationContent(
-                    "Thong bao diem danh",
-                    String.format("Cap nhat trang thai diem danh cho HV %s: %s.", studentName, row.getAttendanceStatus())
+                    "Thông báo điểm danh",
+                    String.format("""
+                            Trạng thái điểm danh của học viên %s đã được cập nhật.
+                            Trạng thái: %s""", studentName, row.getAttendanceStatus())
             );
         };
     }

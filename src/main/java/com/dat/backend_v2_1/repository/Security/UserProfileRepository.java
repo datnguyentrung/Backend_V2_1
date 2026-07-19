@@ -49,6 +49,14 @@ public interface UserProfileRepository extends JpaRepository<UserProfile, UUID> 
 
     List<UserProfile> findAllByPerson_PersonIdAndActive(UUID personPersonId, Boolean active);
 
+    @Query("""
+            SELECT DISTINCT up.user.userId
+            FROM UserProfile up
+            WHERE up.person.personId = :personId
+              AND up.active = true
+            """)
+    List<UUID> findActiveUserIdsByPersonId(@Param("personId") UUID personId);
+
     interface UserContextRow {
         UUID getPersonId();
 

@@ -2,6 +2,7 @@ package com.dat.backend_v2_1.repository.Core;
 
 import com.dat.backend_v2_1.domain.Core.Student;
 import com.dat.backend_v2_1.dto.Core.StudentResDTO;
+import com.dat.backend_v2_1.dto.Operation.CheckInStudentProjection;
 import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -93,4 +94,14 @@ public interface StudentRepository extends JpaRepository<Student, UUID>,
     List<Object[]> countStudentsByStatusGrouped();
 
     Optional<Student> findByStudentCode(String studentCode);
+
+    @Query("""
+            SELECT s.personId AS personId,
+                   s.studentCode AS studentCode,
+                   s.studentStatus AS studentStatus,
+                   s.fullName AS fullName
+            FROM Student s
+            WHERE s.studentCode = :studentCode
+            """)
+    Optional<CheckInStudentProjection> findCheckInStudentByStudentCode(@Param("studentCode") String studentCode);
 }

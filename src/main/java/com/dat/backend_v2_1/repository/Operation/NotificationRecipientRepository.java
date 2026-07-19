@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -45,4 +46,24 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
             @Param("userId") UUID userId,
             @Param("readAt") LocalDateTime readAt
     );
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE NotificationRecipient nr
+            SET nr.recipientStatus = :status,
+                nr.deliveredAt = :deliveredAt
+            WHERE nr.notification.notificationId = :notificationId
+            """)
+    int updateStatusByNotificationId(
+            @Param("notificationId") UUID notificationId,
+            @Param("status") com.dat.backend_v2_1.enums.Operation.NotificationRecipientStatus status,
+            @Param("deliveredAt") LocalDateTime deliveredAt
+    );
+
+    @Query("""
+            SELECT nr.notificationRecipientId
+            FROM NotificationRecipient nr
+            WHERE nr.notification.notificationId = :notificationId
+            """)
+    Collection<UUID> findIdsByNotificationId(@Param("notificationId") UUID notificationId);
 }

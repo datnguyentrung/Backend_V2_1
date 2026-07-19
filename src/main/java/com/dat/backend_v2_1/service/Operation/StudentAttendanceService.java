@@ -8,6 +8,7 @@ import com.dat.backend_v2_1.domain.Operation.StudentAttendance;
 import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
 import com.dat.backend_v2_1.domain.Security.User;
 import com.dat.backend_v2_1.domain.Security.UserProfile;
+import com.dat.backend_v2_1.dto.Operation.CheckInStudentProjection;
 import com.dat.backend_v2_1.dto.Operation.StudentAttendanceDTO;
 import com.dat.backend_v2_1.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.backend_v2_1.dto.PageResponse;
@@ -18,12 +19,15 @@ import com.dat.backend_v2_1.enums.Core.StudentStatus;
 import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
 import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
 import com.dat.backend_v2_1.enums.Operation.NotificationType;
+import com.dat.backend_v2_1.enums.Operation.SessionStatus;
 import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
 import com.dat.backend_v2_1.event.ScoreRecalculateEvent;
 import com.dat.backend_v2_1.mapper.Operation.StudentAttendanceMapper;
 import com.dat.backend_v2_1.repository.Core.CoachRepository;
+import com.dat.backend_v2_1.repository.Core.StudentRepository;
 import com.dat.backend_v2_1.repository.Operation.ClassSessionRepository;
 import com.dat.backend_v2_1.repository.Operation.StudentAttendanceRepository;
+import com.dat.backend_v2_1.repository.Operation.StudentEnrollmentRepository;
 import com.dat.backend_v2_1.service.Core.CoachService;
 import com.dat.backend_v2_1.service.Core.StudentService;
 import com.dat.backend_v2_1.service.Security.AuthTokenService;
@@ -38,10 +42,15 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -63,7 +72,11 @@ public class StudentAttendanceService {
     private final StudentService studentService;
     private final CoachRepository coachRepository;
     private final ClassSessionRepository classSessionRepository;
+    private final StudentRepository studentRepository;
+    private final StudentEnrollmentRepository studentEnrollmentRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final AttendanceNotificationTaskExecutor attendanceNotificationTaskExecutor;
+    private final AttendanceNotificationDispatcher attendanceNotificationDispatcher;
 
     @Autowired
     @Lazy
@@ -77,10 +90,41 @@ public class StudentAttendanceService {
         int year = sessionDate.getYear();
         int quarter = (sessionDate.getMonthValue() - 1) / 3 + 1; // Công thức tính Quý
 
-        eventPublisher.publishEvent(new ScoreRecalculateEvent(
+        ScoreRecalculateEvent event = new ScoreRecalculateEvent(
                 student.getStudentCode(),
                 quarter,
                 year
+        );
+        runAfterCommit(() -> eventPublisher.publishEvent(event));
+    }
+
+    private void runAfterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()
+                && TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    runNotificationAction(action);
+                }
+            });
+            return;
+        }
+
+        runNotificationAction(action);
+    }
+
+    private void runNotificationAction(Runnable action) {
+        try {
+            action.run();
+        } catch (Exception e) {
+            log.error("Failed to run after-commit action", e);
+        }
+    }
+
+    private void enqueueAttendanceNotificationAfterCommit(UUID attendanceId) {
+        runAfterCommit(() -> attendanceNotificationTaskExecutor.submit(
+                attendanceId,
+                () -> attendanceNotificationDispatcher.dispatch(attendanceId)
         ));
     }
 
@@ -166,7 +210,8 @@ public class StudentAttendanceService {
     @Transactional(rollbackFor = Exception.class)
     public StudentAttendanceDTO.Response createAttendanceRecord(StudentAttendanceDTO.CreateRequest request) {
         // 1. Validate Student
-        Student student = studentService.getStudentByStudentCode(request.getStudentCode());
+        CheckInStudentProjection student = studentRepository.findCheckInStudentByStudentCode(request.getStudentCode())
+                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy học viên với mã: " + request.getStudentCode()));
         if (student.getStudentStatus() != StudentStatus.ACTIVE) {
             throw new IllegalStateException("Học viên không ở trạng thái ACTIVE");
         }
@@ -176,29 +221,26 @@ public class StudentAttendanceService {
         LocalTime currentTime = now.toLocalTime();
 
         // 2. Lấy danh sách đăng ký lớp
-        List<StudentEnrollment> enrollments = studentEnrollmentService
-                .findStudentEnrollmentsByStudentId(student.getPersonId());
+        List<StudentEnrollment> enrollments = studentEnrollmentRepository
+                .findByStudent_StudentCodeAndStatusWithClassSchedule(
+                        student.getStudentCode(),
+                        StudentEnrollmentStatus.ACTIVE
+                );
 
         if (enrollments.isEmpty()) {
             throw new NoSuchElementException("Học viên không có đăng ký lớp nào");
         }
 
-        // 3. Lấy danh sách ID đã điểm danh hôm nay
-        List<UUID> attendedEnrollmentIds = getAttendancesByUserIdAndSessionDate(student.getPersonId(), today)
-                .stream()
-                .map(a -> a.getStudentEnrollment().getEnrollmentId())
-                .toList();
-
-        // --- TỐI ƯU TẠI ĐÂY ---
-        // 4a. Lấy ra danh sách các scheduleId mà học viên này đang học
         List<String> enrolledScheduleIds = enrollments.stream()
                 .map(e -> e.getClassSchedule().getScheduleId())
                 .toList();
 
-        // 4b. Chỉ fetch những buổi học thuộc các scheduleId đó trong ngày hôm nay
-        // Yêu cầu: Bạn cần tạo hàm findBySessionDateAndClassSchedule_ScheduleIdIn trong ClassSessionRepository
         List<ClassSession> relevantSessions = classSessionRepository
-                .findBySessionDateAndClassSchedule_ScheduleIdIn(today, enrolledScheduleIds);
+                .findBySessionDateAndStatusAndClassSchedule_ScheduleIdIn(
+                        today,
+                        SessionStatus.ACTIVE,
+                        enrolledScheduleIds
+                );
 
         // 5. Tìm buổi học ĐANG DIỄN RA (ACTIVE) để điểm danh
         boolean isAlreadyCheckedIn = false; // Cờ đánh dấu xem có ca học nhưng đã điểm danh chưa
@@ -212,9 +254,13 @@ public class StudentAttendanceService {
 
             // Nếu có ca học đang ACTIVE
             if (currentSessionOpt.isPresent()) {
+                ClassSession currentSession = currentSessionOpt.get();
 
                 // Kiểm tra xem đã điểm danh ca này chưa
-                if (attendedEnrollmentIds.contains(enrollment.getEnrollmentId())) {
+                if (studentAttendanceRepository.existsByStudentEnrollment_EnrollmentIdAndClassSession_SessionId(
+                        enrollment.getEnrollmentId(),
+                        currentSession.getSessionId()
+                )) {
                     isAlreadyCheckedIn = true;
                     continue; // Vẫn chạy tiếp nhỡ học viên học 2 ca liên tiếp thì sao
                 }
@@ -225,20 +271,29 @@ public class StudentAttendanceService {
                         ? AttendanceStatus.PRESENT
                         : AttendanceStatus.LATE;
 
-                StudentAttendance savedAttendance = studentAttendanceRepository.save(StudentAttendance.builder()
-                        .studentEnrollment(enrollment)
-                        .sessionDate(today)
-                        .attendanceStatus(status)
-                        .evaluationStatus(EvaluationStatus.PENDING) // Mặc định là PENDING, HLV sẽ đánh giá sau
-                        .checkInTime(now)
-                        .note("Điểm danh tự động qua API")
-                        .build());
+                StudentAttendance savedAttendance;
+                try {
+                    savedAttendance = studentAttendanceRepository.saveAndFlush(StudentAttendance.builder()
+                            .studentEnrollment(enrollment)
+                            .classSession(currentSession)
+                            .sessionDate(today)
+                            .attendanceStatus(status)
+                            .evaluationStatus(EvaluationStatus.PENDING) // Mặc định là PENDING, HLV sẽ đánh giá sau
+                            .checkInTime(now)
+                            .note("Điểm danh tự động qua API")
+                            .build());
+                } catch (DataIntegrityViolationException e) {
+                    log.warn("Duplicate check-in rejected for enrollmentId={}, classSessionId={}",
+                            enrollment.getEnrollmentId(), currentSession.getSessionId(), e);
+                    return null;
+                }
 
-                publishScoreRecalculateEvent(enrollment.getStudent(), today);
+                // Tạm tắt vì chưa sử dụng tính năng
+//                publishScoreRecalculateEvent(enrollment.getStudent(), today);
 
-                sendAttendanceNotification(savedAttendance);
+                enqueueAttendanceNotificationAfterCommit(savedAttendance.getAttendanceId());
 
-                return studentAttendanceMapper.toResponse(savedAttendance);
+                return toCheckInResponse(savedAttendance, student, enrollment, currentSession);
             }
         }
         // --- XỬ LÝ KẾT QUẢ SAU VÒNG LẶP ---
@@ -309,7 +364,7 @@ public class StudentAttendanceService {
         }
 
         if (request.getAttendanceStatus() != AttendanceStatus.ABSENT) {
-            sendAttendanceNotification(attendance);
+            enqueueAttendanceNotificationAfterCommit(attendance.getAttendanceId());
         }
 
         publishScoreRecalculateEvent(
@@ -318,95 +373,6 @@ public class StudentAttendanceService {
         );
 
         return studentAttendanceMapper.toResponse(attendance);
-    }
-
-    private void sendAttendanceNotification(
-            StudentAttendance attendance
-    ) {
-        // Logic gửi thông báo
-        // Lấy thông tin học viên và HLV từ attendance
-        Student student = attendance.getStudentEnrollment().getStudent();
-        Coach coach = attendance.getRecordedByCoach();
-
-        // Lấy thông tin lịch học
-        String scheduleId = attendance.getStudentEnrollment().getClassSchedule().getScheduleId();
-
-        // 2. Format thời gian kiểu Việt Nam (VD: 18:30 03/02/2026)
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy", Locale.forLanguageTag("vi" +
-                "-VN"));
-        String formattedTime = attendance.getCheckInTime() != null
-                ? attendance.getCheckInTime().atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(timeFormatter)
-                : attendance.getCreatedAt().atZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).format(timeFormatter);
-
-        // 3. Xây dựng nội dung dựa trên trạng thái (PRESENT, LATE, ABSENT...)
-        String title;
-        String body;
-
-        switch (attendance.getAttendanceStatus()) {
-            case PRESENT:
-                title = "✅ Điểm danh thành công";
-                body = String.format("HV %s đã có mặt tại cơ sở %s (ca %s).\n🕒 Lúc: %s\n🥋 HLV: %s",
-                        student.getFullName(),
-                        scheduleId.charAt(1),
-                        scheduleId.charAt(4),
-                        formattedTime,
-                        coach != null ? coach.getFullName() : "Hệ thống");
-                break;
-            case LATE:
-                title = "⚠️ Thông báo đi muộn";
-                body = String.format("Hệ thống ghi nhận HV %s đến lớp muộn.\n🏫 Cơ sở: %s\n🕒 Ca học: %s\n🕒 " +
-                                "Check-in: %s\n🥋 GV ghi nhận: %s",
-                        student.getFullName(),
-                        scheduleId.charAt(1),
-                        scheduleId.charAt(4),
-                        formattedTime,
-                        coach != null ? coach.getFullName() : "Hệ thống");
-                break;
-            case ABSENT: // Vắng mặt không lý do - Không gửi thông báo
-                return;
-            case EXCUSED: // Vắng mặt có phép
-                title = "📝 Nghỉ có phép";
-                body = String.format("Đã xác nhận đơn xin nghỉ của HV %s.\n📅 Ngày nghỉ: %s\n👤 Người duyệt: HLV %s",
-                        student.getFullName(),
-                        formattedTime,
-                        coach != null ? coach.getFullName() : "Hệ thống");
-                break;
-            case MAKEUP:
-                title = "🔄 Điểm danh học bù";
-                body = String.format("HV %s được ghi nhận học bù.\n🏫 Cơ sở: %s (ca %s)\n🕒 Thời gian: %s\n🥋 HLV: %s",
-                        student.getFullName(),
-                        scheduleId.charAt(1),
-                        scheduleId.charAt(4),
-                        formattedTime,
-                        coach != null ? coach.getFullName() : "Hệ thống");
-                break;
-            default:
-                title = "Thông báo điểm danh";
-                body = String.format("Cập nhật trạng thái điểm danh cho HV %s: %s.",
-                        student.getFullName(),
-                        attendance.getAttendanceStatus());
-        }
-
-        // 4. Lấy danh sách Token của user (Học viên hoặc Phụ huynh)
-        List<String> studentFcmTokens = authTokenService.getAllFcmTokensByActivePersonId(student.getPersonId());
-        List<UUID> studentUserIds = userProfileService.getAllByPersonIdAndActiveTrue(student.getPersonId()).stream()
-                .map(UserProfile::getUser).map(User::getUserId)
-                .collect(Collectors.toList());
-        Map<String, String> dataPayload = new HashMap<>();
-        dataPayload.put("screen", "AttendanceHistory");
-        dataPayload.put("personId", student.getPersonId().toString());
-        dataPayload.put("attendanceId", attendance.getAttendanceId().toString());
-
-        notificationService.sendMulticastNotification(
-                studentFcmTokens,
-                studentUserIds,
-                title,
-                body,
-                NotificationType.ATTENDANCE,
-                "STUDENT_ATTENDANCE",
-                attendance.getAttendanceId().toString(),
-                dataPayload
-        );
     }
 
     /**
@@ -555,13 +521,23 @@ public class StudentAttendanceService {
         // Gửi thông báo đánh giá cho học viên (trừ trạng thái PENDING)
         if (request.getEvaluationStatus() != null &&
                 request.getEvaluationStatus() != com.dat.backend_v2_1.enums.Operation.EvaluationStatus.PENDING) {
-            sendEvaluationNotification(attendance);
+            runAfterCommit(() -> self.sendCommittedEvaluationNotification(attendance.getAttendanceId()));
         }
 
         publishScoreRecalculateEvent(attendance.getStudentEnrollment().getStudent(), attendance.getSessionDate());
 
         log.info("Coach {} updated evaluation for attendance record {} to status {}",
                 currentCoach.getFullName(), attendanceId, request.getEvaluationStatus());
+    }
+
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRES_NEW)
+    public void sendCommittedEvaluationNotification(UUID attendanceId) {
+        StudentAttendance attendance = studentAttendanceRepository.findWithDetailsByAttendanceId(attendanceId)
+                .orElseThrow(() -> new NoSuchElementException(
+                        "Không tìm thấy bản ghi điểm danh với ID: " + attendanceId
+                ));
+
+        sendEvaluationNotification(attendance);
     }
 
     /**
@@ -658,20 +634,33 @@ public class StudentAttendanceService {
     // Dùng REQUIRES_NEW để nếu hàm này lỗi, nó không kéo theo Transaction của Job tổng bị rollback
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRES_NEW)
     public void processMissingAttendances(String scheduleId, LocalDate sessionDate) {
+        ClassSession classSession = resolveUniqueClassSession(scheduleId, sessionDate);
+        processMissingAttendances(classSession);
+    }
+
+    @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRES_NEW)
+    public void processMissingAttendances(ClassSession classSession) {
+        String scheduleId = classSession.getClassSchedule().getScheduleId();
+        LocalDate sessionDate = classSession.getSessionDate();
         List<StudentEnrollment> activeStudents = studentEnrollmentService
                 .getStudentEnrollmentsByClassScheduleId(scheduleId);
 
         if (activeStudents.isEmpty()) return;
 
         List<UUID> existingStudentIds = studentAttendanceRepository
-                .findStudentIdsByScheduleAndSessionDate(scheduleId, sessionDate);
+                .findStudentIdsByClassSessionId(classSession.getSessionId());
         Set<UUID> existingStudentIdsSet = new HashSet<>(existingStudentIds);
 
         List<StudentAttendance> newAttendances = new ArrayList<>();
         for (StudentEnrollment enrollment : activeStudents) {
-            if (!existingStudentIdsSet.contains(enrollment.getStudent().getPersonId())) {
+            if (!existingStudentIdsSet.contains(enrollment.getStudent().getPersonId())
+                    && !studentAttendanceRepository.existsByStudentEnrollment_EnrollmentIdAndClassSession_SessionId(
+                    enrollment.getEnrollmentId(),
+                    classSession.getSessionId()
+            )) {
                 newAttendances.add(StudentAttendance.builder()
                         .studentEnrollment(enrollment)
+                        .classSession(classSession)
                         .sessionDate(sessionDate)
                         .attendanceStatus(AttendanceStatus.ABSENT)
                         .build());
@@ -720,6 +709,10 @@ public class StudentAttendanceService {
         // 2. Validate Logic nghiệp vụ (Check status ngay trên object đã fetch về)
         Student student = enrollment.getStudent();
         ClassSchedule classSchedule = enrollment.getClassSchedule();
+        ClassSession classSession = resolveUniqueClassSession(
+                request.getClassScheduleId(),
+                request.getSessionDate()
+        );
 
         if (student.getStudentStatus() != StudentStatus.ACTIVE) {
             throw new IllegalStateException("Học viên không ở trạng thái ACTIVE");
@@ -734,15 +727,58 @@ public class StudentAttendanceService {
         // 4. Create & Save
         StudentAttendance attendance = StudentAttendance.builder()
                 .studentEnrollment(enrollment) // Đã có sẵn Student và Schedule bên trong
+                .classSession(classSession)
                 .sessionDate(request.getSessionDate())
                 .attendanceStatus(request.getAttendanceStatus())
                 .checkInTime(request.getCheckInTime() != null ? request.getCheckInTime() : LocalDateTime.now())
                 .note(request.getNote())
                 .build();
 
-        StudentAttendance savedAttendance = studentAttendanceRepository.save(attendance);
+        StudentAttendance savedAttendance;
+        try {
+            savedAttendance = studentAttendanceRepository.saveAndFlush(attendance);
+        } catch (DataIntegrityViolationException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Attendance already exists for this class session", e);
+        }
 
         return studentAttendanceMapper.toResponse(savedAttendance);
+    }
+
+    private ClassSession resolveUniqueClassSession(String scheduleId, LocalDate sessionDate) {
+        List<ClassSession> sessions = classSessionRepository.findBySessionDateAndClassSchedule_ScheduleId(
+                sessionDate,
+                scheduleId
+        );
+        if (sessions.size() != 1) {
+            throw new IllegalStateException(String.format(
+                    "Expected exactly one class session for scheduleId=%s and sessionDate=%s, found %d",
+                    scheduleId,
+                    sessionDate,
+                    sessions.size()
+            ));
+        }
+        return sessions.get(0);
+    }
+
+    private StudentAttendanceDTO.Response toCheckInResponse(
+            StudentAttendance attendance,
+            CheckInStudentProjection student,
+            StudentEnrollment enrollment,
+            ClassSession classSession
+    ) {
+        return StudentAttendanceDTO.Response.builder()
+                .attendanceId(attendance.getAttendanceId())
+                .enrollmentId(enrollment.getEnrollmentId())
+                .studentId(student.getPersonId())
+                .studentName(student.getFullName())
+                .classScheduleId(classSession.getClassSchedule().getScheduleId())
+                .sessionDate(attendance.getSessionDate())
+                .attendanceStatus(attendance.getAttendanceStatus())
+                .checkInTime(attendance.getCheckInTime())
+                .evaluationStatus(attendance.getEvaluationStatus())
+                .note(attendance.getNote())
+                .updatedAt(attendance.getUpdatedAt())
+                .build();
     }
 
     @Transactional

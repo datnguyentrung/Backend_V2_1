@@ -20,6 +20,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.HashMap;
 import java.util.List;
@@ -36,17 +38,20 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final AttendanceNotificationTaskExecutor notificationExecutor;
 
     public NotificationService(
             ObjectProvider<FirebaseMessaging> firebaseMessagingProvider,
             NotificationRepository notificationRepository,
             UserRepository userRepository,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            AttendanceNotificationTaskExecutor notificationExecutor
     ) {
         this.firebaseMessaging = firebaseMessagingProvider.getIfAvailable();
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
+        this.notificationExecutor = notificationExecutor;
     }
 
     public void sendNotification(String token, String title, String body, Map<String, String> data) {
@@ -81,7 +86,7 @@ public class NotificationService {
     }
 
     public void sendMulticastNotification(List<String> tokens, String title, String body, Map<String, String> data) {
-        sendFirebaseMulticast(tokens, title, body, data);
+        enqueueFirebaseAfterCommit(null, tokens, title, body, data);
     }
 
     @Transactional
@@ -104,7 +109,7 @@ public class NotificationService {
                 data,
                 recipientUserIds
         );
-        sendFirebaseMulticast(tokens, title, body, data);
+        enqueueFirebaseAfterCommit(savedNotification.getNotificationId(), tokens, title, body, data);
         return savedNotification;
     }
 
@@ -168,6 +173,34 @@ public class NotificationService {
         } catch (FirebaseMessagingException e) {
             log.error("Failed to send Firebase multicast notification", e);
         }
+    }
+
+    private void enqueueFirebaseAfterCommit(
+            UUID notificationId,
+            List<String> tokens,
+            String title,
+            String body,
+            Map<String, String> data
+    ) {
+        Runnable enqueue = () -> {
+            notificationExecutor.submit(
+                    notificationId,
+                    () -> sendFirebaseMulticast(tokens, title, body, data)
+            );
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()
+                && TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    enqueue.run();
+                }
+            });
+            return;
+        }
+
+        enqueue.run();
     }
 
     private NotificationDTO.NotificationResponse saveNotification(

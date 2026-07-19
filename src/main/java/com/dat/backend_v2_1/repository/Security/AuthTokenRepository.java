@@ -33,4 +33,14 @@ public interface AuthTokenRepository extends JpaRepository<AuthToken, UUID> {
     List<AuthToken> findAllByUser_UserId(UUID userId);
 
     List<AuthToken> findAllByActivePerson_PersonIdAndRevokedFalse(UUID activePersonPersonId);
+
+    @Query("""
+            SELECT DISTINCT t.fcmToken
+            FROM AuthToken t
+            WHERE t.activePerson.personId = :personId
+              AND t.revoked = false
+              AND t.fcmToken IS NOT NULL
+              AND t.fcmToken <> ''
+            """)
+    List<String> findActiveFcmTokens(@Param("personId") UUID personId);
 }

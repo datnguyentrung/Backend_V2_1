@@ -54,22 +54,20 @@ import java.util.UUID;
 @Table(
         name = "student_attendance",
         schema = "operation",
-        // 1. UNIQUE CONSTRAINT: Đảm bảo 1 học viên chỉ có 1 bản ghi điểm danh trong 1 buổi
-        // Nó đồng thời đóng vai trò là Index siêu tốc độ cho các truy vấn tìm theo "student_enrollment_id"
+        // 1. UNIQUE CONSTRAINT: Đảm bảo 1 enrollment chỉ có 1 bản ghi điểm danh trong 1 buổi học cụ thể.
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_student_enrollment_date",
-                        columnNames = {"student_enrollment_id", "session_date"}
+                        name = "uk_student_attendance_enrollment_session",
+                        columnNames = {"student_enrollment_id", "class_session_id"}
                 )
         },
         indexes = {
-                // ĐÃ XÓA: idx_student_enrollment (Vì đã được cover bởi Unique Constraint ở trên)
-
                 // 2. COMPOSITE INDEX CỐT LÕI: Tối ưu cho hàm filterBy() và getStatistics()
                 // Giúp tăng tốc cực mạnh khi gom nhóm thống kê điểm danh theo Quý / Tháng
                 @Index(name = "idx_sa_date_statuses", columnList = "session_date DESC, attendance_status, evaluation_status"),
 
                 // 3. INDEX KHÓA NGOẠI: Tránh Full Table Scan khi JOIN hoặc tìm kiếm theo HLV
+                @Index(name = "idx_sa_class_session", columnList = "class_session_id"),
                 @Index(name = "idx_sa_recorded_coach", columnList = "attendance_coach_id"),
                 @Index(name = "idx_sa_evaluated_coach", columnList = "evaluation_coach_id")
         }
@@ -90,6 +88,13 @@ public class StudentAttendance {
     @JoinColumn(name = "student_enrollment_id", nullable = true)
     @OnDelete(action = OnDeleteAction.CASCADE)
     StudentEnrollment studentEnrollment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "class_session_id",
+            foreignKey = @ForeignKey(name = "fk_student_attendance_class_session")
+    )
+    ClassSession classSession;
 
     @NotNull(message = "Ngày học không được để trống")
     @Column(name = "session_date", nullable = false)

@@ -4,6 +4,7 @@ import com.dat.backend_v2_1.dto.PageResponse;
 import com.dat.backend_v2_1.enums.Operation.AttendanceStatus;
 import com.dat.backend_v2_1.enums.Operation.EvaluationStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -206,6 +207,7 @@ public class StudentAttendanceDTO {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class CreateRequest {
+        @NotBlank(message = "Mã học viên không được để trống")
         String studentCode;
     }
 }

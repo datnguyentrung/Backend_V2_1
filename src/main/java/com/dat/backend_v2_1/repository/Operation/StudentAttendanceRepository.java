@@ -1,6 +1,7 @@
 package com.dat.backend_v2_1.repository.Operation;
 
 import com.dat.backend_v2_1.domain.Operation.StudentAttendance;
+import com.dat.backend_v2_1.dto.Operation.AttendanceNotificationRow;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,6 +12,8 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -55,5 +58,48 @@ public interface StudentAttendanceRepository extends JpaRepository<StudentAttend
             @Param("sessionDate") @NotNull(message = "Ngày học không được để trống") LocalDate sessionDate
     );
 
+    @Query(value = """
+            SELECT se.student_id
+            FROM operation.student_attendance sa
+            INNER JOIN operation.student_enrollment se
+                ON sa.student_enrollment_id = se.enrollment_id
+            WHERE sa.class_session_id = :classSessionId
+            """, nativeQuery = true)
+    List<UUID> findStudentIdsByClassSessionId(@Param("classSessionId") UUID classSessionId);
+
+    @EntityGraph(value = "StudentAttendance.withDetails", type = EntityGraph.EntityGraphType.LOAD)
+    Optional<StudentAttendance> findWithDetailsByAttendanceId(UUID attendanceId);
+
+    @Query("""
+            SELECT sa.attendanceId AS attendanceId,
+                   student.personId AS studentPersonId,
+                   student.fullName AS studentName,
+                   sa.attendanceStatus AS attendanceStatus,
+                   sa.checkInTime AS checkInTime,
+                   sa.createdAt AS createdAt,
+                   schedule.scheduleId AS scheduleId,
+                   coach.fullName AS coachName
+            FROM StudentAttendance sa
+            JOIN sa.studentEnrollment enrollment
+            JOIN enrollment.student student
+            JOIN enrollment.classSchedule schedule
+            LEFT JOIN sa.recordedByCoach coach
+            WHERE sa.attendanceId = :attendanceId
+            """)
+    Optional<AttendanceNotificationRow> findAttendanceNotificationRow(@Param("attendanceId") UUID attendanceId);
+
     List<StudentAttendance> findByStudentEnrollment_Student_PersonIdAndSessionDate(UUID studentEnrollmentStudentUserId, LocalDate sessionDate);
+
+    boolean existsByStudentEnrollment_EnrollmentIdAndClassSession_SessionId(UUID enrollmentId, UUID sessionId);
+
+    @Query("""
+            SELECT sa.classSession.sessionId
+            FROM StudentAttendance sa
+            WHERE sa.studentEnrollment.enrollmentId = :enrollmentId
+              AND sa.classSession.sessionId IN :sessionIds
+            """)
+    Set<UUID> findAttendedSessionIds(
+            @Param("enrollmentId") UUID enrollmentId,
+            @Param("sessionIds") List<UUID> sessionIds
+    );
 }

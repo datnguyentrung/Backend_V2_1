@@ -242,10 +242,7 @@ public class ClassSessionService {
 
         for (ClassSession session : sessionsToClose) {
             try {
-                studentAttendanceService.processMissingAttendances(
-                        session.getClassSchedule().getScheduleId(),
-                        session.getSessionDate()
-                );
+                studentAttendanceService.processMissingAttendances(session);
 
                 session.setAttendanceClosed(true);
                 classSessionRepository.save(session);

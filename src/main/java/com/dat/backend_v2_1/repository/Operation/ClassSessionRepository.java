@@ -1,6 +1,7 @@
 package com.dat.backend_v2_1.repository.Operation;
 
 import com.dat.backend_v2_1.domain.Operation.ClassSession;
+import com.dat.backend_v2_1.enums.Operation.SessionStatus;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -51,6 +52,16 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, UUID
     Page<ClassSession> findAll(@NonNull Specification<ClassSession> spec, @NonNull Pageable pageable);
 
     List<ClassSession> findBySessionDateAndClassSchedule_ScheduleIdIn(LocalDate today, List<String> enrolledScheduleIds);
+
+    @EntityGraph(attributePaths = {"classSchedule"})
+    List<ClassSession> findBySessionDateAndStatusAndClassSchedule_ScheduleIdIn(
+            LocalDate sessionDate,
+            SessionStatus status,
+            List<String> scheduleIds
+    );
+
+    @EntityGraph(attributePaths = {"classSchedule"})
+    List<ClassSession> findBySessionDateAndClassSchedule_ScheduleId(LocalDate sessionDate, String scheduleId);
 
     @EntityGraph(attributePaths = {"classSchedule", "classSchedule.branch"})
     Optional<ClassSession> findFirstBySessionDateAndClassSchedule_ScheduleId(LocalDate sessionDate, String scheduleId);

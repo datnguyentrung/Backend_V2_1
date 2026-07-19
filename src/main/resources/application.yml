@@ -148,6 +148,10 @@ cors:
 server:
   port: ${PORT:8080}
   address: 0.0.0.0
+  tomcat:
+    threads:
+      max: ${SERVER_TOMCAT_THREADS_MAX:40}
+      min-spare: ${SERVER_TOMCAT_THREADS_MIN_SPARE:5}
 
 management:
   endpoints:

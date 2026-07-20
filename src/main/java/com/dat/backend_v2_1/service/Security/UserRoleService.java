@@ -2,6 +2,7 @@ package com.dat.backend_v2_1.service.Security;
 
 import com.dat.backend_v2_1.domain.Security.Role;
 import com.dat.backend_v2_1.domain.Security.User;
+import com.dat.backend_v2_1.domain.Security.UserProfile;
 import com.dat.backend_v2_1.dto.Security.UserRoleDTO;
 import com.dat.backend_v2_1.repository.Security.UserRepository;
 import com.dat.backend_v2_1.repository.Security.UserRoleRepository;
@@ -9,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;

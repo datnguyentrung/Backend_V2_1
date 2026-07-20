@@ -96,7 +96,7 @@ public class FitnessRecordDTO {
         SkillLevel skillLevel;
 
         @NotNull(message = "ID huấn luyện viên không được để trống")
-        UUID coachId;
+        String staffCode;
     }
 
     @Data

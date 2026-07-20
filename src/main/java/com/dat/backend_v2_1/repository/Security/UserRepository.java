@@ -19,5 +19,5 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @EntityGraph(attributePaths = "roles")
     Optional<User> findWithRolesByUserId(UUID userId);
 
-    List<User> findAllByRoles_Code(String roleCode);
+    List<User> findDistinctByRoles_Code(String code);
 }

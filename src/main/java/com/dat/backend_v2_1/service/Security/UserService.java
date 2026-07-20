@@ -67,7 +67,7 @@ public class UserService {
     }
 
     public List<User> getAllUsersByRoleCode(String roleCode) {
-        return userRepository.findAllByRoles_Code(normalizeRoleCode(roleCode));
+        return userRepository.findDistinctByRoles_Code(roleCode);
     }
 
     public User getUserById(String userId) {

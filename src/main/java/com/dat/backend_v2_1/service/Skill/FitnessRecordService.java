@@ -45,7 +45,7 @@ public class FitnessRecordService {
             FitnessRecordDTO.CreateRequest request) {
         Student student = studentService.getStudentByStudentCode(request.getStudentCode());
 
-        Coach currentCoach = coachService.getCoachById(request.getCoachId());
+        Coach currentCoach = coachService.getCoachByStaffCode(request.getStaffCode());
 
         FitnessRecord fitnessRecord = FitnessRecord.builder()
                 .assessmentDate(request.getAssessmentDate())

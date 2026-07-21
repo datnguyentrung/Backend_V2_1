@@ -216,6 +216,7 @@ public class StudentAttendanceController {
             @RequestParam(required = false) List<ScheduleLevel> scheduleLevels,
 
             @RequestParam(required = false) List<String> scheduleIds, // Thêm filter theo scheduleId nếu cần thiết
+            @RequestParam(required = false) List<UUID> sessionIds,
             @RequestParam(required = false) LocalDate startDate,
             @RequestParam(required = false) LocalDate endDate,
 
@@ -272,7 +273,7 @@ public class StudentAttendanceController {
                         pageable,
                         search, sessionDate, attendanceStatuses, evaluationStatuses,
                         belts, branchIds, scheduleLevels, items,
-                        startDate, endDate
+                        startDate, endDate, sessionIds
                 );
 
         return ResponseEntity.ok(response);

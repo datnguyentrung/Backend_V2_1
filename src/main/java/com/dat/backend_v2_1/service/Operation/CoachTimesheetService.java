@@ -8,7 +8,10 @@ import com.dat.backend_v2_1.domain.Operation.ClassSession;
 import com.dat.backend_v2_1.domain.Operation.CoachAssignment;
 import com.dat.backend_v2_1.domain.Operation.CoachTimesheet;
 import com.dat.backend_v2_1.domain.Security.User;
+import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
+import com.dat.backend_v2_1.dto.Operation.CoachTimesheetStatusProjection;
 import com.dat.backend_v2_1.dto.Operation.CoachTimesheetDTO;
+import com.dat.backend_v2_1.dto.Operation.ResponsibleCoachProjection;
 import com.dat.backend_v2_1.dto.PageResponse;
 import com.dat.backend_v2_1.enums.Core.CoachStatus;
 import com.dat.backend_v2_1.enums.Core.ScheduleStatus;
@@ -420,5 +423,120 @@ public class CoachTimesheetService {
             throw new AppException(ErrorCode.ACCESS_DENIED);
         }
         return UUID.fromString(authentication.getName());
+    }
+
+    public String buildResponsibleCoachSummary(
+            List<CoachAssignmentResDTO.Response> assignments,
+            Map<UUID, CoachTimesheet> timesheetByAssignmentId
+    ) {
+        if (assignments == null || assignments.isEmpty()) {
+            return "chưa xác định được HLV phụ trách.";
+        }
+
+        DateTimeFormatter timeFormatter =
+                DateTimeFormatter.ofPattern(
+                        "HH:mm",
+                        Locale.forLanguageTag("vi-VN")
+                );
+
+        return assignments.stream()
+                .filter(Objects::nonNull)
+                .map(assignment -> {
+                    String coachName = "Không xác định";
+
+                    if (assignment.getCoach() != null &&
+                            assignment.getCoach().getFullName() != null &&
+                            !assignment.getCoach().getFullName().isBlank()) {
+
+                        coachName = assignment.getCoach()
+                                .getFullName()
+                                .trim();
+                    }
+
+                    CoachTimesheet timesheet =
+                            timesheetByAssignmentId.get(
+                                    assignment.getAssignmentId()
+                            );
+
+                    if (timesheet == null) {
+                        return String.format(
+                                "HLV %s — chưa chấm công",
+                                coachName
+                        );
+                    }
+
+                    String statusText =
+                            CoachTimesheetStatus.getCoachTimesheetStatusText(
+                                    timesheet.getStatus()
+                            );
+
+                    String checkInText = "";
+
+                    if (timesheet.getCheckInTime() != null) {
+                        checkInText = " lúc " +
+                                timesheet.getCheckInTime()
+                                        .format(timeFormatter);
+                    }
+
+                    return String.format(
+                            "HLV %s — %s%s",
+                            coachName,
+                            statusText,
+                            checkInText
+                    );
+                })
+                .distinct()
+                .collect(Collectors.joining("; "));
+    }
+
+    @Transactional(readOnly = true)
+    public Map<UUID, CoachTimesheetStatusProjection> findStatusesByAssignmentIds(
+            Collection<UUID> assignmentIds,
+            LocalDate workingDate
+    ) {
+        if (assignmentIds == null || assignmentIds.isEmpty() || workingDate == null) {
+            return Map.of();
+        }
+
+        return coachTimesheetRepository
+                .findStatusByAssignmentIdsAndWorkingDate(assignmentIds, workingDate)
+                .stream()
+                .filter(row -> row.getAssignmentId() != null)
+                .collect(Collectors.toMap(
+                        CoachTimesheetStatusProjection::getAssignmentId,
+                        Function.identity(),
+                        (first, second) -> first
+                ));
+    }
+
+    public String buildResponsibleCoachReportSummary(
+            List<ResponsibleCoachProjection> assignments,
+            Map<UUID, CoachTimesheetStatusProjection> timesheetByAssignmentId
+    ) {
+        if (assignments == null || assignments.isEmpty()) {
+            return "chua xac dinh duoc HLV phu trach.";
+        }
+
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.forLanguageTag("vi-VN"));
+
+        return assignments.stream()
+                .filter(Objects::nonNull)
+                .map(assignment -> {
+                    String coachName = assignment.getCoachName() == null || assignment.getCoachName().isBlank()
+                            ? "Khong xac dinh"
+                            : assignment.getCoachName().trim();
+                    CoachTimesheetStatusProjection timesheet = timesheetByAssignmentId.get(assignment.getAssignmentId());
+                    if (timesheet == null) {
+                        return String.format("HLV %s - chua cham cong", coachName);
+                    }
+
+                    String statusText = CoachTimesheetStatus.getCoachTimesheetStatusText(timesheet.getStatus());
+                    String checkInText = timesheet.getCheckInTime() == null
+                            ? ""
+                            : " luc " + timesheet.getCheckInTime().format(timeFormatter);
+                    return String.format("HLV %s - %s%s", coachName, statusText, checkInText);
+                })
+                .distinct()
+                .collect(Collectors.joining("; "));
     }
 }

@@ -6,6 +6,7 @@ import com.dat.backend_v2_1.dto.Operation.ClassSessionDTO;
 import com.dat.backend_v2_1.dto.PageResponse;
 import com.dat.backend_v2_1.enums.Core.ScheduleStatus;
 import com.dat.backend_v2_1.enums.Core.Weekday;
+import com.dat.backend_v2_1.event.ClassSessionCompletedEvent;
 import com.dat.backend_v2_1.mapper.Operation.ClassSessionMapper;
 import com.dat.backend_v2_1.repository.Core.ClassScheduleRepository;
 import com.dat.backend_v2_1.repository.Operation.ClassSessionRepository;
@@ -14,6 +15,7 @@ import com.dat.backend_v2_1.specification.ClassSessionSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -39,6 +42,8 @@ public class ClassSessionService {
     private final ClassSessionMapper classSessionMapper;
     private final StudentAttendanceService studentAttendanceService;
     private final ClassSessionWebSocketHandler wsHandler;
+    private final ApplicationEventPublisher eventPublisher;
+    private final TransactionTemplate transactionTemplate;
 
     /**
      * Giữ lại biến cũ để tương thích config hiện tại.
@@ -157,45 +162,78 @@ public class ClassSessionService {
      * Chạy mỗi 5 phút, giây 20.
      */
     @Scheduled(cron = "20 */5 * * * *", zone = "Asia/Ho_Chi_Minh")
-    @Transactional(rollbackFor = Exception.class)
     public void autoCompleteClassSessionsJob() {
         LocalDateTime now = LocalDateTime.now();
-
-        /**
-         * Ví dụ:
-         * now = 20:00
-         * classSessionMaxDurationMinutes = 120
-         * thresholdDateTime = 18:00
-         *
-         * Các lớp bắt đầu <= 18:00 sẽ được COMPLETE.
-         */
         LocalDateTime thresholdDateTime = now.minusMinutes(classSessionMaxDurationMinutes);
         LocalDate thresholdDate = thresholdDateTime.toLocalDate();
         LocalTime thresholdTime = thresholdDateTime.toLocalTime();
 
-        try {
-            int updatedCount = classSessionRepository.completeScheduledSessions(
-                    thresholdDate,
-                    thresholdTime
-            );
+        List<ClassSession> sessionsToComplete = classSessionRepository.findClassSessionsToComplete(
+                thresholdDate,
+                thresholdTime
+        );
 
-            if (updatedCount > 0) {
-                log.info(
-                        "Successfully completed {} class sessions at {} with max duration {} minutes",
-                        updatedCount,
-                        now,
-                        classSessionMaxDurationMinutes
-                );
-
-                broadcastAfterCommit(
-                        "SESSION_COMPLETED",
-                        Map.of("count", updatedCount)
-                );
-            }
-        } catch (Exception e) {
-            log.error("Failed to execute autoCompleteClassSessionsJob", e);
-            throw e;
+        if (sessionsToComplete.isEmpty()) {
+            log.debug("No class sessions require completion at {}", now);
+            return;
         }
+
+        int successCount = 0;
+        int skippedCount = 0;
+        int failedCount = 0;
+
+        for (ClassSession candidate : sessionsToComplete) {
+            UUID sessionId = candidate.getSessionId();
+            String classScheduleId = candidate.getClassSchedule() == null
+                    ? ""
+                    : candidate.getClassSchedule().getScheduleId();
+
+            try {
+                Boolean completed = transactionTemplate.execute(status -> {
+                    int updatedCount = classSessionRepository.markSessionCompleted(sessionId);
+                    if (updatedCount == 0) {
+                        return false;
+                    }
+
+                    broadcastAfterCommit(
+                            "SESSION_COMPLETED",
+                            Map.of(
+                                    "sessionId", sessionId,
+                                    "classScheduleId", classScheduleId
+                            )
+                    );
+                    eventPublisher.publishEvent(new ClassSessionCompletedEvent(sessionId));
+
+                    return true;
+                });
+
+                if (!Boolean.TRUE.equals(completed)) {
+                    skippedCount++;
+                    log.debug("Skipped completing session {} because it was already processed", sessionId);
+                    continue;
+                }
+
+                successCount++;
+                log.info(
+                        "Completed class session {}. Session date: {}, end time: {}",
+                        sessionId,
+                        candidate.getSessionDate(),
+                        candidate.getEndTime()
+                );
+            } catch (Exception e) {
+                failedCount++;
+                log.error("Failed to complete class session {}", sessionId, e);
+            }
+        }
+
+        log.info(
+                "Auto complete class sessions finished at {}. Completed: {}, Skipped: {}, Failed: {}, Delay after start: {} minutes",
+                now,
+                successCount,
+                skippedCount,
+                failedCount,
+                classSessionMaxDurationMinutes
+        );
     }
 
     /**

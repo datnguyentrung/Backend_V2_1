@@ -5,6 +5,7 @@ import com.dat.backend_v2_1.domain.Core.Coach;
 import com.dat.backend_v2_1.domain.Operation.CoachAssignment;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentReqDTO;
 import com.dat.backend_v2_1.dto.Operation.CoachAssignmentResDTO;
+import com.dat.backend_v2_1.dto.Operation.ResponsibleCoachProjection;
 import com.dat.backend_v2_1.dto.PageResponse;
 import com.dat.backend_v2_1.enums.Core.CoachStatus;
 import com.dat.backend_v2_1.enums.Core.ScheduleStatus;
@@ -39,6 +40,19 @@ public class CoachAssignmentService {
     private final CoachRepository coachRepository;
     private final ClassScheduleService classScheduleService;
     private final CoachAssignmentMapper coachAssignmentMapper;
+
+    @Transactional(readOnly = true)
+    public List<ResponsibleCoachProjection> findResponsibleCoaches(String scheduleId, LocalDate sessionDate) {
+        if (scheduleId == null || scheduleId.isBlank() || sessionDate == null) {
+            return List.of();
+        }
+
+        return coachAssignmentRepository.findResponsibleCoaches(
+                scheduleId.trim(),
+                sessionDate,
+                CoachAssignmentStatus.ACTIVE
+        );
+    }
 
     @Transactional(readOnly = true)
     public List<CoachAssignment> getAllCoachAssignmentsByListCoachIds(List<UUID> coachIds, CoachAssignmentStatus status) {

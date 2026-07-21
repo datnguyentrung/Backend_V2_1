@@ -1,6 +1,7 @@
 package com.dat.backend_v2_1.repository.Operation;
 
 import com.dat.backend_v2_1.domain.Operation.CoachAssignment;
+import com.dat.backend_v2_1.dto.Operation.ResponsibleCoachProjection;
 import com.dat.backend_v2_1.enums.Operation.CoachAssignmentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -103,5 +104,23 @@ public interface CoachAssignmentRepository extends JpaRepository<CoachAssignment
             @Param("endDate") LocalDate endDate,
             @Param("statuses") List<CoachAssignmentStatus> statuses,
             @Param("excludedId") UUID excludedId
+    );
+
+    @Query("""
+            SELECT ca.assignmentId AS assignmentId,
+                   coach.personId AS coachPersonId,
+                   coach.fullName AS coachName
+            FROM CoachAssignment ca
+            JOIN ca.coach coach
+            JOIN ca.classSchedule schedule
+            WHERE schedule.scheduleId = :scheduleId
+              AND ca.status = :status
+              AND ca.assignedDate <= :sessionDate
+              AND (ca.endDate IS NULL OR ca.endDate >= :sessionDate)
+            """)
+    List<ResponsibleCoachProjection> findResponsibleCoaches(
+            @Param("scheduleId") String scheduleId,
+            @Param("sessionDate") LocalDate sessionDate,
+            @Param("status") CoachAssignmentStatus status
     );
 }

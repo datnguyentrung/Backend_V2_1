@@ -19,6 +19,7 @@ import com.google.firebase.messaging.WebpushConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -26,6 +27,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -111,6 +113,40 @@ public class NotificationService {
         );
         enqueueFirebaseAfterCommit(savedNotification.getNotificationId(), tokens, title, body, data);
         return savedNotification;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Optional<NotificationDTO.NotificationResponse> createClassSessionReportIfAbsent(
+            String title,
+            String body,
+            String referenceId,
+            Map<String, String> data,
+            List<UUID> recipientUserIds
+    ) {
+        if (notificationRepository.existsByNotificationTypeAndReferenceTypeAndReferenceId(
+                NotificationType.CLASS_SESSION_REPORT,
+                "CLASS_SESSION",
+                referenceId
+        )) {
+            return Optional.empty();
+        }
+
+        List<UUID> distinctRecipientUserIds = recipientUserIds == null
+                ? List.of()
+                : recipientUserIds.stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+
+        return Optional.of(saveNotification(
+                title,
+                body,
+                NotificationType.CLASS_SESSION_REPORT,
+                "CLASS_SESSION",
+                referenceId,
+                data,
+                distinctRecipientUserIds
+        ));
     }
 
     @Transactional

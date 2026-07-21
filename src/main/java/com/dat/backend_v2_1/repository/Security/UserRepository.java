@@ -3,6 +3,8 @@ package com.dat.backend_v2_1.repository.Security;
 import com.dat.backend_v2_1.domain.Security.User;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -20,4 +22,12 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findWithRolesByUserId(UUID userId);
 
     List<User> findDistinctByRoles_Code(String code);
+
+    @Query("""
+            SELECT DISTINCT u.userId
+            FROM User u
+            JOIN u.roles role
+            WHERE role.code = :roleCode
+            """)
+    List<UUID> findUserIdsByRoleCode(@Param("roleCode") String roleCode);
 }

@@ -564,6 +564,18 @@ public class StudentAttendanceService {
      * @return PageResponse chứa danh sách StudentAttendanceDTO
      */
     @Transactional(readOnly = true)
+    public StudentAttendanceDTO.AttendanceStats getStatsBySessionId(UUID sessionId) {
+        if (sessionId == null) {
+            throw new IllegalArgumentException("sessionId must not be null");
+        }
+
+        Specification<StudentAttendance> spec = (root, query, criteriaBuilder) ->
+                criteriaBuilder.equal(root.get("classSession").get("sessionId"), sessionId);
+
+        return studentAttendanceRepository.getStatistics(spec);
+    }
+
+    @Transactional(readOnly = true)
     public StudentAttendanceDTO.AttendanceListResponse getStudentAttendancesWithStats(
             Pageable pageable,
             String search,
@@ -575,7 +587,8 @@ public class StudentAttendanceService {
             List<ScheduleLevel> levels,
             List<StudentEnrollmentResDTO.EnrollmentHistoryItem> enrollmentHistoryItems,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            List<UUID> sessionIds
     ) {
         // Chuẩn hóa tham số search (tránh trường hợp null gây lỗi)
         String safeSearch = (search == null || search.trim().isEmpty()) ? null : search.trim();
@@ -593,6 +606,12 @@ public class StudentAttendanceService {
                 startDate,
                 endDate
         );
+
+        if (sessionIds != null && !sessionIds.isEmpty()) {
+            spec = spec.and((root, query, criteriaBuilder) ->
+                    root.get("classSession").get("sessionId").in(sessionIds)
+            );
+        }
 
         // Gọi Repository với Specification + Named EntityGraph (tránh N+1 query)
         // Custom method sử dụng EntityGraph được định nghĩa trong Entity

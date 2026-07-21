@@ -6,5 +6,6 @@ public enum NotificationType {
     TUITION,            // Thông báo học phí
     CLASS_SCHEDULE,     // Thông báo lịch học
     COACH_TIMESHEET,    // Thông báo thời gian huấn luyện
-    ANNOUNCEMENT        // Thông báo chung
+    ANNOUNCEMENT,       // Thông báo chung
+    CLASS_SESSION_REPORT    // Thông báo báo cáo buổi học
 }

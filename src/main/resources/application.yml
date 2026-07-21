@@ -90,31 +90,32 @@ spring:
     baseline-version: 1
 
 logging:
-  level: #    org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: ERROR
-    #    org.springframework.security: WARN
-    #    com.zaxxer.hikari: WARN
-    #    org.hibernate: WARN
-    #    org.postgresql: WARN
-    #    root: INFO
-    #    org.springframework.web: INFO
+  level:
+      org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: ERROR
+      org.springframework.security: WARN
+      com.zaxxer.hikari: WARN
+      org.hibernate: WARN
+      org.postgresql: WARN
+      root: INFO
+      org.springframework.web: INFO
 
-    root: INFO
-
-    # 1.
-    org.hibernate.SQL: OFF
-    org.hibernate.type.descriptor.sql.BasicBinder: OFF
-
-    # 2.
-    org.hibernate.stat: ERROR
-    org.hibernate.engine.internal.StatisticalLoggingSessionEventListener: INFO
-    org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: ERROR
-
-    # 3.
-    org.springframework.web: DEBUG # Log các yêu cầu HTTP và phản hồi
-    org.springframework.web.filter.CommonsRequestLoggingFilter: DEBUG
-    org.springframework.security: WARN # Log các sự kiện liên quan đến bảo mật
-    com.zaxxer.hikari: WARN # Log các sự kiện liên quan đến HikariCP
-    org.postgresql: WARN
+#    root: INFO
+#
+#    # 1.
+#    org.hibernate.SQL: OFF
+#    org.hibernate.type.descriptor.sql.BasicBinder: OFF
+#
+#    # 2.
+#    org.hibernate.stat: ERROR
+#    org.hibernate.engine.internal.StatisticalLoggingSessionEventListener: INFO
+#    org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: ERROR
+#
+#    # 3.
+#    org.springframework.web: DEBUG # Log các yêu cầu HTTP và phản hồi
+#    org.springframework.web.filter.CommonsRequestLoggingFilter: DEBUG
+#    org.springframework.security: WARN # Log các sự kiện liên quan đến bảo mật
+#    com.zaxxer.hikari: WARN # Log các sự kiện liên quan đến HikariCP
+#    org.postgresql: WARN
 
 jwt:
   base64-secret: ${JWT_BASE64_SECRET}
@@ -132,11 +133,6 @@ cache:
     one-day-seconds: 86400
     one-week-seconds: 604800
     one-month-seconds: 2592000
-
-attendance:
-  early-check-in-minutes: ${ATTENDANCE_EARLY_CHECK_IN_MINUTES:${ATTENDANCE_GRACE_PERIOD_MINUTES:30}}
-  grace-period-minutes: ${ATTENDANCE_ON_TIME_GRACE_PERIOD_MINUTES:15}
-  late-check-in-limit-minutes: ${ATTENDANCE_LATE_CHECK_IN_LIMIT_MINUTES:30}
 
 bytescale:
   account-id: ${BYTESCALE_ACCOUNT_ID}

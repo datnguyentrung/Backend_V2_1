@@ -2,6 +2,7 @@ package com.dat.backend_v2_1.repository.Operation;
 
 import com.dat.backend_v2_1.domain.Operation.StudentAttendance;
 import com.dat.backend_v2_1.dto.Operation.AttendanceNotificationRow;
+import com.dat.backend_v2_1.dto.Operation.CompletedSessionAttendanceNotificationRow;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -87,6 +88,30 @@ public interface StudentAttendanceRepository extends JpaRepository<StudentAttend
             WHERE sa.attendanceId = :attendanceId
             """)
     Optional<AttendanceNotificationRow> findAttendanceNotificationRow(@Param("attendanceId") UUID attendanceId);
+
+    @Query("""
+            SELECT sa.attendanceId AS attendanceId,
+                   session.sessionId AS sessionId,
+                   student.personId AS studentPersonId,
+                   student.fullName AS studentName,
+                   sa.attendanceStatus AS attendanceStatus,
+                   sa.checkInTime AS checkInTime,
+                   sa.createdAt AS createdAt,
+                   sa.evaluationStatus AS evaluationStatus,
+                   sa.note AS note,
+                   schedule.scheduleId AS scheduleId,
+                   sa.sessionDate AS sessionDate
+            FROM StudentAttendance sa
+            JOIN sa.classSession session
+            JOIN sa.studentEnrollment enrollment
+            JOIN enrollment.student student
+            JOIN enrollment.classSchedule schedule
+            WHERE session.sessionId = :sessionId
+            ORDER BY student.fullName
+            """)
+    List<CompletedSessionAttendanceNotificationRow> findCompletedSessionAttendanceNotificationRows(
+            @Param("sessionId") UUID sessionId
+    );
 
     List<StudentAttendance> findByStudentEnrollment_Student_PersonIdAndSessionDate(UUID studentEnrollmentStudentUserId, LocalDate sessionDate);
 

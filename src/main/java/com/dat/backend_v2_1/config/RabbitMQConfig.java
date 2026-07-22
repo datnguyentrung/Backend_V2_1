@@ -30,6 +30,10 @@ public class RabbitMQConfig {
     public static final String EVALUATION_QUEUE = "evaluation_queue";
     public static final String EVALUATION_ROUTING_KEY = "evaluation.key";
 
+    // === HẰNG SỐ CHO THÔNG BÁO KHI HOÀN THÀNH BUỔI HỌC ===
+    public static final String CLASS_SESSION_COMPLETED_NOTIFICATION_QUEUE = "class_session_completed_notification_queue";
+    public static final String CLASS_SESSION_COMPLETED_NOTIFICATION_ROUTING_KEY = "class_session.completed.notification.key";
+
     // === TRẠM TRUNG CHUYỂN (DÙNG CHUNG) ===
     @Bean
     TopicExchange exchange() {
@@ -57,6 +61,18 @@ public class RabbitMQConfig {
     @Bean
     Binding evaluationBinding(Queue evaluationQueue, TopicExchange exchange) {
         return BindingBuilder.bind(evaluationQueue).to(exchange).with(EVALUATION_ROUTING_KEY);
+    }
+
+    @Bean
+    Queue classSessionCompletedNotificationQueue() {
+        return new Queue(CLASS_SESSION_COMPLETED_NOTIFICATION_QUEUE, true);
+    }
+
+    @Bean
+    Binding classSessionCompletedNotificationBinding(Queue classSessionCompletedNotificationQueue, TopicExchange exchange) {
+        return BindingBuilder.bind(classSessionCompletedNotificationQueue)
+                .to(exchange)
+                .with(CLASS_SESSION_COMPLETED_NOTIFICATION_ROUTING_KEY);
     }
 
     /**

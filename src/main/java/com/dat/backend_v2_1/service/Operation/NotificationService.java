@@ -149,6 +149,40 @@ public class NotificationService {
         ));
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Optional<NotificationDTO.NotificationResponse> createClassSessionAttendanceResultIfAbsent(
+            String title,
+            String body,
+            String attendanceId,
+            Map<String, String> data,
+            List<UUID> recipientUserIds
+    ) {
+        if (notificationRepository.existsByNotificationTypeAndReferenceTypeAndReferenceId(
+                NotificationType.ATTENDANCE,
+                "CLASS_SESSION_ATTENDANCE_RESULT",
+                attendanceId
+        )) {
+            return Optional.empty();
+        }
+
+        List<UUID> distinctRecipientUserIds = recipientUserIds == null
+                ? List.of()
+                : recipientUserIds.stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+
+        return Optional.of(saveNotification(
+                title,
+                body,
+                NotificationType.ATTENDANCE,
+                "CLASS_SESSION_ATTENDANCE_RESULT",
+                attendanceId,
+                data,
+                distinctRecipientUserIds
+        ));
+    }
+
     @Transactional
     public NotificationDTO.NotificationResponse create(NotificationDTO.CreateRequest request) {
         return saveNotification(

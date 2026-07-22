@@ -25,6 +25,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -37,6 +38,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ClassSessionService {
+    private static final int CLASS_SESSION_COMPLETE_AFTER_END_MINUTES = 15;
+
     private final ClassSessionRepository classSessionRepository;
     private final ClassScheduleRepository classScheduleRepository;
     private final ClassSessionMapper classSessionMapper;
@@ -56,24 +59,6 @@ public class ClassSessionService {
      */
     @Value("${ATTENDANCE_GRACE_PERIOD_MINUTES:30}")
     private int attendanceGracePeriodMinutes;
-
-    /**
-     * Một ca dạy thực tế dao động 90 - 120 phút.
-     * Để tránh chốt sớm các ca học 120 phút, lấy 120 phút làm ngưỡng an toàn.
-     */
-    @Value("${CLASS_SESSION_MAX_DURATION_MINUTES:120}")
-    private int classSessionMaxDurationMinutes;
-
-    /**
-     * Sau khi hết ca học tối đa, cho phép HLV có thêm thời gian chỉnh/sửa điểm danh.
-     *
-     * Ví dụ:
-     * - Lớp bắt đầu 18:00
-     * - Ca tối đa 120 phút -> kết thúc khoảng 20:00
-     * - Cho grace 30 phút -> 20:30 mới auto close attendance
-     */
-    @Value("${ATTENDANCE_CLOSE_AFTER_END_MINUTES:30}")
-    private int attendanceCloseAfterEndMinutes;
 
     @Scheduled(cron = "0 00 03 * * *")
     @Transactional(rollbackFor = Exception.class)
@@ -154,17 +139,14 @@ public class ClassSessionService {
     }
 
     /**
-     * Auto complete lớp sau khi đã qua thời lượng học tối đa.
-     *
-     * Vì 1 ca dạy từ 90 - 120 phút, không dùng 90 phút để tránh chốt sớm.
-     * Ngưỡng hợp lý: startTime + 120 phút.
+     * Auto complete session 15 minutes after endTime.
      *
      * Chạy mỗi 5 phút, giây 20.
      */
     @Scheduled(cron = "20 */5 * * * *", zone = "Asia/Ho_Chi_Minh")
     public void autoCompleteClassSessionsJob() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime thresholdDateTime = now.minusMinutes(classSessionMaxDurationMinutes);
+        LocalDateTime thresholdDateTime = now.minusMinutes(CLASS_SESSION_COMPLETE_AFTER_END_MINUTES);
         LocalDate thresholdDate = thresholdDateTime.toLocalDate();
         LocalTime thresholdTime = thresholdDateTime.toLocalTime();
 
@@ -227,28 +209,20 @@ public class ClassSessionService {
         }
 
         log.info(
-                "Auto complete class sessions finished at {}. Completed: {}, Skipped: {}, Failed: {}, Delay after start: {} minutes",
+                "Auto complete class sessions finished at {}. Completed: {}, Skipped: {}, Failed: {}, Delay after end: {} minutes",
                 now,
                 successCount,
                 skippedCount,
                 failedCount,
-                classSessionMaxDurationMinutes
+                CLASS_SESSION_COMPLETE_AFTER_END_MINUTES
         );
     }
 
     /**
-     * Auto đóng điểm danh sau khi lớp đã kết thúc một khoảng thời gian.
+     * Auto close attendance after the session passes half of its duration.
      *
-     * Công thức:
-     * close threshold = now - (classSessionMaxDurationMinutes + attendanceCloseAfterEndMinutes)
-     *
-     * Ví dụ:
-     * - Lớp bắt đầu 18:00
-     * - Ca học tối đa 120 phút
-     * - Cho sửa điểm danh thêm 30 phút
-     * - 20:30 mới đóng điểm danh
-     *
-     * Chạy mỗi 5 phút, giây 40.
+     * Close time = midpoint between sessionDate + startTime and sessionDate + endTime.
+     * Runs every 5 minutes, second 40.
      */
     @Scheduled(cron = "40 */5 * * * *", zone = "Asia/Ho_Chi_Minh")
     @Transactional(rollbackFor = Exception.class)
@@ -260,15 +234,14 @@ public class ClassSessionService {
     public void autoCloseAttendanceJob() {
         LocalDateTime now = LocalDateTime.now();
 
-        int closeAfterStartMinutes =
-                classSessionMaxDurationMinutes + attendanceCloseAfterEndMinutes;
-
-        LocalDateTime thresholdDateTime = now.minusMinutes(closeAfterStartMinutes);
-        LocalDate thresholdDate = thresholdDateTime.toLocalDate();
-        LocalTime thresholdTime = thresholdDateTime.toLocalTime();
-
         List<ClassSession> sessionsToClose = classSessionRepository
-                .findClassSessionToClose(thresholdDate, thresholdTime);
+                .findClassSessionToClose(now.toLocalDate())
+                .stream()
+                .filter(session -> {
+                    LocalDateTime attendanceCloseTime = calculateAttendanceCloseTime(session);
+                    return attendanceCloseTime != null && !now.isBefore(attendanceCloseTime);
+                })
+                .toList();
 
         if (sessionsToClose.isEmpty()) {
             log.debug("No class sessions found that require attendance closure at {}", now);
@@ -310,12 +283,34 @@ public class ClassSessionService {
         }
 
         log.info(
-                "Auto close attendance finished at {}. Success: {}, Failed: {}, Threshold: {} minutes after start",
+                "Auto close attendance finished at {}. Success: {}, Failed: {}",
                 now,
                 successCount,
-                failedCount,
-                closeAfterStartMinutes
+                failedCount
         );
+    }
+
+    private LocalDateTime calculateAttendanceCloseTime(ClassSession session) {
+        LocalDate sessionDate = session.getSessionDate();
+        LocalTime startTime = session.getStartTime();
+        LocalTime endTime = session.getEndTime();
+
+        if (sessionDate == null || startTime == null || endTime == null) {
+            return null;
+        }
+
+        LocalDateTime startDateTime = LocalDateTime.of(sessionDate, startTime);
+        LocalDateTime endDateTime = LocalDateTime.of(sessionDate, endTime);
+        if (!endTime.isAfter(startTime)) {
+            endDateTime = endDateTime.plusDays(1);
+        }
+
+        Duration sessionDuration = Duration.between(startDateTime, endDateTime);
+        if (sessionDuration.isZero() || sessionDuration.isNegative()) {
+            return null;
+        }
+
+        return startDateTime.plus(sessionDuration.dividedBy(2));
     }
 
     @Transactional(rollbackFor = Exception.class)

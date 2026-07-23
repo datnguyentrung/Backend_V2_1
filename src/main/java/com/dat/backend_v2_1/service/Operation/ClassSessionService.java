@@ -38,8 +38,6 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ClassSessionService {
-    private static final int CLASS_SESSION_COMPLETE_AFTER_END_MINUTES = 15;
-
     private final ClassSessionRepository classSessionRepository;
     private final ClassScheduleRepository classScheduleRepository;
     private final ClassSessionMapper classSessionMapper;
@@ -59,6 +57,9 @@ public class ClassSessionService {
      */
     @Value("${ATTENDANCE_GRACE_PERIOD_MINUTES:30}")
     private int attendanceGracePeriodMinutes;
+
+    @Value("${CLASS_SESSION_COMPLETE_AFTER_END_MINUTES}")
+    private int classSessionCompleteAfterEndMinutes;
 
     @Scheduled(cron = "0 00 03 * * *")
     @Transactional(rollbackFor = Exception.class)
@@ -141,12 +142,12 @@ public class ClassSessionService {
     /**
      * Auto complete session 15 minutes after endTime.
      *
-     * Chạy mỗi 5 phút, giây 20.
+     * Chạy mỗi 10 phút, giây 20.
      */
-    @Scheduled(cron = "20 */5 * * * *", zone = "Asia/Ho_Chi_Minh")
+    @Scheduled(cron = "20 */10 * * * *", zone = "Asia/Ho_Chi_Minh")
     public void autoCompleteClassSessionsJob() {
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime thresholdDateTime = now.minusMinutes(CLASS_SESSION_COMPLETE_AFTER_END_MINUTES);
+        LocalDateTime thresholdDateTime = now.minusMinutes(classSessionCompleteAfterEndMinutes);
         LocalDate thresholdDate = thresholdDateTime.toLocalDate();
         LocalTime thresholdTime = thresholdDateTime.toLocalTime();
 
@@ -214,7 +215,7 @@ public class ClassSessionService {
                 successCount,
                 skippedCount,
                 failedCount,
-                CLASS_SESSION_COMPLETE_AFTER_END_MINUTES
+                classSessionCompleteAfterEndMinutes
         );
     }
 
@@ -222,9 +223,9 @@ public class ClassSessionService {
      * Auto close attendance after the session passes half of its duration.
      *
      * Close time = midpoint between sessionDate + startTime and sessionDate + endTime.
-     * Runs every 5 minutes, second 40.
+     * Runs every 10 minutes, second 40.
      */
-    @Scheduled(cron = "40 */5 * * * *", zone = "Asia/Ho_Chi_Minh")
+    @Scheduled(cron = "40 */10 * * * *", zone = "Asia/Ho_Chi_Minh")
     @Transactional(rollbackFor = Exception.class)
 //    @Caching(evict = {
 //            // Chốt tự động cũng phải xóa cache vì data thay đổi ngầm

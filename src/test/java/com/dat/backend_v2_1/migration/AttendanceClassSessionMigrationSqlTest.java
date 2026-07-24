@@ -1,4 +1,4 @@
-package com.dat.backend_v2_1.migration;
+package com.dat.ai_receptionist_web.migration;
 
 import org.junit.jupiter.api.Test;
 

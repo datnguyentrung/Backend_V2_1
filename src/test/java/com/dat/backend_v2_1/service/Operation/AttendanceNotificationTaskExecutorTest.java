@@ -1,5 +1,6 @@
-package com.dat.backend_v2_1.service.Operation;
+package com.dat.ai_receptionist_web.service.Operation;
 
+import com.dat.ai_receptionist_web.service.Operation.AttendanceNotificationTaskExecutor;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;

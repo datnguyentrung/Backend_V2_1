@@ -1,0 +1,13 @@
+package com.dat.ai_receptionist_web.dto;
+
+import lombok.Data;
+
+@Data
+public class WebhookPayload<T> {
+    private String action; // "INSERT", "UPDATE", "DELETE"
+    private String studentCode;
+    private int year;
+    private int quarter;
+    private String skillLevel;
+    private T data; // Chứa duration, amount,...
+}

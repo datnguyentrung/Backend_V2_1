@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.dat</groupId>
-    <artifactId>Backend_V2_1</artifactId>
+    <artifactId>AI_Receptionist_Web</artifactId>
     <version>1.0.0</version>
-    <name>Backend_V2_1</name>
-    <description>Backend_V2_1</description>
+    <name>ai_receptionist_web</name>
+    <description>ai_receptionist_web</description>
     <url/>
     <licenses>
         <license/>

@@ -1,0 +1,32 @@
+package com.dat.ai_receptionist_web.service.Security;
+
+import io.github.bucket4j.Bandwidth;
+import io.github.bucket4j.Bucket;
+import org.springframework.stereotype.Service;
+
+import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Service
+public class RateLimitingService {
+
+    // Lưu trữ bucket theo địa chỉ IP
+    private final Map<String, Bucket> cache = new ConcurrentHashMap<>();
+
+    public Bucket resolveBucket(String ipAddress) {
+        return cache.computeIfAbsent(ipAddress, this::newBucket);
+    }
+
+    private Bucket newBucket(String ipAddress) {
+        // Cú pháp MỚI NHẤT: Không dùng Refill và classic nữa
+        Bandwidth limit = Bandwidth.builder()
+                .capacity(1000) // Thể tích xô: Chứa tối đa 5 lần thử
+                .refillIntervally(5, Duration.ofMinutes(5)) // Tốc độ hồi phục: Cứ 5 phút bơm lại 5 giọt
+                .build();
+
+        return Bucket.builder()
+                .addLimit(limit)
+                .build();
+    }
+}

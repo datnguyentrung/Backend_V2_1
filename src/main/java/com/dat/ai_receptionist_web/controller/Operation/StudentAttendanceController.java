@@ -28,7 +28,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -74,18 +73,27 @@ public class StudentAttendanceController {
     @PreAuthorize("@securityRule.isCoach(authentication)")
     @PatchMapping("/{attendanceId}/status")
     public ResponseEntity<StudentAttendanceDTO.Response> updateAttendanceStatus(
-            Authentication authentication, // Giả sử dùng Spring Security
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID attendanceId,
             @RequestBody @Valid StudentAttendanceDTO.UpdateStatusRequest request
     ) {
-        String coachId = authentication.getName();
+        UUID userId = UUID.fromString(jwt.getSubject());
 
-        log.info("Coach {} updating attendance {} to status {}",
-                coachId, attendanceId, request.getAttendanceStatus());
+        UUID activePersonId = UUID.fromString(
+                jwt.getClaimAsString("activePersonId")
+        );
+
+        log.info(
+                "Coach person {} from user {} updating status {} to attendance {}",
+                activePersonId,
+                userId,
+                attendanceId,
+                request.getAttendanceStatus()
+        );
 
         return ResponseEntity.ok(
                 studentAttendanceService.updateAttendanceStatus(
-                        authentication.getName(),
+                        activePersonId,
                         request,
                         attendanceId
                 )
@@ -95,16 +103,25 @@ public class StudentAttendanceController {
     @PreAuthorize("@securityRule.isCoach(authentication)")
     @PatchMapping("/{attendanceId}/evaluation")
     public ResponseEntity<Void> updateAttendanceEvaluation(
-            Authentication authentication,
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID attendanceId,
             @RequestBody @Valid StudentAttendanceDTO.UpdateEvaluationRequest request
     ) {
-        String coachId = authentication.getName();
+        UUID userId = UUID.fromString(jwt.getSubject());
 
-        log.info("Coach {} updating attendance {} to evaluation {}",
-                coachId, attendanceId, request.getEvaluationStatus());
+        UUID activePersonId = UUID.fromString(
+                jwt.getClaimAsString("activePersonId")
+        );
 
-        studentAttendanceService.updateAttendanceEvaluation(coachId, request, attendanceId);
+        log.info(
+                "Coach person {} from user {} updating attendance {} to evaluation {}",
+                activePersonId,
+                userId,
+                attendanceId,
+                request.getEvaluationStatus()
+        );
+
+        studentAttendanceService.updateAttendanceEvaluation(activePersonId, request, attendanceId);
 
         return ResponseEntity.noContent().build();
     }
@@ -136,32 +153,13 @@ public class StudentAttendanceController {
      */
     @PreAuthorize("@securityRule.isCoach(authentication) or @securityRule.isSystem(authentication)")
     @PostMapping("/check-in")
-    public ResponseEntity<?> createAttendanceRecordByStudent(
-            // Đổi thành <?> để có thể trả về cả DTO hoặc Message lỗi
-            @Valid @RequestBody StudentAttendanceDTO.CreateRequest request,
-            Authentication authentication
+    public ResponseEntity<StudentAttendanceDTO.Response> createAttendanceRecordByStudent(
+            @Valid @RequestBody StudentAttendanceDTO.CreateRequest request
     ) {
         log.info("Creating attendance record for student {}", request.getStudentCode());
-        
-        try {
-            StudentAttendanceDTO.Response response = studentAttendanceService.createAttendanceRecord(request);
-
-            if (response == null) {
-                // Trường hợp 1: Có ca học nhưng đã điểm danh -> Báo Conflict 409
-                return ResponseEntity.status(HttpStatus.CONFLICT).build();
-            }
-
-            // Điểm danh thành công -> Báo Created 201
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
-        } catch (NoSuchElementException e) {
-            // Trường hợp 2: Không có ca học -> Báo Not Found 404
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-
-        } catch (IllegalStateException e) {
-            // Trường hợp học viên không ACTIVE -> Báo Bad Request 400
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
+        StudentAttendanceDTO.Response response = studentAttendanceService.createAttendanceRecord(request);
+        HttpStatus status = response.isAlreadyCheckedIn() ? HttpStatus.OK : HttpStatus.CREATED;
+        return ResponseEntity.status(status).body(response);
     }
 
     /**

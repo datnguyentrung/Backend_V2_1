@@ -1,22 +1,25 @@
-package com.dat.backend_v2_1.service.Operation;
+package com.dat.ai_receptionist_web.service.Operation;
 
-import com.dat.backend_v2_1.domain.Core.ClassSchedule;
-import com.dat.backend_v2_1.domain.Operation.ClassSession;
-import com.dat.backend_v2_1.domain.Operation.StudentEnrollment;
-import com.dat.backend_v2_1.dto.Operation.CheckInStudentProjection;
-import com.dat.backend_v2_1.dto.Operation.StudentAttendanceDTO;
-import com.dat.backend_v2_1.enums.Core.StudentStatus;
-import com.dat.backend_v2_1.enums.Operation.SessionStatus;
-import com.dat.backend_v2_1.enums.Operation.StudentEnrollmentStatus;
-import com.dat.backend_v2_1.mapper.Operation.StudentAttendanceMapper;
-import com.dat.backend_v2_1.repository.Core.CoachRepository;
-import com.dat.backend_v2_1.repository.Core.StudentRepository;
-import com.dat.backend_v2_1.repository.Operation.ClassSessionRepository;
-import com.dat.backend_v2_1.repository.Operation.StudentAttendanceRepository;
-import com.dat.backend_v2_1.repository.Operation.StudentEnrollmentRepository;
-import com.dat.backend_v2_1.service.Core.CoachService;
-import com.dat.backend_v2_1.service.Core.StudentService;
-import com.dat.backend_v2_1.service.Security.AuthTokenService;
+import com.dat.ai_receptionist_web.domain.Core.ClassSchedule;
+import com.dat.ai_receptionist_web.domain.Operation.ClassSession;
+import com.dat.ai_receptionist_web.domain.Operation.StudentEnrollment;
+import com.dat.ai_receptionist_web.dto.Operation.CheckInStudentProjection;
+import com.dat.ai_receptionist_web.dto.Operation.StudentAttendanceDTO;
+import com.dat.ai_receptionist_web.enums.ErrorCode;
+import com.dat.ai_receptionist_web.enums.Core.StudentStatus;
+import com.dat.ai_receptionist_web.enums.Operation.SessionStatus;
+import com.dat.ai_receptionist_web.enums.Operation.StudentEnrollmentStatus;
+import com.dat.ai_receptionist_web.mapper.Operation.StudentAttendanceMapper;
+import com.dat.ai_receptionist_web.repository.Core.CoachRepository;
+import com.dat.ai_receptionist_web.repository.Core.StudentRepository;
+import com.dat.ai_receptionist_web.repository.Operation.ClassSessionRepository;
+import com.dat.ai_receptionist_web.repository.Operation.StudentAttendanceRepository;
+import com.dat.ai_receptionist_web.repository.Operation.StudentEnrollmentRepository;
+import com.dat.ai_receptionist_web.service.Core.CoachService;
+import com.dat.ai_receptionist_web.service.Core.StudentService;
+import com.dat.ai_receptionist_web.service.Operation.*;
+import com.dat.ai_receptionist_web.service.Security.AuthTokenService;
+import com.dat.ai_receptionist_web.util.error.AppException;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -27,7 +30,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -35,7 +39,7 @@ import static org.mockito.Mockito.when;
 class StudentAttendanceServiceDuplicateTest {
 
     @Test
-    void concurrentDuplicateCheckInReturnsNullForConflictPath() {
+    void concurrentDuplicateCheckInReturnsConflictErrorCode() {
         StudentAttendanceRepository attendanceRepository = mock(StudentAttendanceRepository.class);
         ClassSessionRepository classSessionRepository = mock(ClassSessionRepository.class);
         StudentRepository studentRepository = mock(StudentRepository.class);
@@ -87,15 +91,17 @@ class StudentAttendanceServiceDuplicateTest {
                 org.mockito.ArgumentMatchers.eq(SessionStatus.ACTIVE),
                 org.mockito.ArgumentMatchers.eq(List.of("A001"))
         )).thenReturn(List.of(classSession));
-        when(attendanceRepository.existsByStudentEnrollment_EnrollmentIdAndClassSession_SessionId(enrollmentId, sessionId))
-                .thenReturn(false);
         when(attendanceRepository.saveAndFlush(any()))
-                .thenThrow(new DataIntegrityViolationException("duplicate"));
+                .thenThrow(new DataIntegrityViolationException(
+                        "duplicate constraint uk_student_attendance_enrollment_session"
+                ));
 
-        StudentAttendanceDTO.Response response =
-                service.createAttendanceRecord(new StudentAttendanceDTO.CreateRequest(studentCode));
+        AppException exception = assertThrows(
+                AppException.class,
+                () -> service.createAttendanceRecord(new StudentAttendanceDTO.CreateRequest(studentCode))
+        );
 
-        assertNull(response);
+        assertEquals(ErrorCode.ATTENDANCE_ALREADY_EXISTS, exception.getErrorCode());
     }
 
     private record TestCheckInStudentProjection(String studentCode) implements CheckInStudentProjection {

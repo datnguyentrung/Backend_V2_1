@@ -40,7 +40,7 @@ public class CoachService {
     private final CoachAssignmentMapper coachAssignmentMapper;
     private final UserProfileRepository userProfileRepository;
 
-    public Coach validateCoachAndGetActive(String coachId) {
+    public Coach validateCoachAndGetActive(UUID coachId) {
         Coach coach = getCoachById(coachId);
         if (coach.getCoachStatus() != CoachStatus.ACTIVE) {
             throw new AccessDeniedException("Coach is not active");

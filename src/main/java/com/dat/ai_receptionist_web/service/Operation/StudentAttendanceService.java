@@ -12,6 +12,7 @@ import com.dat.ai_receptionist_web.dto.Operation.CheckInStudentProjection;
 import com.dat.ai_receptionist_web.dto.Operation.StudentAttendanceDTO;
 import com.dat.ai_receptionist_web.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
+import com.dat.ai_receptionist_web.enums.ErrorCode;
 import com.dat.ai_receptionist_web.enums.Core.Belt;
 import com.dat.ai_receptionist_web.enums.Core.ScheduleLevel;
 import com.dat.ai_receptionist_web.enums.Core.ScheduleStatus;
@@ -33,6 +34,7 @@ import com.dat.ai_receptionist_web.service.Core.StudentService;
 import com.dat.ai_receptionist_web.service.Security.AuthTokenService;
 import com.dat.ai_receptionist_web.service.Security.UserProfileService;
 import com.dat.ai_receptionist_web.specification.StudentAttendanceSpecification;
+import com.dat.ai_receptionist_web.util.error.AppException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,6 +65,9 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 public class StudentAttendanceService {
+    private static final String ATTENDANCE_UNIQUE_CONSTRAINT =
+            "uk_student_attendance_enrollment_session";
+
     private final StudentAttendanceRepository studentAttendanceRepository;
     private final CoachService coachService;
     private final StudentAttendanceMapper studentAttendanceMapper;
@@ -211,9 +216,9 @@ public class StudentAttendanceService {
     public StudentAttendanceDTO.Response createAttendanceRecord(StudentAttendanceDTO.CreateRequest request) {
         // 1. Validate Student
         CheckInStudentProjection student = studentRepository.findCheckInStudentByStudentCode(request.getStudentCode())
-                .orElseThrow(() -> new NoSuchElementException("Không tìm thấy học viên với mã: " + request.getStudentCode()));
+                .orElseThrow(() -> new AppException(ErrorCode.STUDENT_NOT_FOUND));
         if (student.getStudentStatus() != StudentStatus.ACTIVE) {
-            throw new IllegalStateException("Học viên không ở trạng thái ACTIVE");
+            throw new AppException(ErrorCode.STUDENT_INACTIVE);
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -228,7 +233,7 @@ public class StudentAttendanceService {
                 );
 
         if (enrollments.isEmpty()) {
-            throw new NoSuchElementException("Học viên không có đăng ký lớp nào");
+            throw new AppException(ErrorCode.STUDENT_ACTIVE_ENROLLMENT_NOT_FOUND);
         }
 
         List<String> enrolledScheduleIds = enrollments.stream()
@@ -242,8 +247,16 @@ public class StudentAttendanceService {
                         enrolledScheduleIds
                 );
 
+        if (relevantSessions.isEmpty()) {
+            throw new AppException(ErrorCode.CLASS_SESSION_NOT_FOUND);
+        }
+        if (relevantSessions.size() > 1) {
+            throw new AppException(ErrorCode.MULTIPLE_ACTIVE_CLASS_SESSIONS);
+        }
+
         // 5. Tìm buổi học ĐANG DIỄN RA (ACTIVE) để điểm danh
         boolean isAlreadyCheckedIn = false; // Cờ đánh dấu xem có ca học nhưng đã điểm danh chưa
+        StudentAttendanceDTO.Response existingAttendanceResponse = null;
 
         for (StudentEnrollment enrollment : enrollments) {
             // Tìm buổi học của lịch này trong list vừa fetch
@@ -257,11 +270,20 @@ public class StudentAttendanceService {
                 ClassSession currentSession = currentSessionOpt.get();
 
                 // Kiểm tra xem đã điểm danh ca này chưa
-                if (studentAttendanceRepository.existsByStudentEnrollment_EnrollmentIdAndClassSession_SessionId(
-                        enrollment.getEnrollmentId(),
-                        currentSession.getSessionId()
-                )) {
+                Optional<StudentAttendance> existingAttendance = studentAttendanceRepository
+                        .findByStudentEnrollment_EnrollmentIdAndClassSession_SessionId(
+                                enrollment.getEnrollmentId(),
+                                currentSession.getSessionId()
+                        );
+                if (existingAttendance.isPresent()) {
                     isAlreadyCheckedIn = true;
+                    existingAttendanceResponse = toCheckInResponse(
+                            existingAttendance.get(),
+                            student,
+                            enrollment,
+                            currentSession,
+                            true
+                    );
                     continue; // Vẫn chạy tiếp nhỡ học viên học 2 ca liên tiếp thì sao
                 }
 
@@ -283,9 +305,12 @@ public class StudentAttendanceService {
                             .note("Điểm danh tự động qua API")
                             .build());
                 } catch (DataIntegrityViolationException e) {
+                    if (!isDuplicateAttendanceConstraint(e)) {
+                        throw e;
+                    }
                     log.warn("Duplicate check-in rejected for enrollmentId={}, classSessionId={}",
                             enrollment.getEnrollmentId(), currentSession.getSessionId(), e);
-                    return null;
+                    throw new AppException(ErrorCode.ATTENDANCE_ALREADY_EXISTS, e);
                 }
 
                 // Tạm tắt vì chưa sử dụng tính năng
@@ -293,20 +318,34 @@ public class StudentAttendanceService {
 
                 enqueueAttendanceNotificationAfterCommit(savedAttendance.getAttendanceId());
 
-                return toCheckInResponse(savedAttendance, student, enrollment, currentSession);
+                return toCheckInResponse(savedAttendance, student, enrollment, currentSession, false);
             }
         }
         // --- XỬ LÝ KẾT QUẢ SAU VÒNG LẶP ---
 
         if (isAlreadyCheckedIn) {
-            // Có ca học ACTIVE, nhưng đã điểm danh rồi -> Trả về null
-            // (Controller của bạn đang có sẵn logic: if (response == null) return ResponseEntity.badRequest().build
-            // (); -> Sẽ trả về chuẩn 400)
-            return null;
+            // Có ca học ACTIVE và đã điểm danh: trả lại chính thông tin điểm danh hiện có.
+            return existingAttendanceResponse;
         }
 
         // Thực sự không tìm thấy ca học nào ACTIVE để vào lớp
-        throw new NoSuchElementException("Không tìm thấy buổi học nào đang mở (ACTIVE) để điểm danh lúc này");
+        throw new AppException(ErrorCode.CLASS_SESSION_NOT_FOUND);
+    }
+
+    private boolean isDuplicateAttendanceConstraint(DataIntegrityViolationException exception) {
+        Throwable cause = exception;
+        while (cause != null) {
+            if (cause instanceof org.hibernate.exception.ConstraintViolationException constraintViolation
+                    && ATTENDANCE_UNIQUE_CONSTRAINT.equalsIgnoreCase(constraintViolation.getConstraintName())) {
+                return true;
+            }
+            if (cause.getMessage() != null
+                    && cause.getMessage().contains(ATTENDANCE_UNIQUE_CONSTRAINT)) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+        return false;
     }
 
     /**
@@ -332,7 +371,7 @@ public class StudentAttendanceService {
 //            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
 //    })
     public StudentAttendanceDTO.Response updateAttendanceStatus(
-            String coachId,
+            UUID coachId,
             StudentAttendanceDTO.UpdateStatusRequest request,
             UUID attendanceId
     ) {
@@ -483,7 +522,7 @@ public class StudentAttendanceService {
      * - Có thể đánh giá sau khi đã điểm danh
      * - Ghi chú không được vượt quá 500 ký tự (validation ở DTO)
      *
-     * @param coachId      ID của HLV thực hiện thao tác
+     * @param coachId      Person ID của HLV thực hiện thao tác
      * @param request      Thông tin đánh giá (trạng thái đánh giá và ghi chú)
      * @param attendanceId ID của bản ghi điểm danh cần cập nhật
      * @throws NoSuchElementException nếu không tìm thấy bản ghi điểm danh
@@ -495,7 +534,7 @@ public class StudentAttendanceService {
 //            //@CacheEvict(value = "classScheduleDetail", allEntries = true)
 //    })
     public void updateAttendanceEvaluation(
-            String coachId,
+            UUID coachId,
             StudentAttendanceDTO.UpdateEvaluationRequest request,
             UUID attendanceId
     ) {
@@ -659,6 +698,15 @@ public class StudentAttendanceService {
 
     @Transactional(rollbackFor = Exception.class, propagation = Propagation.REQUIRES_NEW)
     public void processMissingAttendances(ClassSession classSession) {
+        doProcessMissingAttendances(classSession);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void processMissingAttendancesInCurrentTransaction(ClassSession classSession) {
+        doProcessMissingAttendances(classSession);
+    }
+
+    private void doProcessMissingAttendances(ClassSession classSession) {
         String scheduleId = classSession.getClassSchedule().getScheduleId();
         LocalDate sessionDate = classSession.getSessionDate();
         List<StudentEnrollment> activeStudents = studentEnrollmentService
@@ -672,11 +720,7 @@ public class StudentAttendanceService {
 
         List<StudentAttendance> newAttendances = new ArrayList<>();
         for (StudentEnrollment enrollment : activeStudents) {
-            if (!existingStudentIdsSet.contains(enrollment.getStudent().getPersonId())
-                    && !studentAttendanceRepository.existsByStudentEnrollment_EnrollmentIdAndClassSession_SessionId(
-                    enrollment.getEnrollmentId(),
-                    classSession.getSessionId()
-            )) {
+            if (!existingStudentIdsSet.contains(enrollment.getStudent().getPersonId())) {
                 newAttendances.add(StudentAttendance.builder()
                         .studentEnrollment(enrollment)
                         .classSession(classSession)
@@ -783,7 +827,8 @@ public class StudentAttendanceService {
             StudentAttendance attendance,
             CheckInStudentProjection student,
             StudentEnrollment enrollment,
-            ClassSession classSession
+            ClassSession classSession,
+            boolean alreadyCheckedIn
     ) {
         return StudentAttendanceDTO.Response.builder()
                 .attendanceId(attendance.getAttendanceId())
@@ -794,6 +839,7 @@ public class StudentAttendanceService {
                 .sessionDate(attendance.getSessionDate())
                 .attendanceStatus(attendance.getAttendanceStatus())
                 .checkInTime(attendance.getCheckInTime())
+                .alreadyCheckedIn(alreadyCheckedIn)
                 .evaluationStatus(attendance.getEvaluationStatus())
                 .note(attendance.getNote())
                 .updatedAt(attendance.getUpdatedAt())

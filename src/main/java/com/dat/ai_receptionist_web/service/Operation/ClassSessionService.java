@@ -3,9 +3,13 @@ package com.dat.ai_receptionist_web.service.Operation;
 import com.dat.ai_receptionist_web.domain.Core.ClassSchedule;
 import com.dat.ai_receptionist_web.domain.Operation.ClassSession;
 import com.dat.ai_receptionist_web.dto.Operation.ClassSessionDTO;
+import com.dat.ai_receptionist_web.dto.Operation.CoachTimesheetStatusProjection;
+import com.dat.ai_receptionist_web.dto.Operation.ResponsibleCoachProjection;
+import com.dat.ai_receptionist_web.dto.Operation.StudentAttendanceDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.enums.Core.ScheduleStatus;
 import com.dat.ai_receptionist_web.enums.Core.Weekday;
+import com.dat.ai_receptionist_web.enums.Operation.SessionStatus;
 import com.dat.ai_receptionist_web.event.ClassSessionCompletedEvent;
 import com.dat.ai_receptionist_web.mapper.Operation.ClassSessionMapper;
 import com.dat.ai_receptionist_web.repository.Core.ClassScheduleRepository;
@@ -42,6 +46,8 @@ public class ClassSessionService {
     private final ClassScheduleRepository classScheduleRepository;
     private final ClassSessionMapper classSessionMapper;
     private final StudentAttendanceService studentAttendanceService;
+    private final CoachAssignmentService coachAssignmentService;
+    private final CoachTimesheetService coachTimesheetService;
     private final ClassSessionWebSocketHandler wsHandler;
     private final ApplicationEventPublisher eventPublisher;
     private final TransactionTemplate transactionTemplate;
@@ -61,7 +67,7 @@ public class ClassSessionService {
     @Value("${CLASS_SESSION_COMPLETE_AFTER_END_MINUTES}")
     private int classSessionCompleteAfterEndMinutes;
 
-    @Scheduled(cron = "0 00 03 * * *")
+    @Scheduled(cron = "0 22 00 * * *")
     @Transactional(rollbackFor = Exception.class)
     public void generateClassSessions() {
         LocalDate today = LocalDate.now();
@@ -345,13 +351,88 @@ public class ClassSessionService {
         // MapStruct sẽ tự động map các trường khác null từ request sang session
         classSessionMapper.updateEntityFromRequest(request, session);
 
-        classSessionRepository.saveAndFlush(session);
+        // Chuyển các trường isAttendanceClosed và SessionStatus về dạng mặc định
+        session.setAttendanceClosed(false);
+        session.setStatus(SessionStatus.SCHEDULED);
 
-        // Chỉ cần gọi thế này, cực kỳ sạch đẹp và an toàn tuyệt đối!
+        reconcileUpdatedSession(session, LocalDateTime.now());
+
         broadcastAfterCommit("SESSION_UPDATED", Map.of("sessionId", sessionId));
 
-        // Dựa vào Dirty Checking của @Transactional, dữ liệu tự được lưu
         return classSessionMapper.toSessionResponse(session);
+    }
+
+    /**
+     * Đồng bộ trạng thái cho đúng một buổi học vừa được cập nhật.
+     * Không gọi các scheduled job vì các job đó được thiết kế để quét và xử lý hàng loạt.
+     */
+    private void reconcileUpdatedSession(ClassSession session, LocalDateTime now) {
+        LocalDateTime startDateTime = calculateSessionStartDateTime(session);
+        LocalDateTime endDateTime = calculateSessionEndDateTime(session);
+
+        if (startDateTime == null || endDateTime == null) {
+            classSessionRepository.saveAndFlush(session);
+            return;
+        }
+
+        LocalDateTime activationTime = startDateTime.minusMinutes(attendanceGracePeriodMinutes);
+        if (!now.isBefore(activationTime)) {
+            session.setStatus(SessionStatus.ACTIVE);
+        }
+
+        LocalDateTime attendanceCloseTime = calculateAttendanceCloseTime(session);
+        boolean shouldCloseAttendance = session.getStatus() == SessionStatus.ACTIVE
+                && attendanceCloseTime != null
+                && !now.isBefore(attendanceCloseTime);
+        if (shouldCloseAttendance) {
+            session.setAttendanceClosed(true);
+        }
+
+        LocalDateTime completionTime =
+                endDateTime.plusMinutes(classSessionCompleteAfterEndMinutes);
+        boolean shouldComplete = session.getStatus() == SessionStatus.ACTIVE
+                && session.isAttendanceClosed()
+                && !now.isBefore(completionTime);
+        if (shouldComplete) {
+            session.setStatus(SessionStatus.COMPLETED);
+        }
+
+        classSessionRepository.saveAndFlush(session);
+
+        if (shouldCloseAttendance) {
+            studentAttendanceService.processMissingAttendancesInCurrentTransaction(session);
+        }
+
+        if (shouldComplete) {
+            eventPublisher.publishEvent(new ClassSessionCompletedEvent(session.getSessionId()));
+            broadcastAfterCommit(
+                    "SESSION_COMPLETED",
+                    Map.of(
+                            "sessionId", session.getSessionId(),
+                            "classScheduleId", session.getClassSchedule().getScheduleId()
+                    )
+            );
+        }
+    }
+
+    private LocalDateTime calculateSessionStartDateTime(ClassSession session) {
+        if (session.getSessionDate() == null || session.getStartTime() == null) {
+            return null;
+        }
+        return LocalDateTime.of(session.getSessionDate(), session.getStartTime());
+    }
+
+    private LocalDateTime calculateSessionEndDateTime(ClassSession session) {
+        LocalDateTime startDateTime = calculateSessionStartDateTime(session);
+        if (startDateTime == null || session.getEndTime() == null) {
+            return null;
+        }
+
+        LocalDateTime endDateTime =
+                LocalDateTime.of(session.getSessionDate(), session.getEndTime());
+        return session.getEndTime().isAfter(session.getStartTime())
+                ? endDateTime
+                : endDateTime.plusDays(1);
     }
 
     @Transactional
@@ -369,6 +450,38 @@ public class ClassSessionService {
                 .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy buổi học với ID: " + sessionId));
 
         return classSessionMapper.toSessionResponse(session);
+    }
+
+    @Transactional(readOnly = true)
+    public ClassSessionDTO.ReportData getReportData(UUID sessionId) {
+        ClassSessionDTO.ReportSessionRow session = classSessionRepository.findReportSessionRow(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy buổi học: " + sessionId));
+
+        StudentAttendanceDTO.AttendanceStats attendanceStats =
+                studentAttendanceService.getStatsBySessionId(sessionId);
+        List<ResponsibleCoachProjection> responsibleCoaches =
+                coachAssignmentService.findResponsibleCoaches(
+                        session.getClassScheduleId(),
+                        session.getSessionDate()
+                );
+
+        List<UUID> assignmentIds = responsibleCoaches.stream()
+                .map(ResponsibleCoachProjection::getAssignmentId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<UUID, CoachTimesheetStatusProjection> timesheetsByAssignmentId =
+                coachTimesheetService.findStatusesByAssignmentIds(
+                        assignmentIds,
+                        session.getSessionDate()
+                );
+
+        return new ClassSessionDTO.ReportData(
+                session,
+                attendanceStats,
+                List.copyOf(responsibleCoaches),
+                Map.copyOf(timesheetsByAssignmentId)
+        );
     }
 
     public PageResponse<ClassSessionDTO.SessionResponse> filterClassSessions(String search, LocalDate sessionDate,

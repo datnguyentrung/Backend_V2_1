@@ -2,8 +2,7 @@ package com.dat.ai_receptionist_web.service.Operation;
 
 import com.dat.ai_receptionist_web.config.RabbitMQConfig;
 import com.dat.ai_receptionist_web.dto.Operation.AttendanceNotificationPayload;
-import com.dat.ai_receptionist_web.dto.Operation.ClassSessionCompletedNotificationMessage;
-import com.dat.ai_receptionist_web.dto.Operation.ClassSessionReportPayload;
+import com.dat.ai_receptionist_web.dto.Operation.ClassSessionDTO;
 import com.dat.ai_receptionist_web.dto.Operation.CompletedSessionAttendanceNotificationRow;
 import com.dat.ai_receptionist_web.dto.Operation.FirebaseMulticastResult;
 import com.dat.ai_receptionist_web.dto.Operation.NotificationDTO;
@@ -58,7 +57,7 @@ public class ClassSessionNotificationService {
             rabbitTemplate.convertAndSend(
                     RabbitMQConfig.EXCHANGE_NAME,
                     RabbitMQConfig.CLASS_SESSION_COMPLETED_NOTIFICATION_ROUTING_KEY,
-                    new ClassSessionCompletedNotificationMessage(sessionId)
+                    new ClassSessionDTO.CompletedNotificationMessage(sessionId)
             );
         } catch (AmqpException e) {
             log.error("Failed to publish completed session notification to RabbitMQ. Falling back to local queue. sessionId={}",
@@ -71,7 +70,7 @@ public class ClassSessionNotificationService {
             queues = RabbitMQConfig.CLASS_SESSION_COMPLETED_NOTIFICATION_QUEUE,
             errorHandler = "rabbitMQErrorHandler"
     )
-    public void onCompletedSessionNotificationMessage(ClassSessionCompletedNotificationMessage message) {
+    public void onCompletedSessionNotificationMessage(ClassSessionDTO.CompletedNotificationMessage message) {
         if (message == null || message.sessionId() == null) {
             throw new IllegalArgumentException("Completed session notification message must include sessionId");
         }
@@ -88,7 +87,7 @@ public class ClassSessionNotificationService {
         UUID notificationId = null;
 
         try {
-            ClassSessionReportPayload report = classSessionReportService.buildReport(sessionId);
+            ClassSessionDTO.ReportPayload report = classSessionReportService.buildReport(sessionId);
             Set<UUID> recipientUserIds = resolveRecipientUserIds(report);
 
             if (recipientUserIds.isEmpty()) {
@@ -255,7 +254,7 @@ public class ClassSessionNotificationService {
                 sessionId, successCount, skippedCount, failedCount);
     }
 
-    private Set<UUID> resolveRecipientUserIds(ClassSessionReportPayload report) {
+    private Set<UUID> resolveRecipientUserIds(ClassSessionDTO.ReportPayload report) {
         Set<UUID> recipientUserIds = new LinkedHashSet<>(userRepository.findUserIdsByRoleCode(HEAD_COACH_ROLE_CODE));
 
         if (!report.coachPersonIds().isEmpty()) {

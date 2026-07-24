@@ -1,11 +1,19 @@
 package com.dat.ai_receptionist_web.util.error;
 
 import com.dat.ai_receptionist_web.enums.ErrorCode;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
-@AllArgsConstructor
 public class AppException extends RuntimeException {
-    private ErrorCode errorCode;
+    private final ErrorCode errorCode;
+
+    public AppException(ErrorCode errorCode) {
+        super(errorCode.getMessage());
+        this.errorCode = errorCode;
+    }
+
+    public AppException(ErrorCode errorCode, Throwable cause) {
+        super(errorCode.getMessage(), cause);
+        this.errorCode = errorCode;
+    }
 }

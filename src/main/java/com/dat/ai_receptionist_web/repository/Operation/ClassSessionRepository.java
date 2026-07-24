@@ -1,7 +1,7 @@
 package com.dat.ai_receptionist_web.repository.Operation;
 
 import com.dat.ai_receptionist_web.domain.Operation.ClassSession;
-import com.dat.ai_receptionist_web.dto.Operation.ClassSessionReportSessionRow;
+import com.dat.ai_receptionist_web.dto.Operation.ClassSessionDTO;
 import com.dat.ai_receptionist_web.enums.Operation.SessionStatus;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Page;
@@ -136,5 +136,5 @@ public interface ClassSessionRepository extends JpaRepository<ClassSession, UUID
             LEFT JOIN schedule.branch branch
             WHERE cs.sessionId = :sessionId
             """)
-    Optional<ClassSessionReportSessionRow> findReportSessionRow(@Param("sessionId") UUID sessionId);
+    Optional<ClassSessionDTO.ReportSessionRow> findReportSessionRow(@Param("sessionId") UUID sessionId);
 }

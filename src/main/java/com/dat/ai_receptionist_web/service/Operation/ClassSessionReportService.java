@@ -1,11 +1,8 @@
 package com.dat.ai_receptionist_web.service.Operation;
 
-import com.dat.ai_receptionist_web.dto.Operation.ClassSessionReportPayload;
-import com.dat.ai_receptionist_web.dto.Operation.ClassSessionReportSessionRow;
-import com.dat.ai_receptionist_web.dto.Operation.CoachTimesheetStatusProjection;
+import com.dat.ai_receptionist_web.dto.Operation.ClassSessionDTO;
 import com.dat.ai_receptionist_web.dto.Operation.ResponsibleCoachProjection;
 import com.dat.ai_receptionist_web.dto.Operation.StudentAttendanceDTO;
-import com.dat.ai_receptionist_web.repository.Operation.ClassSessionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,49 +20,38 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ClassSessionReportService {
 
-    private final ClassSessionRepository classSessionRepository;
-    private final StudentAttendanceService studentAttendanceService;
-    private final CoachAssignmentService coachAssignmentService;
+    private final ClassSessionService classSessionService;
     private final CoachTimesheetService coachTimesheetService;
 
     @Transactional(readOnly = true)
-    public ClassSessionReportPayload buildReport(UUID sessionId) {
-        ClassSessionReportSessionRow session = classSessionRepository.findReportSessionRow(sessionId)
-                .orElseThrow(() -> new IllegalArgumentException("Class session not found: " + sessionId));
+    public ClassSessionDTO.ReportPayload buildReport(UUID sessionId) {
+        ClassSessionDTO.ReportData reportData = classSessionService.getReportData(sessionId);
+        ClassSessionDTO.ReportSessionRow session = reportData.session();
+        StudentAttendanceDTO.AttendanceStats stats = reportData.attendanceStats();
+        List<ResponsibleCoachProjection> coaches = reportData.responsibleCoaches();
 
-        StudentAttendanceDTO.AttendanceStats stats = studentAttendanceService.getStatsBySessionId(sessionId);
-        List<ResponsibleCoachProjection> coaches = coachAssignmentService.findResponsibleCoaches(
-                session.getClassScheduleId(),
-                session.getSessionDate()
+        String coachSummary = coachTimesheetService.buildResponsibleCoachReportSummary(
+                coaches,
+                reportData.timesheetsByAssignmentId()
         );
-
-        List<UUID> assignmentIds = coaches.stream()
-                .map(ResponsibleCoachProjection::getAssignmentId)
-                .filter(java.util.Objects::nonNull)
-                .distinct()
-                .toList();
-        Map<UUID, CoachTimesheetStatusProjection> timesheets =
-                coachTimesheetService.findStatusesByAssignmentIds(assignmentIds, session.getSessionDate());
-
-        String coachSummary = coachTimesheetService.buildResponsibleCoachReportSummary(coaches, timesheets);
         String formattedDate = session.getSessionDate()
                 .format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.forLanguageTag("vi-VN")));
         long actualAttendanceCount = stats.getPresentCount() + stats.getLateCount() + stats.getMakeupCount();
 
-        String title = String.format("Bao cao lop %s ngay %s", session.getClassScheduleId(), formattedDate);
+        String title = String.format("Báo cáo lớp %s ngày %s", session.getClassScheduleId(), formattedDate);
         String body = String.format(
                 Locale.forLanguageTag("vi-VN"),
                 """
-                Lop %s ngay %s da hoan thanh.
+                Lớp %s ngày %s đã hoàn thành.
 
-                Si so: %d hoc vien.
-                Di hoc: %d - dung gio %d, di muon %d, hoc bu %d.
-                Vang khong phep: %d; vang co phep: %d.
-                Ty le di hoc: %.1f%%.
+                Sĩ số: %d học viên.
+                Đi học: %d - đúng giờ %d, đi muộn %d, học bù %d.
+                Vắng không phép: %d; vắng có phép: %d.
+                Tỷ lệ đi học: %.1f%%.
 
-                Danh gia: tot %d, trung binh %d, yeu %d, chua danh gia %d.
+                Đánh giá: tốt %d, trung bình %d, yếu %d, chưa đánh giá %d.
 
-                HLV phu trach: %s
+                HLV phụ trách: %s
                 """,
                 session.getClassScheduleId(),
                 formattedDate,
@@ -95,7 +81,7 @@ public class ClassSessionReportService {
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toSet());
 
-        return new ClassSessionReportPayload(
+        return new ClassSessionDTO.ReportPayload(
                 session.getSessionId(),
                 session.getClassScheduleId(),
                 title,

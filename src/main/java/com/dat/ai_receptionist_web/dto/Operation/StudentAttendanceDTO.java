@@ -79,6 +79,7 @@ public class StudentAttendanceDTO {
         AttendanceStatus attendanceStatus;
         LocalDateTime checkInTime;
         String recordedByCoachName; // Tên HLV đã điểm danh
+        boolean alreadyCheckedIn;
 
         // Đánh giá
         EvaluationStatus evaluationStatus;

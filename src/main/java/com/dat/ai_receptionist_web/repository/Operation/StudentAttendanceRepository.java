@@ -117,6 +117,11 @@ public interface StudentAttendanceRepository extends JpaRepository<StudentAttend
 
     boolean existsByStudentEnrollment_EnrollmentIdAndClassSession_SessionId(UUID enrollmentId, UUID sessionId);
 
+    Optional<StudentAttendance> findByStudentEnrollment_EnrollmentIdAndClassSession_SessionId(
+            UUID enrollmentId,
+            UUID sessionId
+    );
+
     @Query("""
             SELECT sa.classSession.sessionId
             FROM StudentAttendance sa

@@ -511,10 +511,10 @@ public class CoachTimesheetService {
 
     public String buildResponsibleCoachReportSummary(
             List<ResponsibleCoachProjection> assignments,
-            Map<UUID, CoachTimesheetStatusProjection> timesheetByAssignmentId
+        Map<UUID, CoachTimesheetStatusProjection> timesheetByAssignmentId
     ) {
         if (assignments == null || assignments.isEmpty()) {
-            return "chua xac dinh duoc HLV phu trach.";
+            return "chưa xác định được HLV phụ trách.";
         }
 
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.forLanguageTag("vi-VN"));
@@ -523,17 +523,17 @@ public class CoachTimesheetService {
                 .filter(Objects::nonNull)
                 .map(assignment -> {
                     String coachName = assignment.getCoachName() == null || assignment.getCoachName().isBlank()
-                            ? "Khong xac dinh"
+                            ? "Không xác định"
                             : assignment.getCoachName().trim();
                     CoachTimesheetStatusProjection timesheet = timesheetByAssignmentId.get(assignment.getAssignmentId());
                     if (timesheet == null) {
-                        return String.format("HLV %s - chua cham cong", coachName);
+                        return String.format("HLV %s - chưa chấm công", coachName);
                     }
 
                     String statusText = CoachTimesheetStatus.getCoachTimesheetStatusText(timesheet.getStatus());
                     String checkInText = timesheet.getCheckInTime() == null
                             ? ""
-                            : " luc " + timesheet.getCheckInTime().format(timeFormatter);
+                            : " lúc " + timesheet.getCheckInTime().format(timeFormatter);
                     return String.format("HLV %s - %s%s", coachName, statusText, checkInText);
                 })
                 .distinct()

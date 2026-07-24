@@ -8,6 +8,8 @@ import lombok.Getter;
 public enum ErrorCode {
     STUDENT_ALREADY_ENROLLED(409, "Học viên đang theo học lớp này, không thể đăng ký thêm"),
     STUDENT_NOT_FOUND(404, "Không tìm thấy thông tin học viên"),
+    STUDENT_INACTIVE(400, "Học viên không ở trạng thái hoạt động"),
+    STUDENT_ACTIVE_ENROLLMENT_NOT_FOUND(409, "Học viên không có đăng ký lớp đang hoạt động"),
     COACH_NOT_FOUND(404, "Không tìm thấy thông tin huấn luyện viên"),
     CLASS_NOT_FOUND(404, "Lớp học không tồn tại"),
     CLASS_ALREADY_EXISTS(409, "Mã lịch học đã tồn tại"),
@@ -29,6 +31,8 @@ public enum ErrorCode {
     COACH_TIMESHEET_NOT_FOUND(404, "Không tìm thấy bảng công huấn luyện viên"),
     COACH_TIMESHEET_ALREADY_EXISTS(409, "Huấn luyện viên đã chấm công cho ca dạy này"),
     CLASS_SESSION_NOT_FOUND(404, "Không tìm thấy buổi học"),
+    MULTIPLE_ACTIVE_CLASS_SESSIONS(409, "Học viên có nhiều buổi học đang hoạt động, không thể xác định buổi cần điểm danh"),
+    ATTENDANCE_ALREADY_EXISTS(409, "Học viên đã được điểm danh cho buổi học này"),
     WRONG_CLASS_DAY(400, "Ngày chấm công không khớp với lịch học"),
     WRONG_CLASS_SHIFT(400, "Ca chấm công không khớp với lịch học"),
     CHECK_IN_TOO_EARLY(400, "Chưa đến thời gian được phép chấm công"),

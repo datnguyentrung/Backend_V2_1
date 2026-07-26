@@ -49,12 +49,27 @@ public class SecurityUtil {
                 .claim("roles", userLogin.getRoles())
                 .claim("user", userLogin);
 
+
+        /*
+         * Khi tài khoản chỉ có một context hoặc đã chọn context,
+         * mới thêm thông tin context vào access token.
+         *
+         * Khi activeContext == null, không thêm các claim này.
+         */
         if (activeContext != null) {
-            claims.claim("activePersonId", activeContext.getPersonId().toString())
-                    .claim("activeContextType", activeContext.getContextType());
-        } else {
-            claims.claim("activePersonId", null)
-                    .claim("activeContextType", null);
+            if (activeContext.getPersonId() != null) {
+                claims.claim(
+                        "activePersonId",
+                        activeContext.getPersonId().toString()
+                );
+            }
+
+            if (activeContext.getContextType() != null) {
+                claims.claim(
+                        "activeContextType",
+                        activeContext.getContextType()
+                );
+            }
         }
 
         JwsHeader jwsHeader = JwsHeader.with(JWT_ALGORITHM).build();

@@ -80,6 +80,8 @@ public interface StudentRepository extends JpaRepository<Student, UUID>,
 
     List<Student> findAllByStudentStatus(StudentStatus studentStatus);
 
+    Optional<Object> findByPersonId(UUID personId);
+
     interface StudentStatusCount {
         StudentStatus getStatus();
 
@@ -104,4 +106,14 @@ public interface StudentRepository extends JpaRepository<Student, UUID>,
             WHERE s.studentCode = :studentCode
             """)
     Optional<CheckInStudentProjection> findCheckInStudentByStudentCode(@Param("studentCode") String studentCode);
+
+    @Query("""
+            SELECT s.personId AS personId,
+                   s.studentCode AS studentCode,
+                   s.studentStatus AS studentStatus,
+                   s.fullName AS fullName
+            FROM Student s
+            WHERE s.personId = :personId
+            """)
+    Optional<CheckInStudentProjection> findCheckInStudentByPersonId(@Param("personId") UUID personId);
 }

@@ -7,12 +7,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/persons")
@@ -35,5 +34,18 @@ public class PersonController {
                 : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(page, size, sort);
         return ResponseEntity.ok(personService.searchStudentsAndCoaches(search, pageable));
+    }
+
+    @PostMapping(
+            value = "/face-check-in",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize("@securityRule.isCoach(authentication) or @securityRule.isSystem(authentication)")
+    public ResponseEntity<PersonDTO.FaceCheckInResponse> checkInByFaceImage(
+            @RequestPart("file") MultipartFile file
+    ) {
+        return ResponseEntity.ok(
+                personService.checkInByFaceImage(file)
+        );
     }
 }

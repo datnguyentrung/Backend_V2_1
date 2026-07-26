@@ -91,31 +91,31 @@ spring:
 
 logging:
   level:
-      org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: ERROR
-      org.springframework.security: WARN
-      com.zaxxer.hikari: WARN
-      org.hibernate: WARN
-      org.postgresql: WARN
-      root: INFO
-      org.springframework.web: INFO
+#      org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: ERROR
+#      org.springframework.security: WARN
+#      com.zaxxer.hikari: WARN
+#      org.hibernate: WARN
+#      org.postgresql: WARN
+#      root: INFO
+#      org.springframework.web: INFO
 
-#    root: INFO
-#
-#    # 1.
-#    org.hibernate.SQL: OFF
-#    org.hibernate.type.descriptor.sql.BasicBinder: OFF
-#
-#    # 2.
-#    org.hibernate.stat: ERROR
-#    org.hibernate.engine.internal.StatisticalLoggingSessionEventListener: INFO
-#    org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: ERROR
-#
-#    # 3.
-#    org.springframework.web: DEBUG # Log các yêu cầu HTTP và phản hồi
-#    org.springframework.web.filter.CommonsRequestLoggingFilter: DEBUG
-#    org.springframework.security: WARN # Log các sự kiện liên quan đến bảo mật
-#    com.zaxxer.hikari: WARN # Log các sự kiện liên quan đến HikariCP
-#    org.postgresql: WARN
+    root: INFO
+
+    # 1.
+    org.hibernate.SQL: OFF
+    org.hibernate.type.descriptor.sql.BasicBinder: OFF
+
+    # 2.
+    org.hibernate.stat: ERROR
+    org.hibernate.engine.internal.StatisticalLoggingSessionEventListener: INFO
+    org.springframework.data.repository.config.RepositoryConfigurationExtensionSupport: ERROR
+
+    # 3.
+    org.springframework.web: DEBUG # Log các yêu cầu HTTP và phản hồi
+    org.springframework.web.filter.CommonsRequestLoggingFilter: DEBUG
+    org.springframework.security: WARN # Log các sự kiện liên quan đến bảo mật
+    com.zaxxer.hikari: WARN # Log các sự kiện liên quan đến HikariCP
+    org.postgresql: WARN
 
 jwt:
   base64-secret: ${JWT_BASE64_SECRET}

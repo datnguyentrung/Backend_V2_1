@@ -2,9 +2,12 @@ package com.dat.ai_receptionist_web.dto.Operation;
 
 import com.dat.ai_receptionist_web.dto.Core.ClassScheduleResDTO;
 import com.dat.ai_receptionist_web.dto.Core.CoachResDTO;
+import com.dat.ai_receptionist_web.dto.Core.PersonDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.enums.Operation.CoachTimesheetStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.*;
@@ -24,8 +27,17 @@ public class CoachTimesheetDTO {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class CheckInRequest {
-        @NotBlank(message = "Mã nhân viên không được để trống")
+
         String staffCode;
+
+        UUID personId;
+
+        @JsonIgnore
+        @AssertTrue(message = "Phải cung cấp staffCode hoặc personId")
+        public boolean isIdentifierProvided() {
+            return personId != null
+                    || (staffCode != null && !staffCode.isBlank());
+        }
     }
 
     @Data
@@ -46,7 +58,7 @@ public class CoachTimesheetDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class Response {
+    public static class Response implements PersonDTO.FaceCheckInResponse {
         UUID timesheetId;
         UUID coachAssignmentId;
         CoachResDTO.CoachSummary coach;

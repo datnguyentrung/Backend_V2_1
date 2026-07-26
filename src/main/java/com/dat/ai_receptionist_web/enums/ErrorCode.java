@@ -39,7 +39,12 @@ public enum ErrorCode {
     CHECK_IN_TOO_LATE(400, "Đã quá thời gian được phép chấm công"),
     ACCESS_DENIED(403, "Không có quyền truy cập dữ liệu này"),
     INVALID_DATE_RANGE(400, "Khoảng ngày không hợp lệ"),
-    NOTIFICATION_RECIPIENT_NOT_FOUND(404, "Notification not found");
+    NOTIFICATION_RECIPIENT_NOT_FOUND(404, "Notification not found"),
+    FACE_IMAGE_INVALID(400, "Ảnh khuôn mặt không hợp lệ"),
+    FACE_NOT_RECOGNIZED(422, "Không nhận diện được khuôn mặt"),
+    FACE_CHECK_IN_PERSON_TYPE_INVALID(409, "Người được nhận diện không thuộc loại có thể điểm danh"),
+    PYTHON_BACKEND_UNAVAILABLE(503, "Dịch vụ nhận diện khuôn mặt hiện không khả dụng"),
+    PYTHON_BACKEND_ERROR(502, "Dịch vụ nhận diện khuôn mặt trả về dữ liệu không hợp lệ");
 
     private final int statusCode;
     private final String message;

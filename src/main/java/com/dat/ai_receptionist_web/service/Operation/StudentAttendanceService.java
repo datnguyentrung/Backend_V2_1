@@ -215,8 +215,21 @@ public class StudentAttendanceService {
     @Transactional(rollbackFor = Exception.class)
     public StudentAttendanceDTO.Response createAttendanceRecord(StudentAttendanceDTO.CreateRequest request) {
         // 1. Validate Student
-        CheckInStudentProjection student = studentRepository.findCheckInStudentByStudentCode(request.getStudentCode())
+        CheckInStudentProjection student = request.getStudentCode() != null ?
+                studentRepository.findCheckInStudentByStudentCode(request.getStudentCode())
+                .orElseThrow(() -> new AppException(ErrorCode.STUDENT_NOT_FOUND))
+                : studentRepository.findCheckInStudentByPersonId(request.getPersonId())
                 .orElseThrow(() -> new AppException(ErrorCode.STUDENT_NOT_FOUND));
+
+        return createAttendanceRecordForResolvedStudent(student);
+    }
+
+    /**
+     * Internal fast path for face check-in. The caller has already resolved the student
+     * while identifying the check-in target, so no second student lookup is needed.
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public StudentAttendanceDTO.Response createAttendanceRecordForResolvedStudent(CheckInStudentProjection student) {
         if (student.getStudentStatus() != StudentStatus.ACTIVE) {
             throw new AppException(ErrorCode.STUDENT_INACTIVE);
         }

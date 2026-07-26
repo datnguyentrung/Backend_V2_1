@@ -25,4 +25,8 @@ public class PersonDTO {
         String code;
         String status;
     }
+
+    public interface FaceCheckInResponse {
+    }
+
 }

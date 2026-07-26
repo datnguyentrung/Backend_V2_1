@@ -168,15 +168,26 @@ public class CoachTimesheetService {
 
     @Transactional(rollbackFor = Exception.class)
     public CoachTimesheetDTO.Response checkIn(CoachTimesheetDTO.CheckInRequest request) {
+        Coach coach = request.getStaffCode() != null ?
+                coachRepository.findByStaffCode(request.getStaffCode())
+                .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND)) :
+                coachRepository.findById(request.getPersonId())
+                .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
+        return checkInResolvedCoach(coach.getPersonId(), coach.getCoachStatus());
+    }
+
+    /**
+     * Internal fast path for face check-in. The caller has already resolved the coach
+     * while identifying the check-in target, so no second coach lookup is needed.
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public CoachTimesheetDTO.Response checkInResolvedCoach(UUID coachId, CoachStatus coachStatus) {
         LocalDateTime now = LocalDateTime.now(defaultZoneId);
         LocalDate today = now.toLocalDate();
-
-        Coach coach = coachRepository.findByStaffCode(request.getStaffCode())
-                .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
-        validateCoachActive(coach);
+        validateCoachActive(coachStatus);
 
         List<CoachAssignment> activeAssignments = coachAssignmentService
-                .getAllCoachAssignmentsByListCoachIds(List.of(coach.getPersonId()), CoachAssignmentStatus.ACTIVE);
+                .getAllCoachAssignmentsByListCoachIds(List.of(coachId), CoachAssignmentStatus.ACTIVE);
         if (activeAssignments.isEmpty()) {
             throw new AppException(ErrorCode.COACH_ASSIGNMENT_INVALID);
         }
@@ -349,8 +360,8 @@ public class CoachTimesheetService {
         }
     }
 
-    private void validateCoachActive(Coach coach) {
-        if (coach.getCoachStatus() != CoachStatus.ACTIVE) {
+    private void validateCoachActive(CoachStatus coachStatus) {
+        if (coachStatus != CoachStatus.ACTIVE) {
             throw new AppException(ErrorCode.COACH_INACTIVE);
         }
     }

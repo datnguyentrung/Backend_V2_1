@@ -38,6 +38,7 @@ build/
 
 .agents/**
 .claude/**
+.codex/**
 skills-lock.json
 
 src/main/resources/serviceAccountKey.json

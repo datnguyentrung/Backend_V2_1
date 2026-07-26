@@ -9,10 +9,30 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface PersonRepository extends JpaRepository<Person, UUID> {
+
+    @Query(
+            value = """
+                    SELECT p.person_id AS personId,
+                           p.full_name AS fullName,
+                           s.student_code AS studentCode,
+                           CAST(s.student_status AS varchar) AS studentStatus,
+                           c.staff_code AS staffCode,
+                           CAST(c.coach_status AS varchar) AS coachStatus
+                    FROM core.person p
+                    LEFT JOIN core.student s ON s.person_id = p.person_id
+                    LEFT JOIN core.coach c ON c.person_id = p.person_id
+                    WHERE p.person_id = :personId
+                    """,
+            nativeQuery = true
+    )
+    Optional<FaceCheckInSubjectProjection> findFaceCheckInSubjectByPersonId(
+            @Param("personId") UUID personId
+    );
 
     @Query(
             value = """
@@ -81,5 +101,19 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
         String getCode();
 
         String getStatus();
+    }
+
+    interface FaceCheckInSubjectProjection {
+        UUID getPersonId();
+
+        String getFullName();
+
+        String getStudentCode();
+
+        String getStudentStatus();
+
+        String getStaffCode();
+
+        String getCoachStatus();
     }
 }

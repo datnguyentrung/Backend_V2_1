@@ -1,9 +1,12 @@
 package com.dat.ai_receptionist_web.dto.Operation;
 
+import com.dat.ai_receptionist_web.dto.Core.PersonDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.enums.Operation.AttendanceStatus;
 import com.dat.ai_receptionist_web.enums.Operation.EvaluationStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -59,7 +62,7 @@ public class StudentAttendanceDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class Response {
+    public static class Response implements PersonDTO.FaceCheckInResponse {
         UUID attendanceId;
         UUID enrollmentId;
 
@@ -208,7 +211,20 @@ public class StudentAttendanceDTO {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class CreateRequest {
-        @NotBlank(message = "Mã học viên không được để trống")
+
         String studentCode;
+
+        UUID personId;
+
+        public CreateRequest(String studentCode) {
+            this.studentCode = studentCode;
+        }
+
+        @JsonIgnore
+        @AssertTrue(message = "Phải cung cấp studentCode hoặc personId")
+        public boolean isIdentifierProvided() {
+            return personId != null
+                    || (studentCode != null && !studentCode.isBlank());
+        }
     }
 }

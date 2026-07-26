@@ -92,10 +92,10 @@ public class GlobalException {
         return buildResponse(problemDetail, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    // Hàm helper để code gọn hơn, luôn ép về application/json
+    // ProblemDetail uses application/problem+json.
     private ResponseEntity<ProblemDetail> buildResponse(ProblemDetail problemDetail, HttpStatus status) {
         return ResponseEntity.status(status)
-                .contentType(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .body(problemDetail);
     }
 }

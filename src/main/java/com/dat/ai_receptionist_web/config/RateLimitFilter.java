@@ -26,26 +26,24 @@ public class RateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
-        // Chỉ áp dụng Rate Limit cho API đăng nhập
-        if (request.getRequestURI().startsWith("/api/v1/auth/login")) {
-
-            // Lấy địa chỉ IP của người dùng (Xử lý cả trường hợp qua Proxy/Nginx)
+        String requestUri = request.getRequestURI();
+        if (requestUri.startsWith("/api/v1/auth/login") || requestUri.equals("/api/v1/persons/face-check-in")) {
             String ipAddress = getClientIP(request);
-
-            // Lấy xô nước của IP này
-            Bucket bucket = rateLimitingService.resolveBucket(ipAddress);
-
-            // tryConsume(1) -> Cố gắng lấy 1 giọt nước. Nếu trả về true là còn nước.
+            boolean isFaceCheckIn = requestUri.equals("/api/v1/persons/face-check-in");
+            Bucket bucket = isFaceCheckIn
+                    ? rateLimitingService.resolveFaceCheckInBucket(ipAddress)
+                    : rateLimitingService.resolveBucket(ipAddress);
             if (!bucket.tryConsume(1)) {
-                // HẾT NƯỚC -> Chặn lại và báo lỗi 429
                 response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
                 response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write("{\"statusCode\": 429, \"message\": \"Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.\", \"data\": null}");
-                return; // Kết thúc request tại đây, không cho đi tiếp vào Controller!
+                String message = isFaceCheckIn
+                        ? "Too many face check-in requests. Please try again later."
+                        : "Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.";
+                response.getWriter().write("{\"statusCode\":429,\"message\":\"" + message + "\",\"data\":null}");
+                return;
             }
         }
 
-        // Còn nước hoặc không phải API login -> Cho phép đi tiếp
         filterChain.doFilter(request, response);
     }
 

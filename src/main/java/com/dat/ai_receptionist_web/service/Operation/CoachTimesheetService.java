@@ -339,6 +339,14 @@ public class CoachTimesheetService {
         return coachTimesheetMapper.toResponse(timesheet);
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(UUID timesheetId) {
+        int deletedRows = coachTimesheetRepository.deleteByTimesheetId(timesheetId);
+        if (deletedRows == 0) {
+            throw new AppException(ErrorCode.COACH_TIMESHEET_NOT_FOUND);
+        }
+    }
+
     private CoachTimesheetDTO.Response createTimesheet(
             CoachAssignment assignment,
             ClassSession session,

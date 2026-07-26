@@ -11,18 +11,32 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class RateLimitingService {
 
-    // Lưu trữ bucket theo địa chỉ IP
-    private final Map<String, Bucket> cache = new ConcurrentHashMap<>();
+    private final Map<String, Bucket> loginBuckets = new ConcurrentHashMap<>();
+    private final Map<String, Bucket> faceCheckInBuckets = new ConcurrentHashMap<>();
 
     public Bucket resolveBucket(String ipAddress) {
-        return cache.computeIfAbsent(ipAddress, this::newBucket);
+        return loginBuckets.computeIfAbsent(ipAddress, this::newLoginBucket);
     }
 
-    private Bucket newBucket(String ipAddress) {
-        // Cú pháp MỚI NHẤT: Không dùng Refill và classic nữa
+    public Bucket resolveFaceCheckInBucket(String ipAddress) {
+        return faceCheckInBuckets.computeIfAbsent(ipAddress, this::newFaceCheckInBucket);
+    }
+
+    private Bucket newLoginBucket(String ipAddress) {
         Bandwidth limit = Bandwidth.builder()
-                .capacity(1000) // Thể tích xô: Chứa tối đa 5 lần thử
-                .refillIntervally(5, Duration.ofMinutes(5)) // Tốc độ hồi phục: Cứ 5 phút bơm lại 5 giọt
+                .capacity(1000)
+                .refillIntervally(5, Duration.ofMinutes(5))
+                .build();
+
+        return Bucket.builder()
+                .addLimit(limit)
+                .build();
+    }
+
+    private Bucket newFaceCheckInBucket(String ipAddress) {
+        Bandwidth limit = Bandwidth.builder()
+                .capacity(300)
+                .refillIntervally(300, Duration.ofMinutes(1))
                 .build();
 
         return Bucket.builder()

@@ -89,7 +89,7 @@ public class PersonService {
                     toCoachStatus(subject.getCoachStatus())
             );
         } catch (PythonBackendClientException exception) {
-            ErrorCode errorCode = exception.getFailureType() == PythonBackendClient.FailureType.UNAVAILABLE
+            ErrorCode errorCode = exception.getFailureType().isUnavailable()
                     ? ErrorCode.PYTHON_BACKEND_UNAVAILABLE
                     : ErrorCode.PYTHON_BACKEND_ERROR;
             throw new AppException(errorCode, exception);

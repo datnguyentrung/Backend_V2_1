@@ -4,6 +4,7 @@ import com.dat.ai_receptionist_web.domain.Operation.CoachTimesheet;
 import com.dat.ai_receptionist_web.dto.Operation.CoachTimesheetStatusProjection;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -24,6 +25,10 @@ public interface CoachTimesheetRepository extends JpaRepository<CoachTimesheet, 
 
     @EntityGraph(value = "CoachTimesheet.withDetails")
     Optional<CoachTimesheet> findWithDetailsByTimesheetId(UUID timesheetId);
+
+    @Modifying
+    @Query("DELETE FROM CoachTimesheet ct WHERE ct.timesheetId = :timesheetId")
+    int deleteByTimesheetId(@Param("timesheetId") UUID timesheetId);
 
     @EntityGraph(value = "CoachTimesheet.withDetails")
     List<CoachTimesheet> findByCoachAssignment_Coach_PersonIdAndWorkingDateBetween(

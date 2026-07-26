@@ -100,4 +100,11 @@ public class CoachTimesheetController {
             @Valid @RequestBody CoachTimesheetDTO.AdjustRequest request) {
         return ResponseEntity.ok(coachTimesheetService.adjust(timesheetId, request));
     }
+
+    @DeleteMapping("/{timesheetId}")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
+    public ResponseEntity<Void> delete(@PathVariable UUID timesheetId) {
+        coachTimesheetService.delete(timesheetId);
+        return ResponseEntity.noContent().build();
+    }
 }

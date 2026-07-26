@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -20,39 +22,47 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.UUID;
 
 @Component
 @Slf4j
 public class PythonBackendClient {
 
-    @Value("${BACKEND_PYTHON_API:http://localhost:8000}")
+    @Value("${BACKEND_PYTHON_API:}")
     private String backendPythonApi;
 
-    @Value("${PYTHON_BACKEND_CONNECT_TIMEOUT:2s}")
+    @Value("${HUGGING_FACE_TOKEN:}")
+    private String huggingFaceToken;
+
+    @Value("${PYTHON_BACKEND_CONNECT_TIMEOUT:5s}")
     private Duration connectTimeout;
 
-    @Value("${PYTHON_BACKEND_READ_TIMEOUT:5s}")
+    @Value("${PYTHON_BACKEND_READ_TIMEOUT:60s}")
     private Duration readTimeout;
 
     private RestClient restClient;
-    private String checkInUrl;
 
     @PostConstruct
     void initializeRestClient() {
+        validateConfiguration();
+
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(connectTimeout);
         requestFactory.setReadTimeout(readTimeout);
 
         String baseUrl = stripTrailingSlash(backendPythonApi);
-        checkInUrl = baseUrl + "/check-in";
         restClient = RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(requestFactory)
+                .defaultHeaders(headers -> headers.setBearerAuth(huggingFaceToken))
                 .build();
-        log.info("Python face check-in client configured: url={}, connectTimeoutMs={}, readTimeoutMs={}",
-                checkInUrl, connectTimeout.toMillis(), readTimeout.toMillis());
+        log.info("Python backend client configured: baseUrlConfigured=true, huggingFaceAuthenticationConfigured=true, "
+                        + "connectTimeoutMs={}, readTimeoutMs={}",
+                connectTimeout.toMillis(), readTimeout.toMillis());
     }
 
     public CheckInResponse checkInByFaceImage(MultipartFile file) {
@@ -64,10 +74,7 @@ public class PythonBackendClient {
             MultiValueMap<String, Object> requestBody = new LinkedMultiValueMap<>();
             requestBody.add("file", createFilePart(file, fileName, fileContentType));
 
-            log.info("Calling Python face check-in: requestId={}, method=POST, url={}, requestContentType={}, "
-                            + "partName=file, fileName={}, fileSizeBytes={}, fileContentType={}",
-                    requestId, checkInUrl, MediaType.MULTIPART_FORM_DATA_VALUE,
-                    fileName, file.getSize(), fileContentType);
+            log.info("Calling Python backend: requestId={}, method=POST, path=/check-in", requestId);
 
             CheckInResponse response = restClient.post()
                     .uri("/check-in")
@@ -78,48 +85,142 @@ public class PythonBackendClient {
                     .body(CheckInResponse.class);
 
             if (response == null || (response.matched() && response.personId() == null)) {
-                log.warn("Python face check-in returned an invalid payload: requestId={}, url={}, durationMs={}",
-                        requestId, checkInUrl, elapsedMillis(startedAtNanos));
+                log.warn("Python backend returned an invalid check-in payload: requestId={}, path=/check-in, durationMs={}",
+                        requestId, elapsedMillis(startedAtNanos));
                 throw new PythonBackendClientException(
                         FailureType.INVALID_RESPONSE,
                         "Python backend did not return a person identifier"
                 );
             }
-            log.info("Python face check-in completed: requestId={}, url={}, durationMs={}, matched={}, "
-                            + "personIdPresent={}, confidence={}, errorPresent={}",
-                    requestId, checkInUrl, elapsedMillis(startedAtNanos), response.matched(),
-                    response.personId() != null, response.confidence(), StringUtils.hasText(response.error()));
+            log.info("Python backend check-in completed: requestId={}, path=/check-in, durationMs={}",
+                    requestId, elapsedMillis(startedAtNanos));
             return response;
         } catch (PythonBackendClientException exception) {
             throw exception;
         } catch (RestClientResponseException exception) {
-            log.warn("Python face check-in rejected request: requestId={}, url={}, durationMs={}, status={}, responseBody={}",
-                    requestId, checkInUrl, elapsedMillis(startedAtNanos), exception.getStatusCode(),
-                    abbreviate(exception.getResponseBodyAsString()));
-            throw new PythonBackendClientException(
-                    FailureType.REJECTED,
-                    "Python backend rejected the check-in request",
-                    exception
-            );
+            throw responseException("check-in", requestId, "/check-in", startedAtNanos, exception);
         } catch (ResourceAccessException exception) {
-            Throwable cause = exception.getMostSpecificCause();
-            log.warn("Python face check-in is unreachable: requestId={}, url={}, durationMs={}, causeType={}, cause={}",
-                    requestId, checkInUrl, elapsedMillis(startedAtNanos),
-                    cause.getClass().getSimpleName(), cause.getMessage());
-            throw new PythonBackendClientException(
-                    FailureType.UNAVAILABLE,
-                    "Python backend could not be reached",
-                    exception
-            );
+            throw resourceAccessException("check-in", requestId, "/check-in", startedAtNanos, exception);
         } catch (RestClientException exception) {
-            log.warn("Python face check-in client failure: requestId={}, url={}, durationMs={}, error={}",
-                    requestId, checkInUrl, elapsedMillis(startedAtNanos), exception.getMessage());
-            throw new PythonBackendClientException(
-                    FailureType.INVALID_RESPONSE,
-                    "Python backend returned an invalid response",
-                    exception
-            );
+            throw invalidResponseException("check-in", requestId, "/check-in", startedAtNanos, exception);
         }
+    }
+
+    public void checkHealth() {
+        String requestId = UUID.randomUUID().toString();
+        long startedAtNanos = System.nanoTime();
+        try {
+            log.info("Calling Python backend: requestId={}, method=GET, path=/health", requestId);
+            restClient.get()
+                    .uri("/health")
+                    .header("X-Request-ID", requestId)
+                    .retrieve()
+                    .toBodilessEntity();
+            log.info("Python backend health check completed: requestId={}, path=/health, durationMs={}",
+                    requestId, elapsedMillis(startedAtNanos));
+        } catch (RestClientResponseException exception) {
+            throw responseException("health check", requestId, "/health", startedAtNanos, exception);
+        } catch (ResourceAccessException exception) {
+            throw resourceAccessException("health check", requestId, "/health", startedAtNanos, exception);
+        } catch (RestClientException exception) {
+            throw invalidResponseException("health check", requestId, "/health", startedAtNanos, exception);
+        }
+    }
+
+    private void validateConfiguration() {
+        if (!StringUtils.hasText(backendPythonApi)) {
+            throw new IllegalStateException("BACKEND_PYTHON_API environment variable is required");
+        }
+        if (!StringUtils.hasText(huggingFaceToken)) {
+            throw new IllegalStateException("HUGGING_FACE_TOKEN environment variable is required");
+        }
+    }
+
+    private static PythonBackendClientException responseException(
+            String operation,
+            String requestId,
+            String path,
+            long startedAtNanos,
+            RestClientResponseException exception
+    ) {
+        FailureType failureType = classifyHttpFailure(exception.getStatusCode());
+        log.warn("Python backend {} failed: requestId={}, path={}, durationMs={}, status={}, failureType={}",
+                operation, requestId, path, elapsedMillis(startedAtNanos), exception.getStatusCode(), failureType);
+        return new PythonBackendClientException(failureType, messageFor(failureType), exception);
+    }
+
+    private static PythonBackendClientException resourceAccessException(
+            String operation,
+            String requestId,
+            String path,
+            long startedAtNanos,
+            ResourceAccessException exception
+    ) {
+        FailureType failureType = classifyResourceAccessFailure(exception);
+        Throwable cause = exception.getMostSpecificCause();
+        String causeType = cause == null ? "Unknown" : cause.getClass().getSimpleName();
+        log.warn("Python backend {} failed: requestId={}, path={}, durationMs={}, failureType={}, causeType={}",
+                operation, requestId, path, elapsedMillis(startedAtNanos), failureType, causeType);
+        return new PythonBackendClientException(failureType, messageFor(failureType), exception);
+    }
+
+    private static PythonBackendClientException invalidResponseException(
+            String operation,
+            String requestId,
+            String path,
+            long startedAtNanos,
+            RestClientException exception
+    ) {
+        log.warn("Python backend {} failed: requestId={}, path={}, durationMs={}, failureType={}",
+                operation, requestId, path, elapsedMillis(startedAtNanos), FailureType.INVALID_RESPONSE);
+        return new PythonBackendClientException(
+                FailureType.INVALID_RESPONSE,
+                messageFor(FailureType.INVALID_RESPONSE),
+                exception
+        );
+    }
+
+    static FailureType classifyResourceAccessFailure(ResourceAccessException exception) {
+        Throwable cause = exception.getMostSpecificCause();
+        if (cause instanceof SocketTimeoutException timeoutException) {
+            String message = timeoutException.getMessage();
+            return message != null && message.toLowerCase(Locale.ROOT).contains("connect")
+                    ? FailureType.CONNECT_TIMEOUT
+                    : FailureType.READ_TIMEOUT;
+        }
+        if (cause instanceof ConnectException) {
+            return FailureType.CONNECTION_FAILED;
+        }
+        return FailureType.CONNECTION_FAILED;
+    }
+
+    private static FailureType classifyHttpFailure(HttpStatusCode statusCode) {
+        if (statusCode.value() == HttpStatus.UNAUTHORIZED.value()) {
+            return FailureType.AUTHENTICATION_FAILED;
+        }
+        if (statusCode.value() == HttpStatus.FORBIDDEN.value()) {
+            return FailureType.ACCESS_DENIED;
+        }
+        if (statusCode.value() == HttpStatus.NOT_FOUND.value()) {
+            return FailureType.ENDPOINT_NOT_FOUND;
+        }
+        if (statusCode.value() == HttpStatus.TOO_MANY_REQUESTS.value()) {
+            return FailureType.RATE_LIMITED;
+        }
+        return statusCode.is5xxServerError() ? FailureType.UPSTREAM_ERROR : FailureType.REJECTED;
+    }
+
+    private static String messageFor(FailureType failureType) {
+        return switch (failureType) {
+            case AUTHENTICATION_FAILED -> "Python backend authentication failed";
+            case ACCESS_DENIED -> "Python backend access denied";
+            case ENDPOINT_NOT_FOUND -> "Python backend endpoint was not found";
+            case RATE_LIMITED -> "Python backend rate limit exceeded";
+            case UPSTREAM_ERROR, CONNECTION_FAILED -> "Python backend is unavailable";
+            case CONNECT_TIMEOUT, READ_TIMEOUT -> "Python backend request timed out";
+            case INVALID_RESPONSE -> "Invalid response from Python backend";
+            case REJECTED -> "Python backend rejected the request";
+        };
     }
 
     private static HttpEntity<Resource> createFilePart(
@@ -159,13 +260,6 @@ public class PythonBackendClient {
         return Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis();
     }
 
-    private static String abbreviate(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.length() <= 500 ? value : value.substring(0, 500) + "...";
-    }
-
     public record CheckInResponse(
             boolean matched,
 
@@ -179,9 +273,23 @@ public class PythonBackendClient {
     }
 
     public enum FailureType {
+        AUTHENTICATION_FAILED,
+        ACCESS_DENIED,
+        ENDPOINT_NOT_FOUND,
+        RATE_LIMITED,
+        UPSTREAM_ERROR,
+        CONNECT_TIMEOUT,
+        READ_TIMEOUT,
+        CONNECTION_FAILED,
         REJECTED,
-        UNAVAILABLE,
-        INVALID_RESPONSE
+        INVALID_RESPONSE;
+
+        public boolean isUnavailable() {
+            return switch (this) {
+                case UPSTREAM_ERROR, CONNECT_TIMEOUT, READ_TIMEOUT, CONNECTION_FAILED -> true;
+                default -> false;
+            };
+        }
     }
 
     public static class PythonBackendClientException extends RuntimeException {

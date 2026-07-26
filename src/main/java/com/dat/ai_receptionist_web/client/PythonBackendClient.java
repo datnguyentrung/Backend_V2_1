@@ -1,7 +1,10 @@
 package com.dat.ai_receptionist_web.client;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -25,12 +28,38 @@ import org.springframework.web.multipart.MultipartFile;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 import java.time.Duration;
+import java.util.Iterator;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class PythonBackendClient {
+
+    private static final Set<String> FACE_EMBEDDING_ERROR_CODES = Set.of(
+            "INVALID_IMAGE_FILE",
+            "EMPTY_IMAGE_FILE",
+            "FILE_TOO_LARGE",
+            "UNSUPPORTED_IMAGE_TYPE",
+            "IMAGE_DECODE_FAILED",
+            "FACE_NOT_DETECTED",
+            "MULTIPLE_FACES_DETECTED",
+            "FACE_EMBEDDING_FAILED",
+            "INVALID_EMBEDDING",
+            "MODEL_NOT_INITIALIZED",
+            "INTERNAL_ERROR"
+    );
+    private static final Set<String> BUSINESS_CODE_FIELD_NAMES = Set.of(
+            "code",
+            "error",
+            "errorCode",
+            "error_code",
+            "detail"
+    );
+
+    private final ObjectMapper objectMapper;
 
     @Value("${BACKEND_PYTHON_API:}")
     private String backendPythonApi;
@@ -65,7 +94,7 @@ public class PythonBackendClient {
                 connectTimeout.toMillis(), readTimeout.toMillis());
     }
 
-    public CheckInResponse checkInByFaceImage(MultipartFile file) {
+    public FaceEmbeddingResponse generateFaceEmbedding(MultipartFile file) {
         String requestId = UUID.randomUUID().toString();
         long startedAtNanos = System.nanoTime();
         String fileName = resolvedFileName(file);
@@ -74,35 +103,51 @@ public class PythonBackendClient {
             MultiValueMap<String, Object> requestBody = new LinkedMultiValueMap<>();
             requestBody.add("file", createFilePart(file, fileName, fileContentType));
 
-            log.info("Calling Python backend: requestId={}, method=POST, path=/check-in", requestId);
+            log.info("Calling Python backend: requestId={}, method=POST, path=/face-embeddings", requestId);
 
-            CheckInResponse response = restClient.post()
-                    .uri("/check-in")
+            FaceEmbeddingResponse response = restClient.post()
+                    .uri("/face-embeddings")
                     .contentType(MediaType.MULTIPART_FORM_DATA)
                     .header("X-Request-ID", requestId)
                     .body(requestBody)
                     .retrieve()
-                    .body(CheckInResponse.class);
+                    .body(FaceEmbeddingResponse.class);
 
-            if (response == null || (response.matched() && response.personId() == null)) {
-                log.warn("Python backend returned an invalid check-in payload: requestId={}, path=/check-in, durationMs={}",
+            if (response == null) {
+                log.warn("Python backend returned an invalid face embedding payload: requestId={}, path=/face-embeddings, durationMs={}",
                         requestId, elapsedMillis(startedAtNanos));
                 throw new PythonBackendClientException(
                         FailureType.INVALID_RESPONSE,
-                        "Python backend did not return a person identifier"
+                        "Python backend did not return a face embedding"
                 );
             }
-            log.info("Python backend check-in completed: requestId={}, path=/check-in, durationMs={}",
+            if (!response.success()) {
+                throw new PythonBackendClientException(
+                        FailureType.REJECTED,
+                        "Python backend rejected the face embedding request",
+                        normalizeFaceEmbeddingErrorCode(response.errorCode()),
+                        null
+                );
+            }
+            if (!isValidEmbedding(response)) {
+                log.warn("Python backend returned an invalid face embedding payload: requestId={}, path=/face-embeddings, durationMs={}",
+                        requestId, elapsedMillis(startedAtNanos));
+                throw new PythonBackendClientException(
+                        FailureType.INVALID_RESPONSE,
+                        "Python backend returned an invalid face embedding"
+                );
+            }
+            log.info("Python backend face embedding completed: requestId={}, path=/face-embeddings, durationMs={}",
                     requestId, elapsedMillis(startedAtNanos));
             return response;
         } catch (PythonBackendClientException exception) {
             throw exception;
         } catch (RestClientResponseException exception) {
-            throw responseException("check-in", requestId, "/check-in", startedAtNanos, exception);
+            throw responseException("face embedding", requestId, "/face-embeddings", startedAtNanos, exception);
         } catch (ResourceAccessException exception) {
-            throw resourceAccessException("check-in", requestId, "/check-in", startedAtNanos, exception);
+            throw resourceAccessException("face embedding", requestId, "/face-embeddings", startedAtNanos, exception);
         } catch (RestClientException exception) {
-            throw invalidResponseException("check-in", requestId, "/check-in", startedAtNanos, exception);
+            throw invalidResponseException("face embedding", requestId, "/face-embeddings", startedAtNanos, exception);
         }
     }
 
@@ -136,7 +181,7 @@ public class PythonBackendClient {
         }
     }
 
-    private static PythonBackendClientException responseException(
+    private PythonBackendClientException responseException(
             String operation,
             String requestId,
             String path,
@@ -144,9 +189,96 @@ public class PythonBackendClient {
             RestClientResponseException exception
     ) {
         FailureType failureType = classifyHttpFailure(exception.getStatusCode());
-        log.warn("Python backend {} failed: requestId={}, path={}, durationMs={}, status={}, failureType={}",
-                operation, requestId, path, elapsedMillis(startedAtNanos), exception.getStatusCode(), failureType);
-        return new PythonBackendClientException(failureType, messageFor(failureType), exception);
+        String backendErrorCode = extractFaceEmbeddingErrorCode(exception);
+        log.warn("Python backend {} failed: requestId={}, path={}, durationMs={}, status={}, failureType={}, backendErrorCode={}",
+                operation, requestId, path, elapsedMillis(startedAtNanos), exception.getStatusCode(), failureType,
+                backendErrorCode);
+        return new PythonBackendClientException(
+                failureType,
+                messageFor(failureType),
+                backendErrorCode,
+                exception
+        );
+    }
+
+    /**
+     * Extracts only the supported, non-sensitive business code from a Python error body.
+     * FastAPI applications commonly wrap it in either {@code detail} or {@code error},
+     * so the lookup deliberately traverses the JSON tree instead of depending on one envelope.
+     */
+    private String extractFaceEmbeddingErrorCode(RestClientResponseException exception) {
+        String responseBody = exception.getResponseBodyAsString();
+        if (!StringUtils.hasText(responseBody)) {
+            return null;
+        }
+        try {
+            return findFaceEmbeddingErrorCode(objectMapper.readTree(responseBody));
+        } catch (JsonProcessingException parsingException) {
+            // An upstream error body is untrusted. Keep the original HTTP classification if it is not JSON.
+            return null;
+        }
+    }
+
+    private static String findFaceEmbeddingErrorCode(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isObject()) {
+            return findFaceEmbeddingErrorCodeInObject(node);
+        }
+        if (node.isArray()) {
+            return findFaceEmbeddingErrorCodeInArray(node);
+        }
+        return null;
+    }
+
+    private static String findFaceEmbeddingErrorCodeInObject(JsonNode node) {
+        Iterator<java.util.Map.Entry<String, JsonNode>> fields = node.fields();
+        while (fields.hasNext()) {
+            java.util.Map.Entry<String, JsonNode> field = fields.next();
+            String directMatch = directFaceEmbeddingErrorCode(field);
+            if (directMatch != null) {
+                return directMatch;
+            }
+            String nestedMatch = findFaceEmbeddingErrorCode(field.getValue());
+            if (nestedMatch != null) {
+                return nestedMatch;
+            }
+        }
+        return null;
+    }
+
+    private static String findFaceEmbeddingErrorCodeInArray(JsonNode node) {
+        Iterator<JsonNode> children = node.elements();
+        while (children.hasNext()) {
+            String errorCode = findFaceEmbeddingErrorCode(children.next());
+            if (errorCode != null) {
+                return errorCode;
+            }
+        }
+        return null;
+    }
+
+    private static String directFaceEmbeddingErrorCode(java.util.Map.Entry<String, JsonNode> field) {
+        return BUSINESS_CODE_FIELD_NAMES.contains(field.getKey()) && field.getValue().isTextual()
+                ? normalizeFaceEmbeddingErrorCode(field.getValue().asText())
+                : null;
+    }
+
+    private static String normalizeFaceEmbeddingErrorCode(String candidate) {
+        if (!StringUtils.hasText(candidate)) {
+            return null;
+        }
+        String normalized = candidate.trim().toUpperCase(Locale.ROOT).replace('-', '_');
+        return FACE_EMBEDDING_ERROR_CODES.contains(normalized) ? normalized : null;
+    }
+
+    private static boolean isValidEmbedding(FaceEmbeddingResponse response) {
+        return response.dimension() != null
+                && response.dimension() == 512
+                && response.embedding() != null
+                && response.embedding().size() == 512
+                && response.embedding().stream().allMatch(value -> value != null && Float.isFinite(value));
     }
 
     private static PythonBackendClientException resourceAccessException(
@@ -260,15 +392,13 @@ public class PythonBackendClient {
         return Duration.ofNanos(System.nanoTime() - startedAtNanos).toMillis();
     }
 
-    public record CheckInResponse(
-            boolean matched,
-
-            @JsonAlias({"person_id", "personId"})
-            UUID personId,
-
-            Double confidence,
-
-            String error
+    public record FaceEmbeddingResponse(
+            boolean success,
+            java.util.List<Float> embedding,
+            Integer dimension,
+            String model,
+            String errorCode,
+            String message
     ) {
     }
 
@@ -294,19 +424,33 @@ public class PythonBackendClient {
 
     public static class PythonBackendClientException extends RuntimeException {
         private final FailureType failureType;
+        private final String backendErrorCode;
 
         public PythonBackendClientException(FailureType failureType, String message) {
-            super(message);
-            this.failureType = failureType;
+            this(failureType, message, null, null);
         }
 
         public PythonBackendClientException(FailureType failureType, String message, Throwable cause) {
+            this(failureType, message, null, cause);
+        }
+
+        public PythonBackendClientException(
+                FailureType failureType,
+                String message,
+                String backendErrorCode,
+                Throwable cause
+        ) {
             super(message, cause);
             this.failureType = failureType;
+            this.backendErrorCode = backendErrorCode;
         }
 
         public FailureType getFailureType() {
             return failureType;
+        }
+
+        public String getBackendErrorCode() {
+            return backendErrorCode;
         }
     }
 }

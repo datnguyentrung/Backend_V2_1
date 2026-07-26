@@ -13,6 +13,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/v1/persons")
 @RequiredArgsConstructor
@@ -42,10 +44,22 @@ public class PersonController {
     )
     @PreAuthorize("@securityRule.isCoach(authentication) or @securityRule.isSystem(authentication)")
     public ResponseEntity<PersonDTO.FaceCheckInResponse> checkInByFaceImage(
-            @RequestPart("file") MultipartFile file
+            @RequestPart("file") MultipartFile file,
+            @RequestParam(required = false) java.util.UUID classSessionId
     ) {
         return ResponseEntity.ok(
-                personService.checkInByFaceImage(file)
+                personService.checkInByFaceImage(file, classSessionId)
         );
+    }
+
+    @PatchMapping(
+            value = "/face-embedding",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<PersonDTO.FaceEmbeddingUpdateResponse> updateFaceEmbedding(
+            @RequestPart("file") MultipartFile file,
+            @RequestParam UUID personId
+    ) {
+        return ResponseEntity.ok(personService.updateFaceEmbedding(file, personId));
     }
 }

@@ -92,10 +92,11 @@ public class GlobalException {
         return buildResponse(problemDetail, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
-    // ProblemDetail uses application/problem+json.
+    // Spring Framework 7's default JSON converter only advertises application/json.
+    // Pinning application/problem+json caused exception rendering itself to fail.
     private ResponseEntity<ProblemDetail> buildResponse(ProblemDetail problemDetail, HttpStatus status) {
         return ResponseEntity.status(status)
-                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(problemDetail);
     }
 }

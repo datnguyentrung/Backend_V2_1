@@ -4,12 +4,14 @@ import com.dat.ai_receptionist_web.domain.Operation.CoachAssignment;
 import com.dat.ai_receptionist_web.dto.Operation.ResponsibleCoachProjection;
 import com.dat.ai_receptionist_web.enums.Core.Weekday;
 import com.dat.ai_receptionist_web.enums.Operation.CoachAssignmentStatus;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -62,6 +64,11 @@ public interface CoachAssignmentRepository extends JpaRepository<CoachAssignment
 
     @EntityGraph(value = "CoachAssignment.withDetails")
     Optional<CoachAssignment> findWithDetailsByAssignmentId(UUID assignmentId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(value = "CoachAssignment.withDetails")
+    @Query("SELECT assignment FROM CoachAssignment assignment WHERE assignment.assignmentId = :assignmentId")
+    Optional<CoachAssignment> findForCheckInByAssignmentId(@Param("assignmentId") UUID assignmentId);
 
     List<CoachAssignment> findByStatus(CoachAssignmentStatus status);
 

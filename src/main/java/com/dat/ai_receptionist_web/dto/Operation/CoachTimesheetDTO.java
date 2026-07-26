@@ -32,6 +32,8 @@ public class CoachTimesheetDTO {
 
         UUID personId;
 
+        UUID classSessionId;
+
         @JsonIgnore
         @AssertTrue(message = "Phải cung cấp staffCode hoặc personId")
         public boolean isIdentifierProvided() {
@@ -59,6 +61,8 @@ public class CoachTimesheetDTO {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class Response implements PersonDTO.FaceCheckInResponse {
+        // Alias chung cho các response check-in; timesheetId vẫn được giữ để không phá frontend hiện tại.
+        UUID attendanceId;
         UUID timesheetId;
         UUID coachAssignmentId;
         CoachResDTO.CoachSummary coach;
@@ -68,6 +72,7 @@ public class CoachTimesheetDTO {
         LocalDateTime checkInTime;
         LocalDateTime checkOutTime;
         CoachTimesheetStatus status;
+        boolean alreadyCheckedIn;
         String note;
         LocalDateTime createdAt;
         LocalDateTime updatedAt;

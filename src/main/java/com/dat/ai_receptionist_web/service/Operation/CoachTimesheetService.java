@@ -23,6 +23,7 @@ import com.dat.ai_receptionist_web.enums.Operation.NotificationType;
 import com.dat.ai_receptionist_web.enums.Operation.SessionStatus;
 import com.dat.ai_receptionist_web.mapper.Operation.CoachTimesheetMapper;
 import com.dat.ai_receptionist_web.repository.Core.CoachRepository;
+import com.dat.ai_receptionist_web.repository.Operation.CoachAssignmentRepository;
 import com.dat.ai_receptionist_web.repository.Operation.ClassSessionRepository;
 import com.dat.ai_receptionist_web.repository.Operation.CoachTimesheetRepository;
 import com.dat.ai_receptionist_web.service.Security.AuthTokenService;
@@ -31,7 +32,6 @@ import com.dat.ai_receptionist_web.specification.CoachTimesheetSpecification;
 import com.dat.ai_receptionist_web.util.error.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -53,6 +53,7 @@ public class CoachTimesheetService {
 
     private final CoachTimesheetRepository coachTimesheetRepository;
     private final CoachAssignmentService coachAssignmentService;
+    private final CoachAssignmentRepository coachAssignmentRepository;
     private final CoachRepository coachRepository;
     private final ClassSessionRepository classSessionRepository;
     private final CoachTimesheetMapper coachTimesheetMapper;
@@ -173,15 +174,23 @@ public class CoachTimesheetService {
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND)) :
                 coachRepository.findById(request.getPersonId())
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
-        return checkInResolvedCoach(coach.getPersonId(), coach.getCoachStatus());
+        return checkInResolvedCoach(coach.getPersonId(), coach.getCoachStatus(), request.getClassSessionId());
     }
 
     /**
      * Internal fast path for face check-in. The caller has already resolved the coach
      * while identifying the check-in target, so no second coach lookup is needed.
      */
-    @Transactional(rollbackFor = Exception.class)
     public CoachTimesheetDTO.Response checkInResolvedCoach(UUID coachId, CoachStatus coachStatus) {
+        return checkInResolvedCoach(coachId, coachStatus, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public CoachTimesheetDTO.Response checkInResolvedCoach(
+            UUID coachId,
+            CoachStatus coachStatus,
+            UUID classSessionId
+    ) {
         LocalDateTime now = LocalDateTime.now(defaultZoneId);
         LocalDate today = now.toLocalDate();
         validateCoachActive(coachStatus);
@@ -217,10 +226,20 @@ public class CoachTimesheetService {
                         this::preferActiveSession
                 ));
 
+        List<ClassSession> candidateSessions = validAssignments.stream()
+                .map(assignment -> sessionByScheduleId.get(assignment.getClassSchedule().getScheduleId()))
+                .filter(Objects::nonNull)
+                .filter(this::isClassSessionUsable)
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toMap(ClassSession::getSessionId, Function.identity(), (left, right) -> left),
+                        sessions -> new ArrayList<>(sessions.values())
+                ));
+        if (classSessionId == null && candidateSessions.size() > 1) {
+            throw new AppException(ErrorCode.CHECK_IN_SESSION_REQUIRED);
+        }
+
         boolean hasClassToday = false;
         boolean hasWindowCandidate = false;
-        boolean alreadyCheckedIn = false;
-
         List<ErrorCode> windowErrors = new ArrayList<>();
 
         for (CoachAssignment assignment : validAssignments) {
@@ -228,6 +247,10 @@ public class CoachTimesheetService {
             ClassSession classSession = sessionByScheduleId.get(schedule.getScheduleId());
 
             if (classSession == null) {
+                continue;
+            }
+
+            if (classSessionId != null && !classSessionId.equals(classSession.getSessionId())) {
                 continue;
             }
 
@@ -246,25 +269,38 @@ public class CoachTimesheetService {
 
             hasWindowCandidate = true;
 
-            if (coachTimesheetRepository
-                    .existsByCoachAssignment_AssignmentIdAndWorkingDate(
-                            assignment.getAssignmentId(),
+            CoachAssignment lockedAssignment = coachAssignmentRepository
+                    .findForCheckInByAssignmentId(assignment.getAssignmentId())
+                    .orElseThrow(() -> new AppException(ErrorCode.COACH_ASSIGNMENT_INVALID));
+            Optional<CoachTimesheet> existingTimesheet = coachTimesheetRepository
+                    .findForCheckInByCoachAssignment_AssignmentIdAndWorkingDate(
+                            lockedAssignment.getAssignmentId(),
                             today
-                    )) {
-                alreadyCheckedIn = true;
-                continue;
+                    );
+            if (existingTimesheet.isPresent()) {
+                CoachTimesheet timesheet = existingTimesheet.get();
+                if (timesheet.getCheckInTime() != null) {
+                    log.info("CHECK_IN_RESULT personId={} timesheetId={} alreadyCheckedIn=true checkInTime={}",
+                            coachId, timesheet.getTimesheetId(), timesheet.getCheckInTime());
+                    return toCheckInResponse(timesheet, true);
+                }
+
+                CoachTimesheetStatus previousStatus = timesheet.getStatus();
+                timesheet.setCheckInTime(now);
+                timesheet.setStatus(CoachTimesheetStatus.CHECKED_IN);
+                CoachTimesheet savedTimesheet = coachTimesheetRepository.saveAndFlush(timesheet);
+                sendAttendanceNotification(savedTimesheet);
+                log.info("CHECK_IN_RESULT personId={} timesheetId={} alreadyCheckedIn=false previousStatus={} newStatus={}",
+                        coachId, savedTimesheet.getTimesheetId(), previousStatus, CoachTimesheetStatus.CHECKED_IN);
+                return toCheckInResponse(savedTimesheet, false);
             }
 
             return createTimesheet(
-                    assignment,
+                    lockedAssignment,
                     classSession,
                     now,
                     today
             );
-        }
-
-        if (alreadyCheckedIn) {
-            throw new AppException(ErrorCode.COACH_TIMESHEET_ALREADY_EXISTS);
         }
 
         if (!hasClassToday) {
@@ -353,19 +389,24 @@ public class CoachTimesheetService {
             LocalDateTime now,
             LocalDate today
     ) {
-        try {
-            CoachTimesheet saved = coachTimesheetRepository.saveAndFlush(CoachTimesheet.builder()
-                    .coachAssignment(assignment)
-                    .workingDate(today)
-                    .checkInTime(now)
-                    .status(CoachTimesheetStatus.CHECKED_IN)
-                    .note("Coach check-in by staffCode scan")
-                    .build());
-            sendAttendanceNotification(saved);
-            return coachTimesheetMapper.toResponse(saved);
-        } catch (DataIntegrityViolationException ex) {
-            throw new AppException(ErrorCode.COACH_TIMESHEET_ALREADY_EXISTS);
-        }
+        CoachTimesheet saved = coachTimesheetRepository.saveAndFlush(CoachTimesheet.builder()
+                .coachAssignment(assignment)
+                .workingDate(today)
+                .checkInTime(now)
+                .status(CoachTimesheetStatus.CHECKED_IN)
+                .note("Coach check-in by staffCode scan")
+                .build());
+        sendAttendanceNotification(saved);
+        log.info("CHECK_IN_RESULT personId={} timesheetId={} alreadyCheckedIn=false previousStatus=null newStatus={}",
+                assignment.getCoach().getPersonId(), saved.getTimesheetId(), CoachTimesheetStatus.CHECKED_IN);
+        return toCheckInResponse(saved, false);
+    }
+
+    private CoachTimesheetDTO.Response toCheckInResponse(CoachTimesheet timesheet, boolean alreadyCheckedIn) {
+        CoachTimesheetDTO.Response response = coachTimesheetMapper.toResponse(timesheet);
+        response.setAttendanceId(timesheet.getTimesheetId());
+        response.setAlreadyCheckedIn(alreadyCheckedIn);
+        return response;
     }
 
     private void validateCoachActive(CoachStatus coachStatus) {

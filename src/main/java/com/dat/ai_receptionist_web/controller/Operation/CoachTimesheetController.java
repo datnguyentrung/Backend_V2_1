@@ -30,7 +30,7 @@ public class CoachTimesheetController {
     @PreAuthorize("@securityRule.isCoach(authentication)")
     public ResponseEntity<CoachTimesheetDTO.Response> checkIn(
             @Valid @RequestBody CoachTimesheetDTO.CheckInRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(coachTimesheetService.checkIn(request));
+        return ResponseEntity.ok(coachTimesheetService.checkIn(request));
     }
 
     @GetMapping("/{timesheetId}")

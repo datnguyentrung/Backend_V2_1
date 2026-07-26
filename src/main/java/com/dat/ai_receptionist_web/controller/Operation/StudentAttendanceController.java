@@ -158,8 +158,7 @@ public class StudentAttendanceController {
     ) {
         log.info("Creating attendance record for student {}", request.getStudentCode());
         StudentAttendanceDTO.Response response = studentAttendanceService.createAttendanceRecord(request);
-        HttpStatus status = response.isAlreadyCheckedIn() ? HttpStatus.OK : HttpStatus.CREATED;
-        return ResponseEntity.status(status).body(response);
+        return ResponseEntity.ok(response);
     }
 
     /**

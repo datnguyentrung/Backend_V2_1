@@ -7,8 +7,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -33,6 +35,24 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
     Optional<FaceCheckInSubjectProjection> findFaceCheckInSubjectByPersonId(
             @Param("personId") UUID personId
     );
+
+    /**
+     * pgvector cosine distance. The vector is supplied as a PostgreSQL vector literal,
+     * for example {@code [0.12,-0.03,...]}.
+     */
+    @Transactional(readOnly = true)
+    @Query(
+            value = """
+                    SELECT p.person_id AS personId,
+                           (p.face_embedding <=> CAST(:embedding AS vector)) AS distance
+                    FROM core.person p
+                    WHERE p.face_embedding IS NOT NULL
+                    ORDER BY p.face_embedding <=> CAST(:embedding AS vector)
+                    LIMIT 1
+                    """,
+            nativeQuery = true
+    )
+    List<NearestFaceMatchProjection> findNearestFaceMatch(@Param("embedding") String embedding);
 
     @Query(
             value = """
@@ -115,5 +135,11 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
         String getStaffCode();
 
         String getCoachStatus();
+    }
+
+    interface NearestFaceMatchProjection {
+        UUID getPersonId();
+
+        Double getDistance();
     }
 }

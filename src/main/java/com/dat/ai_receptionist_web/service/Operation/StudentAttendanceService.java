@@ -221,15 +221,22 @@ public class StudentAttendanceService {
                 : studentRepository.findCheckInStudentByPersonId(request.getPersonId())
                 .orElseThrow(() -> new AppException(ErrorCode.STUDENT_NOT_FOUND));
 
-        return createAttendanceRecordForResolvedStudent(student);
+        return createAttendanceRecordForResolvedStudent(student, request.getClassSessionId());
     }
 
     /**
      * Internal fast path for face check-in. The caller has already resolved the student
      * while identifying the check-in target, so no second student lookup is needed.
      */
-    @Transactional(rollbackFor = Exception.class)
     public StudentAttendanceDTO.Response createAttendanceRecordForResolvedStudent(CheckInStudentProjection student) {
+        return createAttendanceRecordForResolvedStudent(student, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public StudentAttendanceDTO.Response createAttendanceRecordForResolvedStudent(
+            CheckInStudentProjection student,
+            UUID classSessionId
+    ) {
         if (student.getStudentStatus() != StudentStatus.ACTIVE) {
             throw new AppException(ErrorCode.STUDENT_INACTIVE);
         }
@@ -260,89 +267,80 @@ public class StudentAttendanceService {
                         enrolledScheduleIds
                 );
 
+        if (classSessionId != null) {
+            relevantSessions = relevantSessions.stream()
+                    .filter(session -> classSessionId.equals(session.getSessionId()))
+                    .toList();
+        }
+
         if (relevantSessions.isEmpty()) {
             throw new AppException(ErrorCode.CLASS_SESSION_NOT_FOUND);
         }
         if (relevantSessions.size() > 1) {
-            throw new AppException(ErrorCode.MULTIPLE_ACTIVE_CLASS_SESSIONS);
+            throw new AppException(ErrorCode.CHECK_IN_SESSION_REQUIRED);
         }
 
-        // 5. Tìm buổi học ĐANG DIỄN RA (ACTIVE) để điểm danh
-        boolean isAlreadyCheckedIn = false; // Cờ đánh dấu xem có ca học nhưng đã điểm danh chưa
-        StudentAttendanceDTO.Response existingAttendanceResponse = null;
+        ClassSession currentSession = relevantSessions.getFirst();
+        StudentEnrollment enrollment = enrollments.stream()
+                .filter(item -> item.getClassSchedule().getScheduleId()
+                        .equals(currentSession.getClassSchedule().getScheduleId()))
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.CLASS_SESSION_NOT_FOUND));
 
-        for (StudentEnrollment enrollment : enrollments) {
-            // Tìm buổi học của lịch này trong list vừa fetch
-            Optional<ClassSession> currentSessionOpt = relevantSessions.stream()
-                    .filter(s -> s.getClassSchedule().getScheduleId().equals(enrollment.getClassSchedule().getScheduleId()))
-                    .filter(s -> "ACTIVE".equals(s.getStatus().name()))
-                    .findFirst();
+        StudentEnrollment lockedEnrollment = studentEnrollmentRepository
+                .findForCheckInByEnrollmentId(enrollment.getEnrollmentId())
+                .orElseThrow(() -> new AppException(ErrorCode.STUDENT_ACTIVE_ENROLLMENT_NOT_FOUND));
+        AttendanceStatus newStatus = resolveCheckInStatus(lockedEnrollment, currentTime);
 
-            // Nếu có ca học đang ACTIVE
-            if (currentSessionOpt.isPresent()) {
-                ClassSession currentSession = currentSessionOpt.get();
-
-                // Kiểm tra xem đã điểm danh ca này chưa
-                Optional<StudentAttendance> existingAttendance = studentAttendanceRepository
-                        .findByStudentEnrollment_EnrollmentIdAndClassSession_SessionId(
-                                enrollment.getEnrollmentId(),
-                                currentSession.getSessionId()
-                        );
-                if (existingAttendance.isPresent()) {
-                    isAlreadyCheckedIn = true;
-                    existingAttendanceResponse = toCheckInResponse(
-                            existingAttendance.get(),
-                            student,
-                            enrollment,
-                            currentSession,
-                            true
-                    );
-                    continue; // Vẫn chạy tiếp nhỡ học viên học 2 ca liên tiếp thì sao
-                }
-
-                // Nếu chưa điểm danh -> Tiến hành điểm danh
-                LocalTime classStartTime = enrollment.getClassSchedule().getStartTime();
-                AttendanceStatus status = currentTime.isBefore(classStartTime)
-                        ? AttendanceStatus.PRESENT
-                        : AttendanceStatus.LATE;
-
-                StudentAttendance savedAttendance;
-                try {
-                    savedAttendance = studentAttendanceRepository.saveAndFlush(StudentAttendance.builder()
-                            .studentEnrollment(enrollment)
-                            .classSession(currentSession)
-                            .sessionDate(today)
-                            .attendanceStatus(status)
-                            .evaluationStatus(EvaluationStatus.PENDING) // Mặc định là PENDING, HLV sẽ đánh giá sau
-                            .checkInTime(now)
-                            .note("Điểm danh tự động qua API")
-                            .build());
-                } catch (DataIntegrityViolationException e) {
-                    if (!isDuplicateAttendanceConstraint(e)) {
-                        throw e;
-                    }
-                    log.warn("Duplicate check-in rejected for enrollmentId={}, classSessionId={}",
-                            enrollment.getEnrollmentId(), currentSession.getSessionId(), e);
-                    throw new AppException(ErrorCode.ATTENDANCE_ALREADY_EXISTS, e);
-                }
-
-                // Tạm tắt vì chưa sử dụng tính năng
-//                publishScoreRecalculateEvent(enrollment.getStudent(), today);
-
-                enqueueAttendanceNotificationAfterCommit(savedAttendance.getAttendanceId());
-
-                return toCheckInResponse(savedAttendance, student, enrollment, currentSession, false);
+        Optional<StudentAttendance> existingAttendance = studentAttendanceRepository
+                .findByStudentEnrollment_EnrollmentIdAndClassSession_SessionId(
+                        lockedEnrollment.getEnrollmentId(), currentSession.getSessionId());
+        if (existingAttendance.isPresent()) {
+            StudentAttendance attendance = existingAttendance.get();
+            if (attendance.getCheckInTime() != null) {
+                log.info("CHECK_IN_RESULT personId={} attendanceId={} alreadyCheckedIn=true checkInTime={}",
+                        student.getPersonId(), attendance.getAttendanceId(), attendance.getCheckInTime());
+                return toCheckInResponse(attendance, student, lockedEnrollment, currentSession, true);
             }
-        }
-        // --- XỬ LÝ KẾT QUẢ SAU VÒNG LẶP ---
+            if (!isAutomaticCheckInAllowed(attendance.getAttendanceStatus())) {
+                throw new AppException(ErrorCode.ATTENDANCE_CHECK_IN_NOT_ALLOWED);
+            }
 
-        if (isAlreadyCheckedIn) {
-            // Có ca học ACTIVE và đã điểm danh: trả lại chính thông tin điểm danh hiện có.
-            return existingAttendanceResponse;
+            AttendanceStatus previousStatus = attendance.getAttendanceStatus();
+            attendance.setAttendanceStatus(newStatus);
+            attendance.setCheckInTime(now);
+            StudentAttendance savedAttendance = studentAttendanceRepository.saveAndFlush(attendance);
+            enqueueAttendanceNotificationAfterCommit(savedAttendance.getAttendanceId());
+            log.info("CHECK_IN_RESULT personId={} attendanceId={} alreadyCheckedIn=false previousStatus={} newStatus={}",
+                    student.getPersonId(), savedAttendance.getAttendanceId(), previousStatus, newStatus);
+            return toCheckInResponse(savedAttendance, student, lockedEnrollment, currentSession, false);
         }
 
-        // Thực sự không tìm thấy ca học nào ACTIVE để vào lớp
-        throw new AppException(ErrorCode.CLASS_SESSION_NOT_FOUND);
+        StudentAttendance savedAttendance = studentAttendanceRepository.saveAndFlush(StudentAttendance.builder()
+                .studentEnrollment(lockedEnrollment)
+                .classSession(currentSession)
+                .sessionDate(today)
+                .attendanceStatus(newStatus)
+                .evaluationStatus(EvaluationStatus.PENDING)
+                .checkInTime(now)
+                .note("Điểm danh tự động qua API")
+                .build());
+        enqueueAttendanceNotificationAfterCommit(savedAttendance.getAttendanceId());
+        log.info("CHECK_IN_RESULT personId={} attendanceId={} alreadyCheckedIn=false previousStatus=null newStatus={}",
+                student.getPersonId(), savedAttendance.getAttendanceId(), newStatus);
+        return toCheckInResponse(savedAttendance, student, lockedEnrollment, currentSession, false);
+    }
+
+    private static AttendanceStatus resolveCheckInStatus(StudentEnrollment enrollment, LocalTime currentTime) {
+        return currentTime.isBefore(enrollment.getClassSchedule().getStartTime())
+                ? AttendanceStatus.PRESENT
+                : AttendanceStatus.LATE;
+    }
+
+    private static boolean isAutomaticCheckInAllowed(AttendanceStatus attendanceStatus) {
+        return attendanceStatus == AttendanceStatus.ABSENT
+                || attendanceStatus == AttendanceStatus.PRESENT
+                || attendanceStatus == AttendanceStatus.LATE;
     }
 
     private boolean isDuplicateAttendanceConstraint(DataIntegrityViolationException exception) {

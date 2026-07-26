@@ -2,9 +2,11 @@ package com.dat.ai_receptionist_web.repository.Operation;
 
 import com.dat.ai_receptionist_web.domain.Operation.StudentEnrollment;
 import com.dat.ai_receptionist_web.enums.Operation.StudentEnrollmentStatus;
+import jakarta.persistence.LockModeType;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -15,6 +17,11 @@ import java.util.UUID;
 
 @Repository
 public interface StudentEnrollmentRepository extends JpaRepository<StudentEnrollment, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT enrollment FROM StudentEnrollment enrollment WHERE enrollment.enrollmentId = :enrollmentId")
+    Optional<StudentEnrollment> findForCheckInByEnrollmentId(@Param("enrollmentId") UUID enrollmentId);
+
     boolean existsByStudent_PersonIdAndClassSchedule_ScheduleIdAndStatus(
             UUID studentPersonId, String classScheduleScheduleId, @NotNull StudentEnrollmentStatus status
     );

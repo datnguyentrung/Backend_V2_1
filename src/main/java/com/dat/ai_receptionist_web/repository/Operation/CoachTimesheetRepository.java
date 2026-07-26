@@ -2,10 +2,12 @@ package com.dat.ai_receptionist_web.repository.Operation;
 
 import com.dat.ai_receptionist_web.domain.Operation.CoachTimesheet;
 import com.dat.ai_receptionist_web.dto.Operation.CoachTimesheetStatusProjection;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -22,6 +24,13 @@ public interface CoachTimesheetRepository extends JpaRepository<CoachTimesheet, 
         CoachTimesheetRepositoryCustom {
 
     boolean existsByCoachAssignment_AssignmentIdAndWorkingDate(UUID assignmentId, LocalDate workingDate);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(value = "CoachTimesheet.withDetails")
+    Optional<CoachTimesheet> findForCheckInByCoachAssignment_AssignmentIdAndWorkingDate(
+            UUID assignmentId,
+            LocalDate workingDate
+    );
 
     @EntityGraph(value = "CoachTimesheet.withDetails")
     Optional<CoachTimesheet> findWithDetailsByTimesheetId(UUID timesheetId);

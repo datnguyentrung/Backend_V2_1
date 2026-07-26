@@ -216,6 +216,8 @@ public class StudentAttendanceDTO {
 
         UUID personId;
 
+        UUID classSessionId;
+
         public CreateRequest(String studentCode) {
             this.studentCode = studentCode;
         }

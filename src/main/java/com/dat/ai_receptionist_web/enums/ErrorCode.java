@@ -8,6 +8,7 @@ import lombok.Getter;
 public enum ErrorCode {
     STUDENT_ALREADY_ENROLLED(409, "Học viên đang theo học lớp này, không thể đăng ký thêm"),
     STUDENT_NOT_FOUND(404, "Không tìm thấy thông tin học viên"),
+    PERSON_NOT_FOUND(404, "Không tìm thấy thông tin người dùng"),
     STUDENT_INACTIVE(400, "Học viên không ở trạng thái hoạt động"),
     STUDENT_ACTIVE_ENROLLMENT_NOT_FOUND(409, "Học viên không có đăng ký lớp đang hoạt động"),
     COACH_NOT_FOUND(404, "Không tìm thấy thông tin huấn luyện viên"),
@@ -32,6 +33,8 @@ public enum ErrorCode {
     COACH_TIMESHEET_ALREADY_EXISTS(409, "Huấn luyện viên đã chấm công cho ca dạy này"),
     CLASS_SESSION_NOT_FOUND(404, "Không tìm thấy buổi học"),
     MULTIPLE_ACTIVE_CLASS_SESSIONS(409, "Học viên có nhiều buổi học đang hoạt động, không thể xác định buổi cần điểm danh"),
+    CHECK_IN_SESSION_REQUIRED(409, "Có nhiều buổi học hợp lệ, cần cung cấp classSessionId để xác định buổi điểm danh"),
+    ATTENDANCE_CHECK_IN_NOT_ALLOWED(409, "Bản ghi điểm danh hiện tại không cho phép check-in tự động"),
     ATTENDANCE_ALREADY_EXISTS(409, "Học viên đã được điểm danh cho buổi học này"),
     WRONG_CLASS_DAY(400, "Ngày chấm công không khớp với lịch học"),
     WRONG_CLASS_SHIFT(400, "Ca chấm công không khớp với lịch học"),
@@ -40,11 +43,43 @@ public enum ErrorCode {
     ACCESS_DENIED(403, "Không có quyền truy cập dữ liệu này"),
     INVALID_DATE_RANGE(400, "Khoảng ngày không hợp lệ"),
     NOTIFICATION_RECIPIENT_NOT_FOUND(404, "Notification not found"),
-    FACE_IMAGE_INVALID(400, "Ảnh khuôn mặt không hợp lệ"),
-    FACE_NOT_RECOGNIZED(422, "Không nhận diện được khuôn mặt"),
-    FACE_CHECK_IN_PERSON_TYPE_INVALID(409, "Người được nhận diện không thuộc loại có thể điểm danh"),
-    PYTHON_BACKEND_UNAVAILABLE(503, "Dịch vụ nhận diện khuôn mặt hiện không khả dụng"),
-    PYTHON_BACKEND_ERROR(502, "Dịch vụ nhận diện khuôn mặt trả về dữ liệu không hợp lệ");
+    FACE_IMAGE_INVALID(
+            400,
+            "Ảnh khuôn mặt không hợp lệ"
+    ),
+    INVALID_IMAGE_FILE(400, "File upload không hợp lệ"),
+    EMPTY_IMAGE_FILE(400, "File không chứa dữ liệu"),
+    FILE_TOO_LARGE(413, "File vượt quá dung lượng cho phép"),
+    UNSUPPORTED_IMAGE_TYPE(400, "MIME type không được hỗ trợ"),
+    IMAGE_DECODE_FAILED(400, "Không thể decode dữ liệu thành ảnh"),
+    FACE_NOT_DETECTED(
+            422,
+            "Không phát hiện được khuôn mặt trong ảnh"
+    ),
+    FACE_NOT_MATCHED(
+            422,
+            "Khuôn mặt không khớp với dữ liệu đã đăng ký"
+    ),
+    MULTIPLE_FACES_DETECTED(
+            422,
+            "Ảnh chỉ được chứa một khuôn mặt"
+    ),
+    FACE_EMBEDDING_FAILED(422, "Không tạo được face embedding"),
+    INVALID_EMBEDDING(422, "Face embedding không hợp lệ"),
+    MODEL_NOT_INITIALIZED(503, "InsightFace chưa được khởi tạo"),
+    INTERNAL_ERROR(500, "Lỗi hệ thống không xác định"),
+    FACE_CHECK_IN_PERSON_TYPE_INVALID(
+            409,
+            "Người được nhận diện không thuộc loại có thể điểm danh"
+    ),
+    PYTHON_BACKEND_UNAVAILABLE(
+            503,
+            "Dịch vụ nhận diện khuôn mặt hiện không khả dụng"
+    ),
+    PYTHON_BACKEND_ERROR(
+            502,
+            "Dịch vụ nhận diện khuôn mặt trả về dữ liệu không hợp lệ"
+    );
 
     private final int statusCode;
     private final String message;

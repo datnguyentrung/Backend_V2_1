@@ -89,7 +89,7 @@ public class ClassSessionDTO { // 1. Bỏ @Data ở class ngoài cùng
             ReportSessionRow session,
             StudentAttendanceDTO.AttendanceStats attendanceStats,
             List<ResponsibleCoachProjection> responsibleCoaches,
-            Map<UUID, CoachTimesheetStatusProjection> timesheetsByAssignmentId
+            Map<UUID, CoachTimesheetStatusProjection> timesheetsByCoachId
     ) {
     }
 

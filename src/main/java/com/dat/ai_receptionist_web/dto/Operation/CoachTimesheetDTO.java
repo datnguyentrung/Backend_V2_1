@@ -32,8 +32,6 @@ public class CoachTimesheetDTO {
 
         UUID personId;
 
-        UUID classSessionId;
-
         @JsonIgnore
         @AssertTrue(message = "Phải cung cấp staffCode hoặc personId")
         public boolean isIdentifierProvided() {
@@ -64,7 +62,7 @@ public class CoachTimesheetDTO {
         // Alias chung cho các response check-in; timesheetId vẫn được giữ để không phá frontend hiện tại.
         UUID attendanceId;
         UUID timesheetId;
-        UUID coachAssignmentId;
+        UUID classSessionId;
         CoachResDTO.CoachSummary coach;
         ClassScheduleResDTO.ClassScheduleSummary classSchedule;
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
@@ -104,7 +102,7 @@ public class CoachTimesheetDTO {
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class FilterRequest {
         UUID coachId;
-        UUID coachAssignmentId;
+        UUID classSessionId;
         String classScheduleId;
         Integer branchId;
         CoachTimesheetStatus status;

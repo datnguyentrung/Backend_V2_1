@@ -221,22 +221,19 @@ public class StudentAttendanceService {
                 : studentRepository.findCheckInStudentByPersonId(request.getPersonId())
                 .orElseThrow(() -> new AppException(ErrorCode.STUDENT_NOT_FOUND));
 
-        return createAttendanceRecordForResolvedStudent(student, request.getClassSessionId());
+        return createAttendanceRecordForResolvedStudent(student);
     }
 
     /**
      * Internal fast path for face check-in. The caller has already resolved the student
      * while identifying the check-in target, so no second student lookup is needed.
      */
+    @Transactional(rollbackFor = Exception.class)
     public StudentAttendanceDTO.Response createAttendanceRecordForResolvedStudent(CheckInStudentProjection student) {
-        return createAttendanceRecordForResolvedStudent(student, null);
+        return createAttendanceRecordForResolvedStudentInternal(student);
     }
 
-    @Transactional(rollbackFor = Exception.class)
-    public StudentAttendanceDTO.Response createAttendanceRecordForResolvedStudent(
-            CheckInStudentProjection student,
-            UUID classSessionId
-    ) {
+    private StudentAttendanceDTO.Response createAttendanceRecordForResolvedStudentInternal(CheckInStudentProjection student) {
         if (student.getStudentStatus() != StudentStatus.ACTIVE) {
             throw new AppException(ErrorCode.STUDENT_INACTIVE);
         }
@@ -261,26 +258,8 @@ public class StudentAttendanceService {
                 .toList();
 
         List<ClassSession> relevantSessions = classSessionRepository
-                .findBySessionDateAndStatusAndClassSchedule_ScheduleIdIn(
-                        today,
-                        SessionStatus.ACTIVE,
-                        enrolledScheduleIds
-                );
-
-        if (classSessionId != null) {
-            relevantSessions = relevantSessions.stream()
-                    .filter(session -> classSessionId.equals(session.getSessionId()))
-                    .toList();
-        }
-
-        if (relevantSessions.isEmpty()) {
-            throw new AppException(ErrorCode.CLASS_SESSION_NOT_FOUND);
-        }
-        if (relevantSessions.size() > 1) {
-            throw new AppException(ErrorCode.CHECK_IN_SESSION_REQUIRED);
-        }
-
-        ClassSession currentSession = relevantSessions.getFirst();
+                .findBySessionDateAndClassSchedule_ScheduleIdIn(today, enrolledScheduleIds);
+        ClassSession currentSession = selectAutomaticSession(relevantSessions);
         StudentEnrollment enrollment = enrollments.stream()
                 .filter(item -> item.getClassSchedule().getScheduleId()
                         .equals(currentSession.getClassSchedule().getScheduleId()))
@@ -335,6 +314,42 @@ public class StudentAttendanceService {
         return currentTime.isBefore(enrollment.getClassSchedule().getStartTime())
                 ? AttendanceStatus.PRESENT
                 : AttendanceStatus.LATE;
+    }
+
+    private ClassSession selectAutomaticSession(List<ClassSession> sessions) {
+        List<ClassSession> ordered = sessions.stream()
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(ClassSession::getStartTime)
+                        .thenComparing(ClassSession::getSessionId))
+                .toList();
+        ClassSession selected = ordered.stream()
+                .filter(session -> session.getStatus() == SessionStatus.ACTIVE)
+                .filter(session -> !session.isAttendanceClosed())
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.CLASS_SESSION_NOT_FOUND));
+
+        boolean hasEarlierUnfinishedSession = ordered.stream()
+                .takeWhile(session -> !session.getSessionId().equals(selected.getSessionId()))
+                .anyMatch(session -> !isTerminal(session));
+        if (hasEarlierUnfinishedSession) {
+            throw new AppException(ErrorCode.CLASS_SESSION_NOT_FOUND);
+        }
+
+        long sameStartTimeCandidates = ordered.stream()
+                .filter(session -> session.getStatus() == SessionStatus.ACTIVE)
+                .filter(session -> !session.isAttendanceClosed())
+                .filter(session -> session.getStartTime().equals(selected.getStartTime()))
+                .count();
+        if (sameStartTimeCandidates > 1) {
+            throw new AppException(ErrorCode.MULTIPLE_ACTIVE_CLASS_SESSIONS);
+        }
+        return selected;
+    }
+
+    private static boolean isTerminal(ClassSession session) {
+        return session.getStatus() == SessionStatus.COMPLETED
+                || session.getStatus() == SessionStatus.CANCELLED
+                || session.getStatus() == SessionStatus.TERMINATED;
     }
 
     private static boolean isAutomaticCheckInAllowed(AttendanceStatus attendanceStatus) {

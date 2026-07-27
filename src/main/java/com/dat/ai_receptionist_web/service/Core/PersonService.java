@@ -76,10 +76,6 @@ public class PersonService {
     }
 
     public PersonDTO.FaceCheckInResponse checkInByFaceImage(MultipartFile file) {
-        return checkInByFaceImage(file, null);
-    }
-
-    public PersonDTO.FaceCheckInResponse checkInByFaceImage(MultipartFile file, UUID classSessionId) {
         PythonBackendClient.FaceEmbeddingResponse response = generateFaceEmbedding(file);
         NearestPersonMatch nearestPerson = findNearestPersonByEmbedding(
                 response.embedding(),
@@ -100,15 +96,13 @@ public class PersonService {
 
         if (isStudent) {
             return studentAttendanceService.createAttendanceRecordForResolvedStudent(
-                    new ResolvedStudentCheckIn(subject),
-                    classSessionId
+                    new ResolvedStudentCheckIn(subject)
             );
         }
         return coachTimesheetService.checkInResolvedCoach(
                 subject.getPersonId(),
-                toCoachStatus(subject.getCoachStatus()),
-                classSessionId
-        );
+                toCoachStatus(subject.getCoachStatus())
+            );
     }
 
     /**

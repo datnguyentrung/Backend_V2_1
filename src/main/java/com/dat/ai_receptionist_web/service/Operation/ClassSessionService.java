@@ -465,22 +465,14 @@ public class ClassSessionService {
                         session.getSessionDate()
                 );
 
-        List<UUID> assignmentIds = responsibleCoaches.stream()
-                .map(ResponsibleCoachProjection::getAssignmentId)
-                .filter(java.util.Objects::nonNull)
-                .distinct()
-                .toList();
-        Map<UUID, CoachTimesheetStatusProjection> timesheetsByAssignmentId =
-                coachTimesheetService.findStatusesByAssignmentIds(
-                        assignmentIds,
-                        session.getSessionDate()
-                );
+        Map<UUID, CoachTimesheetStatusProjection> timesheetsByCoachId =
+                coachTimesheetService.findStatusesByClassSessionId(sessionId);
 
         return new ClassSessionDTO.ReportData(
                 session,
                 attendanceStats,
                 List.copyOf(responsibleCoaches),
-                Map.copyOf(timesheetsByAssignmentId)
+                Map.copyOf(timesheetsByCoachId)
         );
     }
 

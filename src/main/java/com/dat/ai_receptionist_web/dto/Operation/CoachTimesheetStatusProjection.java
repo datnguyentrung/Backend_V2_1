@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 public interface CoachTimesheetStatusProjection {
-    UUID getAssignmentId();
+    UUID getCoachId();
 
     CoachTimesheetStatus getStatus();
 

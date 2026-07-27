@@ -1,5 +1,6 @@
 package com.dat.ai_receptionist_web.domain.Operation;
 
+import com.dat.ai_receptionist_web.domain.Core.Coach;
 import com.dat.ai_receptionist_web.enums.Operation.CoachTimesheetStatus;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
@@ -28,13 +29,13 @@ import java.util.UUID;
 @NamedEntityGraph(
         name = "CoachTimesheet.withDetails",
         attributeNodes = {
-                @NamedAttributeNode(value = "coachAssignment", subgraph = "assignment-subgraph")
+                @NamedAttributeNode("coach"),
+                @NamedAttributeNode(value = "classSession", subgraph = "session-subgraph")
         },
         subgraphs = {
                 @NamedSubgraph(
-                        name = "assignment-subgraph",
+                        name = "session-subgraph",
                         attributeNodes = {
-                                @NamedAttributeNode("coach"),
                                 @NamedAttributeNode(value = "classSchedule", subgraph = "schedule-subgraph")
                         }
                 ),
@@ -49,13 +50,14 @@ import java.util.UUID;
         schema = "operation",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_coach_schedule_date",
-                        columnNames = {"coach_assignemnt", "working_date"}
+                        name = "uk_coach_class_session",
+                        columnNames = {"coach_id", "class_session_id"}
                 )
         },
         indexes = {
                 @Index(name = "idx_ct_working_date", columnList = "working_date DESC"),
-                @Index(name = "idx_ct_status", columnList = "status")
+                @Index(name = "idx_ct_status", columnList = "status"),
+                @Index(name = "idx_ct_class_session", columnList = "class_session_id")
         }
 )
 @FieldDefaults(level = AccessLevel.PRIVATE)
@@ -70,8 +72,13 @@ public class CoachTimesheet {
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "coach_assignemnt", nullable = false)
-    CoachAssignment coachAssignment;
+    @JoinColumn(name = "coach_id", nullable = false)
+    Coach coach;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "class_session_id", nullable = false)
+    ClassSession classSession;
 
     @NotNull(message = "Ngày làm việc không được để trống")
     @PastOrPresent(message = "Ngày làm việc không hợp lệ")

@@ -23,7 +23,6 @@ import com.dat.ai_receptionist_web.enums.Operation.NotificationType;
 import com.dat.ai_receptionist_web.enums.Operation.SessionStatus;
 import com.dat.ai_receptionist_web.mapper.Operation.CoachTimesheetMapper;
 import com.dat.ai_receptionist_web.repository.Core.CoachRepository;
-import com.dat.ai_receptionist_web.repository.Operation.CoachAssignmentRepository;
 import com.dat.ai_receptionist_web.repository.Operation.ClassSessionRepository;
 import com.dat.ai_receptionist_web.repository.Operation.CoachTimesheetRepository;
 import com.dat.ai_receptionist_web.service.Security.AuthTokenService;
@@ -53,7 +52,6 @@ public class CoachTimesheetService {
 
     private final CoachTimesheetRepository coachTimesheetRepository;
     private final CoachAssignmentService coachAssignmentService;
-    private final CoachAssignmentRepository coachAssignmentRepository;
     private final CoachRepository coachRepository;
     private final ClassSessionRepository classSessionRepository;
     private final CoachTimesheetMapper coachTimesheetMapper;
@@ -65,8 +63,8 @@ public class CoachTimesheetService {
     private final UserService userService;
 
     private void sendAttendanceNotification(CoachTimesheet coachTimesheet) {
-        Coach coach = coachTimesheet.getCoachAssignment().getCoach();
-        ClassSchedule schedule = coachTimesheet.getCoachAssignment().getClassSchedule();
+        Coach coach = coachTimesheet.getCoach();
+        ClassSchedule schedule = coachTimesheet.getClassSession().getClassSchedule();
         String scheduleId = schedule.getScheduleId();
 
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy", Locale.forLanguageTag("vi-VN"));
@@ -174,27 +172,42 @@ public class CoachTimesheetService {
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND)) :
                 coachRepository.findById(request.getPersonId())
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
-        return checkInResolvedCoach(coach.getPersonId(), coach.getCoachStatus(), request.getClassSessionId());
+        return checkInResolvedCoach(coach.getPersonId(), coach.getCoachStatus());
     }
 
     /**
      * Internal fast path for face check-in. The caller has already resolved the coach
      * while identifying the check-in target, so no second coach lookup is needed.
      */
-    public CoachTimesheetDTO.Response checkInResolvedCoach(UUID coachId, CoachStatus coachStatus) {
-        return checkInResolvedCoach(coachId, coachStatus, null);
-    }
-
     @Transactional(rollbackFor = Exception.class)
-    public CoachTimesheetDTO.Response checkInResolvedCoach(
-            UUID coachId,
-            CoachStatus coachStatus,
-            UUID classSessionId
-    ) {
+    public CoachTimesheetDTO.Response checkInResolvedCoach(UUID coachId, CoachStatus coachStatus) {
         LocalDateTime now = LocalDateTime.now(defaultZoneId);
         LocalDate today = now.toLocalDate();
         validateCoachActive(coachStatus);
+        Coach coach = coachRepository.findById(coachId)
+                .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
 
+        List<CoachAssignment> validAssignments = getValidAssignments(coachId, today);
+        List<ClassSession> sessions = classSessionRepository
+                .findBySessionDateAndClassSchedule_ScheduleIdIn(
+                        today,
+                        validAssignments.stream().map(a -> a.getClassSchedule().getScheduleId()).distinct().toList()
+                );
+        ClassSession classSession = selectAutomaticSession(sessions);
+        getScanWindowError(classSession, now).ifPresent(error -> { throw new AppException(error); });
+
+        boolean hasAssignmentForSession = validAssignments.stream()
+                .filter(item -> item.getClassSchedule().getScheduleId()
+                        .equals(classSession.getClassSchedule().getScheduleId()))
+                .findAny()
+                .isPresent();
+        if (!hasAssignmentForSession) {
+            throw new AppException(ErrorCode.COACH_ASSIGNMENT_INVALID);
+        }
+        return checkInForSession(coach, classSession, now, today);
+    }
+
+    private List<CoachAssignment> getValidAssignments(UUID coachId, LocalDate today) {
         List<CoachAssignment> activeAssignments = coachAssignmentService
                 .getAllCoachAssignmentsByListCoachIds(List.of(coachId), CoachAssignmentStatus.ACTIVE);
         if (activeAssignments.isEmpty()) {
@@ -212,106 +225,25 @@ public class CoachTimesheetService {
             throw new AppException(ErrorCode.COACH_ASSIGNMENT_INVALID);
         }
 
-        Map<String, ClassSession> sessionByScheduleId = classSessionRepository
-                .findBySessionDateAndClassSchedule_ScheduleIdIn(
-                        today,
-                        validAssignments.stream()
-                                .map(assignment -> assignment.getClassSchedule().getScheduleId())
-                                .toList()
-                )
-                .stream()
-                .collect(Collectors.toMap(
-                        session -> session.getClassSchedule().getScheduleId(),
-                        Function.identity(),
-                        this::preferActiveSession
-                ));
+        return validAssignments;
+    }
 
-        List<ClassSession> candidateSessions = validAssignments.stream()
-                .map(assignment -> sessionByScheduleId.get(assignment.getClassSchedule().getScheduleId()))
-                .filter(Objects::nonNull)
-                .filter(this::isClassSessionUsable)
-                .collect(Collectors.collectingAndThen(
-                        Collectors.toMap(ClassSession::getSessionId, Function.identity(), (left, right) -> left),
-                        sessions -> new ArrayList<>(sessions.values())
-                ));
-        if (classSessionId == null && candidateSessions.size() > 1) {
-            throw new AppException(ErrorCode.CHECK_IN_SESSION_REQUIRED);
+    private CoachTimesheetDTO.Response checkInForSession(
+            Coach coach, ClassSession classSession, LocalDateTime now, LocalDate today) {
+        Optional<CoachTimesheet> existingTimesheet = coachTimesheetRepository
+                .findForCheckInByCoach_PersonIdAndClassSession_SessionId(coach.getPersonId(), classSession.getSessionId());
+        if (existingTimesheet.isPresent()) {
+            CoachTimesheet timesheet = existingTimesheet.get();
+            if (timesheet.getCheckInTime() != null) {
+                return toCheckInResponse(timesheet, true);
+            }
+            timesheet.setCheckInTime(now);
+            timesheet.setStatus(CoachTimesheetStatus.CHECKED_IN);
+            CoachTimesheet saved = coachTimesheetRepository.saveAndFlush(timesheet);
+            sendAttendanceNotification(saved);
+            return toCheckInResponse(saved, false);
         }
-
-        boolean hasClassToday = false;
-        boolean hasWindowCandidate = false;
-        List<ErrorCode> windowErrors = new ArrayList<>();
-
-        for (CoachAssignment assignment : validAssignments) {
-            ClassSchedule schedule = assignment.getClassSchedule();
-            ClassSession classSession = sessionByScheduleId.get(schedule.getScheduleId());
-
-            if (classSession == null) {
-                continue;
-            }
-
-            if (classSessionId != null && !classSessionId.equals(classSession.getSessionId())) {
-                continue;
-            }
-
-            hasClassToday = true;
-
-            if (!isClassSessionUsable(classSession)) {
-                continue;
-            }
-
-            Optional<ErrorCode> scanWindowError = getScanWindowError(classSession, now);
-
-            if (scanWindowError.isPresent()) {
-                windowErrors.add(scanWindowError.get());
-                continue;
-            }
-
-            hasWindowCandidate = true;
-
-            CoachAssignment lockedAssignment = coachAssignmentRepository
-                    .findForCheckInByAssignmentId(assignment.getAssignmentId())
-                    .orElseThrow(() -> new AppException(ErrorCode.COACH_ASSIGNMENT_INVALID));
-            Optional<CoachTimesheet> existingTimesheet = coachTimesheetRepository
-                    .findForCheckInByCoachAssignment_AssignmentIdAndWorkingDate(
-                            lockedAssignment.getAssignmentId(),
-                            today
-                    );
-            if (existingTimesheet.isPresent()) {
-                CoachTimesheet timesheet = existingTimesheet.get();
-                if (timesheet.getCheckInTime() != null) {
-                    log.info("CHECK_IN_RESULT personId={} timesheetId={} alreadyCheckedIn=true checkInTime={}",
-                            coachId, timesheet.getTimesheetId(), timesheet.getCheckInTime());
-                    return toCheckInResponse(timesheet, true);
-                }
-
-                CoachTimesheetStatus previousStatus = timesheet.getStatus();
-                timesheet.setCheckInTime(now);
-                timesheet.setStatus(CoachTimesheetStatus.CHECKED_IN);
-                CoachTimesheet savedTimesheet = coachTimesheetRepository.saveAndFlush(timesheet);
-                sendAttendanceNotification(savedTimesheet);
-                log.info("CHECK_IN_RESULT personId={} timesheetId={} alreadyCheckedIn=false previousStatus={} newStatus={}",
-                        coachId, savedTimesheet.getTimesheetId(), previousStatus, CoachTimesheetStatus.CHECKED_IN);
-                return toCheckInResponse(savedTimesheet, false);
-            }
-
-            return createTimesheet(
-                    lockedAssignment,
-                    classSession,
-                    now,
-                    today
-            );
-        }
-
-        if (!hasClassToday) {
-            throw new AppException(ErrorCode.CLASS_SESSION_NOT_FOUND);
-        }
-
-        if (!hasWindowCandidate && !windowErrors.isEmpty()) {
-            throw resolveWindowError(windowErrors);
-        }
-
-        throw new AppException(ErrorCode.CLASS_SESSION_NOT_FOUND);
+        return createTimesheet(coach, classSession, now, today);
     }
 
     @Transactional(readOnly = true)
@@ -340,7 +272,7 @@ public class CoachTimesheetService {
 
         Specification<CoachTimesheet> spec = CoachTimesheetSpecification.filterBy(
                 filter.getCoachId(),
-                filter.getCoachAssignmentId(),
+                filter.getClassSessionId(),
                 filter.getClassScheduleId(),
                 filter.getBranchId(),
                 filter.getStatus(),
@@ -384,13 +316,14 @@ public class CoachTimesheetService {
     }
 
     private CoachTimesheetDTO.Response createTimesheet(
-            CoachAssignment assignment,
+            Coach coach,
             ClassSession session,
             LocalDateTime now,
             LocalDate today
     ) {
         CoachTimesheet saved = coachTimesheetRepository.saveAndFlush(CoachTimesheet.builder()
-                .coachAssignment(assignment)
+                .coach(coach)
+                .classSession(session)
                 .workingDate(today)
                 .checkInTime(now)
                 .status(CoachTimesheetStatus.CHECKED_IN)
@@ -398,7 +331,7 @@ public class CoachTimesheetService {
                 .build());
         sendAttendanceNotification(saved);
         log.info("CHECK_IN_RESULT personId={} timesheetId={} alreadyCheckedIn=false previousStatus=null newStatus={}",
-                assignment.getCoach().getPersonId(), saved.getTimesheetId(), CoachTimesheetStatus.CHECKED_IN);
+                coach.getPersonId(), saved.getTimesheetId(), CoachTimesheetStatus.CHECKED_IN);
         return toCheckInResponse(saved, false);
     }
 
@@ -416,10 +349,8 @@ public class CoachTimesheetService {
     }
 
     private boolean isClassSessionUsable(ClassSession classSession) {
-        if (classSession.getStatus() == SessionStatus.CANCELLED || classSession.getStatus() == SessionStatus.TERMINATED) {
-            return false;
-        }
-        return !classSession.isAttendanceClosed();
+        return classSession.getStatus() == SessionStatus.ACTIVE
+                && !classSession.isAttendanceClosed();
     }
 
     private Optional<ErrorCode> getScanWindowError(ClassSession classSession, LocalDateTime now) {
@@ -447,14 +378,39 @@ public class CoachTimesheetService {
         );
     }
 
-    private ClassSession preferActiveSession(ClassSession left, ClassSession right) {
-        if (left.getStatus() == SessionStatus.ACTIVE) {
-            return left;
+    private ClassSession selectAutomaticSession(List<ClassSession> sessions) {
+        List<ClassSession> ordered = sessions.stream()
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparing(ClassSession::getStartTime)
+                        .thenComparing(ClassSession::getSessionId))
+                .toList();
+
+        ClassSession selected = ordered.stream()
+                .filter(this::isClassSessionUsable)
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.CLASS_SESSION_NOT_FOUND));
+
+        boolean hasEarlierUnfinishedSession = ordered.stream()
+                .takeWhile(session -> !session.getSessionId().equals(selected.getSessionId()))
+                .anyMatch(session -> !isTerminal(session));
+        if (hasEarlierUnfinishedSession) {
+            throw new AppException(ErrorCode.CLASS_SESSION_NOT_FOUND);
         }
-        if (right.getStatus() == SessionStatus.ACTIVE) {
-            return right;
+
+        long sameStartTimeCandidates = ordered.stream()
+                .filter(this::isClassSessionUsable)
+                .filter(session -> session.getStartTime().equals(selected.getStartTime()))
+                .count();
+        if (sameStartTimeCandidates > 1) {
+            throw new AppException(ErrorCode.MULTIPLE_ACTIVE_CLASS_SESSIONS);
         }
-        return left;
+        return selected;
+    }
+
+    private boolean isTerminal(ClassSession session) {
+        return session.getStatus() == SessionStatus.COMPLETED
+                || session.getStatus() == SessionStatus.CANCELLED
+                || session.getStatus() == SessionStatus.TERMINATED;
     }
 
     private void validateDateRange(LocalDate from, LocalDate to) {
@@ -468,7 +424,7 @@ public class CoachTimesheetService {
             return;
         }
         UUID currentCoachId = currentUserId(authentication);
-        UUID ownerCoachId = timesheet.getCoachAssignment().getCoach().getPersonId();
+        UUID ownerCoachId = timesheet.getCoach().getPersonId();
         if (!currentCoachId.equals(ownerCoachId)) {
             throw new AppException(ErrorCode.ACCESS_DENIED);
         }
@@ -550,20 +506,17 @@ public class CoachTimesheetService {
     }
 
     @Transactional(readOnly = true)
-    public Map<UUID, CoachTimesheetStatusProjection> findStatusesByAssignmentIds(
-            Collection<UUID> assignmentIds,
-            LocalDate workingDate
-    ) {
-        if (assignmentIds == null || assignmentIds.isEmpty() || workingDate == null) {
+    public Map<UUID, CoachTimesheetStatusProjection> findStatusesByClassSessionId(UUID classSessionId) {
+        if (classSessionId == null) {
             return Map.of();
         }
 
         return coachTimesheetRepository
-                .findStatusByAssignmentIdsAndWorkingDate(assignmentIds, workingDate)
+                .findStatusByClassSessionId(classSessionId)
                 .stream()
-                .filter(row -> row.getAssignmentId() != null)
+                .filter(row -> row.getCoachId() != null)
                 .collect(Collectors.toMap(
-                        CoachTimesheetStatusProjection::getAssignmentId,
+                        CoachTimesheetStatusProjection::getCoachId,
                         Function.identity(),
                         (first, second) -> first
                 ));
@@ -571,7 +524,7 @@ public class CoachTimesheetService {
 
     public String buildResponsibleCoachReportSummary(
             List<ResponsibleCoachProjection> assignments,
-        Map<UUID, CoachTimesheetStatusProjection> timesheetByAssignmentId
+        Map<UUID, CoachTimesheetStatusProjection> timesheetByCoachId
     ) {
         if (assignments == null || assignments.isEmpty()) {
             return "chưa xác định được HLV phụ trách.";
@@ -585,7 +538,7 @@ public class CoachTimesheetService {
                     String coachName = assignment.getCoachName() == null || assignment.getCoachName().isBlank()
                             ? "Không xác định"
                             : assignment.getCoachName().trim();
-                    CoachTimesheetStatusProjection timesheet = timesheetByAssignmentId.get(assignment.getAssignmentId());
+                    CoachTimesheetStatusProjection timesheet = timesheetByCoachId.get(assignment.getCoachPersonId());
                     if (timesheet == null) {
                         return String.format("HLV %s - chưa chấm công", coachName);
                     }

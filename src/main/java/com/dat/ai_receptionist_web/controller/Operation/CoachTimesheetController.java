@@ -46,7 +46,7 @@ public class CoachTimesheetController {
     public ResponseEntity<CoachTimesheetDTO.TimesheetListResponse> filter(
             Authentication authentication,
             @RequestParam(required = false) UUID coachId,
-            @RequestParam(required = false) UUID coachAssignmentId,
+            @RequestParam(required = false) UUID classSessionId,
             @RequestParam(required = false) String classScheduleId,
             @RequestParam(required = false) Integer branchId,
             @RequestParam(required = false) CoachTimesheetStatus status,
@@ -62,7 +62,7 @@ public class CoachTimesheetController {
             @RequestParam(defaultValue = "desc") String sortDir
     ) {
         CoachTimesheetDTO.FilterRequest filter = new CoachTimesheetDTO.FilterRequest(
-                coachId, coachAssignmentId, classScheduleId, branchId,
+                coachId, classSessionId, classScheduleId, branchId,
                 status, workDate, fromDate, toDate, month, year, search
         );
         Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();

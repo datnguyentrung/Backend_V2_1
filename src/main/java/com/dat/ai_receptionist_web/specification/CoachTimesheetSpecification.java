@@ -3,7 +3,7 @@ package com.dat.ai_receptionist_web.specification;
 import com.dat.ai_receptionist_web.domain.Core.Branch;
 import com.dat.ai_receptionist_web.domain.Core.ClassSchedule;
 import com.dat.ai_receptionist_web.domain.Core.Coach;
-import com.dat.ai_receptionist_web.domain.Operation.CoachAssignment;
+import com.dat.ai_receptionist_web.domain.Operation.ClassSession;
 import com.dat.ai_receptionist_web.domain.Operation.CoachTimesheet;
 import com.dat.ai_receptionist_web.enums.Operation.CoachTimesheetStatus;
 import jakarta.persistence.criteria.Join;
@@ -21,7 +21,7 @@ public class CoachTimesheetSpecification {
 
     public static Specification<CoachTimesheet> filterBy(
             UUID coachId,
-            UUID coachAssignmentId,
+            UUID classSessionId,
             String classScheduleId,
             Integer branchId,
             CoachTimesheetStatus status,
@@ -34,16 +34,16 @@ public class CoachTimesheetSpecification {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            Join<CoachTimesheet, CoachAssignment> assignmentJoin = root.join("coachAssignment", JoinType.INNER);
-            Join<CoachAssignment, Coach> coachJoin = assignmentJoin.join("coach", JoinType.INNER);
-            Join<CoachAssignment, ClassSchedule> scheduleJoin = assignmentJoin.join("classSchedule", JoinType.INNER);
+            Join<CoachTimesheet, Coach> coachJoin = root.join("coach", JoinType.INNER);
+            Join<CoachTimesheet, ClassSession> sessionJoin = root.join("classSession", JoinType.INNER);
+            Join<ClassSession, ClassSchedule> scheduleJoin = sessionJoin.join("classSchedule", JoinType.INNER);
             Join<ClassSchedule, Branch> branchJoin = scheduleJoin.join("branch", JoinType.LEFT);
 
             if (coachId != null) {
                 predicates.add(cb.equal(coachJoin.get("personId"), coachId));
             }
-            if (coachAssignmentId != null) {
-                predicates.add(cb.equal(assignmentJoin.get("assignmentId"), coachAssignmentId));
+            if (classSessionId != null) {
+                predicates.add(cb.equal(sessionJoin.get("sessionId"), classSessionId));
             }
             if (classScheduleId != null && !classScheduleId.isBlank()) {
                 predicates.add(cb.equal(scheduleJoin.get("scheduleId"), classScheduleId.trim()));

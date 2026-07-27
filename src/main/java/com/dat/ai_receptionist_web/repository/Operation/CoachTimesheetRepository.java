@@ -13,7 +13,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,13 +22,13 @@ public interface CoachTimesheetRepository extends JpaRepository<CoachTimesheet, 
         JpaSpecificationExecutor<CoachTimesheet>,
         CoachTimesheetRepositoryCustom {
 
-    boolean existsByCoachAssignment_AssignmentIdAndWorkingDate(UUID assignmentId, LocalDate workingDate);
+    boolean existsByCoach_PersonIdAndClassSession_SessionId(UUID coachId, UUID classSessionId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(value = "CoachTimesheet.withDetails")
-    Optional<CoachTimesheet> findForCheckInByCoachAssignment_AssignmentIdAndWorkingDate(
-            UUID assignmentId,
-            LocalDate workingDate
+    Optional<CoachTimesheet> findForCheckInByCoach_PersonIdAndClassSession_SessionId(
+            UUID coachId,
+            UUID classSessionId
     );
 
     @EntityGraph(value = "CoachTimesheet.withDetails")
@@ -40,7 +39,7 @@ public interface CoachTimesheetRepository extends JpaRepository<CoachTimesheet, 
     int deleteByTimesheetId(@Param("timesheetId") UUID timesheetId);
 
     @EntityGraph(value = "CoachTimesheet.withDetails")
-    List<CoachTimesheet> findByCoachAssignment_Coach_PersonIdAndWorkingDateBetween(
+    List<CoachTimesheet> findByCoach_PersonIdAndWorkingDateBetween(
             UUID coachId,
             LocalDate fromDate,
             LocalDate toDate
@@ -48,11 +47,11 @@ public interface CoachTimesheetRepository extends JpaRepository<CoachTimesheet, 
 
     @Query("""
             SELECT ct FROM CoachTimesheet ct
-            JOIN FETCH ct.coachAssignment ca
-            JOIN FETCH ca.coach
-            JOIN FETCH ca.classSchedule cs
+            JOIN FETCH ct.coach coach
+            JOIN FETCH ct.classSession session
+            JOIN FETCH session.classSchedule cs
             LEFT JOIN FETCH cs.branch
-            WHERE ca.coach.personId = :coachId
+            WHERE coach.personId = :coachId
             AND ct.workingDate >= :fromDate
             AND ct.workingDate <= :toDate
             """)
@@ -62,27 +61,15 @@ public interface CoachTimesheetRepository extends JpaRepository<CoachTimesheet, 
             @Param("toDate") LocalDate toDate
     );
 
-    @EntityGraph(attributePaths = {
-            "coachAssignment",
-            "coachAssignment.coach",
-            "coachAssignment.classSchedule"
-    })
-    List<CoachTimesheet> findAllByCoachAssignment_AssignmentIdInAndWorkingDate(
-            Collection<UUID> assignmentIds,
-            LocalDate workingDate
-    );
-
     @Query("""
-            SELECT ct.coachAssignment.assignmentId AS assignmentId,
+            SELECT ct.coach.personId AS coachId,
                    ct.status AS status,
                    ct.checkInTime AS checkInTime,
                    ct.checkOutTime AS checkOutTime
             FROM CoachTimesheet ct
-            WHERE ct.coachAssignment.assignmentId IN :assignmentIds
-              AND ct.workingDate = :workingDate
+            WHERE ct.classSession.sessionId = :classSessionId
             """)
-    List<CoachTimesheetStatusProjection> findStatusByAssignmentIdsAndWorkingDate(
-            @Param("assignmentIds") Collection<UUID> assignmentIds,
-            @Param("workingDate") LocalDate workingDate
+    List<CoachTimesheetStatusProjection> findStatusByClassSessionId(
+            @Param("classSessionId") UUID classSessionId
     );
 }

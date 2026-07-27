@@ -44,11 +44,10 @@ public class PersonController {
     )
     @PreAuthorize("@securityRule.isCoach(authentication) or @securityRule.isSystem(authentication)")
     public ResponseEntity<PersonDTO.FaceCheckInResponse> checkInByFaceImage(
-            @RequestPart("file") MultipartFile file,
-            @RequestParam(required = false) java.util.UUID classSessionId
+            @RequestPart("file") MultipartFile file
     ) {
         return ResponseEntity.ok(
-                personService.checkInByFaceImage(file, classSessionId)
+                personService.checkInByFaceImage(file)
         );
     }
 

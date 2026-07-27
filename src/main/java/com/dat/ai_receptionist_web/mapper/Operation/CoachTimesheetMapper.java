@@ -20,9 +20,9 @@ import java.util.List;
 )
 public interface CoachTimesheetMapper {
 
-    @Mapping(target = "coachAssignmentId", source = "coachAssignment.assignmentId")
-    @Mapping(target = "coach", source = "coachAssignment.coach", qualifiedByName = "toCoachSummary")
-    @Mapping(target = "classSchedule", source = "coachAssignment.classSchedule", qualifiedByName = "toClassScheduleSummary")
+    @Mapping(target = "classSessionId", source = "classSession.sessionId")
+    @Mapping(target = "coach", source = "coach", qualifiedByName = "toCoachSummary")
+    @Mapping(target = "classSchedule", source = "classSession.classSchedule", qualifiedByName = "toClassScheduleSummary")
     CoachTimesheetDTO.Response toResponse(CoachTimesheet entity);
 
     List<CoachTimesheetDTO.Response> toResponseList(List<CoachTimesheet> entities);

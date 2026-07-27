@@ -32,7 +32,7 @@ public class ClassSessionReportService {
 
         String coachSummary = coachTimesheetService.buildResponsibleCoachReportSummary(
                 coaches,
-                reportData.timesheetsByAssignmentId()
+                reportData.timesheetsByCoachId()
         );
         String formattedDate = session.getSessionDate()
                 .format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.forLanguageTag("vi-VN")));

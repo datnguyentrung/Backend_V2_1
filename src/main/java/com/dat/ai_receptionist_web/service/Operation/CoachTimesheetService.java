@@ -196,15 +196,15 @@ public class CoachTimesheetService {
         ClassSession classSession = selectAutomaticSession(sessions);
         getScanWindowError(classSession, now).ifPresent(error -> { throw new AppException(error); });
 
-        boolean hasAssignmentForSession = validAssignments.stream()
+        CoachAssignment coachAssignment = validAssignments.stream()
                 .filter(item -> item.getClassSchedule().getScheduleId()
                         .equals(classSession.getClassSchedule().getScheduleId()))
-                .findAny()
-                .isPresent();
-        if (!hasAssignmentForSession) {
+                .findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.COACH_ASSIGNMENT_INVALID));
+        if (!coachAssignment.getCoach().getPersonId().equals(coach.getPersonId())) {
             throw new AppException(ErrorCode.COACH_ASSIGNMENT_INVALID);
         }
-        return checkInForSession(coach, classSession, now, today);
+        return checkInForSession(coachAssignment, classSession, now, today);
     }
 
     private List<CoachAssignment> getValidAssignments(UUID coachId, LocalDate today) {
@@ -229,9 +229,10 @@ public class CoachTimesheetService {
     }
 
     private CoachTimesheetDTO.Response checkInForSession(
-            Coach coach, ClassSession classSession, LocalDateTime now, LocalDate today) {
+            CoachAssignment coachAssignment, ClassSession classSession, LocalDateTime now, LocalDate today) {
         Optional<CoachTimesheet> existingTimesheet = coachTimesheetRepository
-                .findForCheckInByCoach_PersonIdAndClassSession_SessionId(coach.getPersonId(), classSession.getSessionId());
+                .findForCheckInByCoachAssignment_AssignmentIdAndClassSession_SessionId(
+                        coachAssignment.getAssignmentId(), classSession.getSessionId());
         if (existingTimesheet.isPresent()) {
             CoachTimesheet timesheet = existingTimesheet.get();
             if (timesheet.getCheckInTime() != null) {
@@ -243,7 +244,7 @@ public class CoachTimesheetService {
             sendAttendanceNotification(saved);
             return toCheckInResponse(saved, false);
         }
-        return createTimesheet(coach, classSession, now, today);
+        return createTimesheet(coachAssignment, classSession, now, today);
     }
 
     @Transactional(readOnly = true)
@@ -316,13 +317,14 @@ public class CoachTimesheetService {
     }
 
     private CoachTimesheetDTO.Response createTimesheet(
-            Coach coach,
+            CoachAssignment coachAssignment,
             ClassSession session,
             LocalDateTime now,
             LocalDate today
     ) {
         CoachTimesheet saved = coachTimesheetRepository.saveAndFlush(CoachTimesheet.builder()
-                .coach(coach)
+                .coach(coachAssignment.getCoach())
+                .coachAssignment(coachAssignment)
                 .classSession(session)
                 .workingDate(today)
                 .checkInTime(now)
@@ -331,7 +333,7 @@ public class CoachTimesheetService {
                 .build());
         sendAttendanceNotification(saved);
         log.info("CHECK_IN_RESULT personId={} timesheetId={} alreadyCheckedIn=false previousStatus=null newStatus={}",
-                coach.getPersonId(), saved.getTimesheetId(), CoachTimesheetStatus.CHECKED_IN);
+                coachAssignment.getCoach().getPersonId(), saved.getTimesheetId(), CoachTimesheetStatus.CHECKED_IN);
         return toCheckInResponse(saved, false);
     }
 

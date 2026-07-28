@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.InvalidMediaTypeException;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.BufferingClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -79,15 +80,21 @@ public class PythonBackendClient {
     void initializeRestClient() {
         validateConfiguration();
 
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory requestFactory =
+                new SimpleClientHttpRequestFactory();
+
         requestFactory.setConnectTimeout(connectTimeout);
         requestFactory.setReadTimeout(readTimeout);
 
+        BufferingClientHttpRequestFactory bufferingRequestFactory =
+                new BufferingClientHttpRequestFactory(requestFactory);
+
         String baseUrl = stripTrailingSlash(backendPythonApi);
+
         restClient = RestClient.builder()
                 .baseUrl(baseUrl)
-                .requestFactory(requestFactory)
-                .defaultHeaders(headers -> headers.setBearerAuth(huggingFaceToken))
+                .requestFactory(bufferingRequestFactory)
+                .defaultHeaders(headers -> headers.setBearerAuth(huggingFaceToken.trim()))
                 .build();
         log.info("Python backend client configured: baseUrlConfigured=true, huggingFaceAuthenticationConfigured=true, "
                         + "connectTimeoutMs={}, readTimeoutMs={}",
@@ -289,11 +296,37 @@ public class PythonBackendClient {
             ResourceAccessException exception
     ) {
         FailureType failureType = classifyResourceAccessFailure(exception);
-        Throwable cause = exception.getMostSpecificCause();
-        String causeType = cause == null ? "Unknown" : cause.getClass().getSimpleName();
-        log.warn("Python backend {} failed: requestId={}, path={}, durationMs={}, failureType={}, causeType={}",
-                operation, requestId, path, elapsedMillis(startedAtNanos), failureType, causeType);
-        return new PythonBackendClientException(failureType, messageFor(failureType), exception);
+
+        Throwable rootCause = exception;
+
+        while (
+                rootCause.getCause() != null
+                        && rootCause.getCause() != rootCause
+        ) {
+            rootCause = rootCause.getCause();
+        }
+
+        log.error(
+                "Python backend {} failed: requestId={}, path={}, durationMs={}, " +
+                        "failureType={}, exceptionType={}, exceptionMessage={}, " +
+                        "rootCauseType={}, rootCauseMessage={}",
+                operation,
+                requestId,
+                path,
+                elapsedMillis(startedAtNanos),
+                failureType,
+                exception.getClass().getName(),
+                exception.getMessage(),
+                rootCause.getClass().getName(),
+                rootCause.getMessage(),
+                exception
+        );
+
+        return new PythonBackendClientException(
+                failureType,
+                messageFor(failureType),
+                exception
+        );
     }
 
     private static PythonBackendClientException invalidResponseException(

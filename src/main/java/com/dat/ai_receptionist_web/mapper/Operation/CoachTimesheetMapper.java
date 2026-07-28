@@ -21,6 +21,7 @@ import java.util.List;
 public interface CoachTimesheetMapper {
 
     @Mapping(target = "classSessionId", source = "classSession.sessionId")
+    @Mapping(target = "coachAssignmentId", source = "coachAssignment.assignmentId")
     @Mapping(target = "coach", source = "coach", qualifiedByName = "toCoachSummary")
     @Mapping(target = "classSchedule", source = "classSession.classSchedule", qualifiedByName = "toClassScheduleSummary")
     CoachTimesheetDTO.Response toResponse(CoachTimesheet entity);

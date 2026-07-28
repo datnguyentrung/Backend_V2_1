@@ -52,13 +52,23 @@ public class PersonController {
     }
 
     @PatchMapping(
-            value = "/face-embedding",
+            value = "/{personId}/face-embedding",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     public ResponseEntity<PersonDTO.FaceEmbeddingUpdateResponse> updateFaceEmbedding(
-            @RequestPart("file") MultipartFile file,
-            @RequestParam UUID personId
+            @PathVariable UUID personId,
+            @RequestPart("file") MultipartFile file
     ) {
-        return ResponseEntity.ok(personService.updateFaceEmbedding(file, personId));
+        return ResponseEntity.ok(
+                personService.updateFaceEmbedding(file, personId)
+        );
+    }
+
+    @DeleteMapping("/{personId}/face-embedding")
+    public ResponseEntity<Void> deleteFaceEmbedding(
+            @PathVariable UUID personId
+    ) {
+        personService.deleteFaceEmbedding(personId);
+        return ResponseEntity.noContent().build(); // HTTP 204
     }
 }

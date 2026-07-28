@@ -30,9 +30,17 @@ import java.util.UUID;
         name = "CoachTimesheet.withDetails",
         attributeNodes = {
                 @NamedAttributeNode("coach"),
+                @NamedAttributeNode(value = "coachAssignment", subgraph = "assignment-subgraph"),
                 @NamedAttributeNode(value = "classSession", subgraph = "session-subgraph")
         },
         subgraphs = {
+                @NamedSubgraph(
+                        name = "assignment-subgraph",
+                        attributeNodes = {
+                                @NamedAttributeNode("coach"),
+                                @NamedAttributeNode("classSchedule")
+                        }
+                ),
                 @NamedSubgraph(
                         name = "session-subgraph",
                         attributeNodes = {
@@ -50,13 +58,14 @@ import java.util.UUID;
         schema = "operation",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_coach_class_session",
-                        columnNames = {"coach_id", "class_session_id"}
+                        name = "uk_coach_assignment_class_session",
+                        columnNames = {"coach_assignment_id", "class_session_id"}
                 )
         },
         indexes = {
                 @Index(name = "idx_ct_working_date", columnList = "working_date DESC"),
                 @Index(name = "idx_ct_status", columnList = "status"),
+                @Index(name = "idx_ct_coach_assignment", columnList = "coach_assignment_id"),
                 @Index(name = "idx_ct_class_session", columnList = "class_session_id")
         }
 )
@@ -74,6 +83,11 @@ public class CoachTimesheet {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "coach_id", nullable = false)
     Coach coach;
+
+    @NotNull
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "coach_assignment_id", nullable = false)
+    CoachAssignment coachAssignment;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)

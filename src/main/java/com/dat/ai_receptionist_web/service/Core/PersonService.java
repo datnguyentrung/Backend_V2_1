@@ -214,6 +214,15 @@ public class PersonService {
         }
     }
 
+    @Transactional
+    public void deleteFaceEmbedding(UUID personId) {
+        Person person = personRepository.findById(personId)
+                .orElseThrow(() -> new AppException(ErrorCode.PERSON_NOT_FOUND));
+
+        person.setFaceEmbedding(null);
+        personRepository.saveAndFlush(person);
+    }
+
     private record ResolvedStudentCheckIn(PersonRepository.FaceCheckInSubjectProjection subject)
             implements CheckInStudentProjection {
 

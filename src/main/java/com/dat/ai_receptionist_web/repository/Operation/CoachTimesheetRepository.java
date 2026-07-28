@@ -22,12 +22,12 @@ public interface CoachTimesheetRepository extends JpaRepository<CoachTimesheet, 
         JpaSpecificationExecutor<CoachTimesheet>,
         CoachTimesheetRepositoryCustom {
 
-    boolean existsByCoach_PersonIdAndClassSession_SessionId(UUID coachId, UUID classSessionId);
+    boolean existsByCoachAssignment_AssignmentIdAndClassSession_SessionId(UUID coachAssignmentId, UUID classSessionId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(value = "CoachTimesheet.withDetails")
-    Optional<CoachTimesheet> findForCheckInByCoach_PersonIdAndClassSession_SessionId(
-            UUID coachId,
+    Optional<CoachTimesheet> findForCheckInByCoachAssignment_AssignmentIdAndClassSession_SessionId(
+            UUID coachAssignmentId,
             UUID classSessionId
     );
 

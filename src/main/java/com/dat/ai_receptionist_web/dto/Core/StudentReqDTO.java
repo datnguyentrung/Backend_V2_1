@@ -8,6 +8,7 @@ import jakarta.validation.constraints.*;
 import lombok.AccessLevel;
 import lombok.Data;
 import lombok.experimental.FieldDefaults;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -17,6 +18,8 @@ public class StudentReqDTO {
     @Data
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class StudentCreate {
+        MultipartFile file;
+
         // 1. Dùng cho các field
         // Có thể chưa được liên đoàn cấp mã số, nên không bắt buộc phải có
         String nationalCode;
@@ -61,6 +64,8 @@ public class StudentReqDTO {
      */
     @Data
     public static class StudentUpdate {
+        MultipartFile file;
+
         @NotNull(message = "ID học viên không được để trống")
         UUID personId;
 

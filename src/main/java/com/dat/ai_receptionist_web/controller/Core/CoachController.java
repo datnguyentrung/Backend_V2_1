@@ -8,9 +8,11 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -28,7 +30,7 @@ public class CoachController {
      * Tạo huấn luyện viên mới
      * POST /api/v1/coaches
      */
-    @PostMapping
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<CoachResDTO.CoachDetail> createCoach(
             @RequestBody @Valid CoachReqDTO.CoachCreate createDTO) {
@@ -37,6 +39,15 @@ public class CoachController {
         CoachResDTO.CoachDetail newCoach = coachService.createCoach(createDTO);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(newCoach);
+    }
+
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
+    public ResponseEntity<CoachResDTO.CoachDetail> createCoachMultipart(
+            @RequestPart("data") @Valid CoachReqDTO.CoachCreate createDTO,
+            @RequestPart(value = "file", required = false) MultipartFile file) {
+        log.info("Request create coach with face image: {}", createDTO.getFullName());
+        return ResponseEntity.status(HttpStatus.CREATED).body(coachService.createCoach(createDTO, file));
     }
 
     /**
@@ -72,7 +83,7 @@ public class CoachController {
      * Cập nhật thông tin huấn luyện viên
      * PUT /api/v1/coaches/{personId}
      */
-    @PutMapping("/{personId}")
+    @PutMapping(value = "/{personId}", consumes = MediaType.APPLICATION_JSON_VALUE)
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<CoachResDTO.CoachDetail> updateCoach(
             @PathVariable UUID personId,
@@ -85,6 +96,17 @@ public class CoachController {
         CoachResDTO.CoachDetail updatedCoach = coachService.updateCoach(updateDTO);
 
         return ResponseEntity.ok(updatedCoach);
+    }
+
+    @PutMapping(value = "/{personId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
+    public ResponseEntity<CoachResDTO.CoachDetail> updateCoachMultipart(
+            @PathVariable UUID personId,
+            @RequestPart("data") @Valid CoachReqDTO.CoachUpdate updateDTO,
+            @RequestPart(value = "file", required = false) MultipartFile file) {
+        log.info("Request update coach with face image: {}", personId);
+        updateDTO.setPersonId(personId);
+        return ResponseEntity.ok(coachService.updateCoach(updateDTO, file));
     }
 
     /**

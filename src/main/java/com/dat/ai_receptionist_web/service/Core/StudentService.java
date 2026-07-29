@@ -4,6 +4,7 @@ import com.dat.ai_receptionist_web.domain.Core.Branch;
 import com.dat.ai_receptionist_web.domain.Core.Student;
 import com.dat.ai_receptionist_web.domain.Operation.StudentEnrollment;
 import com.dat.ai_receptionist_web.dto.Core.ClassScheduleResDTO;
+import com.dat.ai_receptionist_web.dto.Core.PersonDTO.PersonCreationData;
 import com.dat.ai_receptionist_web.dto.Core.StudentReqDTO;
 import com.dat.ai_receptionist_web.dto.Core.StudentResDTO;
 import com.dat.ai_receptionist_web.dto.Operation.StudentEnrollmentResDTO;
@@ -29,6 +30,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -44,6 +46,7 @@ public class StudentService {
     private final StudentEnrollmentMapper studentEnrollmentMapper;
     private final StudentEnrollmentRepository studentEnrollmentRepository;
     private final StudentEnrollmentService studentEnrollmentService;
+    private final PersonService personService;
 
     public Student getStudentById(UUID personId) {
         return studentRepository.findById(personId)
@@ -70,6 +73,11 @@ public class StudentService {
 
     @Transactional(rollbackFor = Exception.class)
     public StudentResDTO.StudentDetail updateStudent(StudentReqDTO.StudentUpdate updateDTO) {
+        return updateStudent(updateDTO, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public StudentResDTO.StudentDetail updateStudent(StudentReqDTO.StudentUpdate updateDTO, MultipartFile file) {
         Student student = getStudentById(updateDTO.getPersonId());
 
         if (updateDTO.getNationalCode() != null &&
@@ -89,24 +97,25 @@ public class StudentService {
             student.setBranch(branch);
         }
 
+        if (file != null && !file.isEmpty()) {
+            personService.processAndAttachFaceImage(student, file);
+        }
+
         Student updatedStudent = studentRepository.save(student);
         return getStudentDetail(updatedStudent.getPersonId());
     }
 
     @Transactional(rollbackFor = Exception.class)
     public StudentResDTO.StudentDetail createStudent(StudentReqDTO.StudentCreate createDTO) {
-        if (createDTO.getNationalCode() != null && studentRepository.existsByNationalCode(createDTO.getNationalCode())) {
-            throw new BusinessException("National code already exists");
-        }
+        return createStudent(createDTO, null);
+    }
 
+    @Transactional(rollbackFor = Exception.class)
+    public StudentResDTO.StudentDetail createStudent(StudentReqDTO.StudentCreate createDTO, MultipartFile file) {
         Branch branch = branchService.getBranchById(createDTO.getBranchId());
         Student newStudent = new Student();
-        newStudent.setFullName(NameConverter.formatVietnameseName(createDTO.getFullName()));
-        newStudent.setBirthDate(createDTO.getBirthDate());
-        newStudent.setNationalCode(createDTO.getNationalCode());
         newStudent.setStartDate(createDTO.getStartDate() != null ? createDTO.getStartDate() : LocalDate.now());
         newStudent.setStudentStatus(createDTO.getStudentStatus() != null ? createDTO.getStudentStatus() : StudentStatus.ACTIVE);
-        newStudent.setBelt(createDTO.getBelt());
         newStudent.setBranch(branch);
 
         String generatedCode = AccountUtil.getUserCode(createDTO.getFullName(), createDTO.getBirthDate(), null);
@@ -114,7 +123,16 @@ public class StudentService {
             generatedCode = generatedCode + "_" + RandomStringUtils.secure().nextNumeric(2);
         }
         newStudent.setStudentCode(generatedCode);
-        newStudent = studentRepository.save(newStudent);
+        newStudent = personService.createPerson(newStudent, new PersonCreationData(
+                createDTO.getFullName(),
+                createDTO.getBirthDate(),
+                createDTO.getBelt(),
+                createDTO.getNationalCode(),
+                null
+        ));
+        if (file != null && !file.isEmpty()) {
+            personService.processAndAttachFaceImage(newStudent, file);
+        }
 
         List<StudentEnrollmentResDTO.SimpleResponse> enrollmentResponses = new ArrayList<>();
         if (createDTO.getEnrollmentRequest() != null

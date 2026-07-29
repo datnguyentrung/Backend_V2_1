@@ -6,6 +6,7 @@ import com.dat.ai_receptionist_web.domain.Security.User;
 import com.dat.ai_receptionist_web.domain.Security.UserProfile;
 import com.dat.ai_receptionist_web.dto.Core.CoachReqDTO;
 import com.dat.ai_receptionist_web.dto.Core.CoachResDTO;
+import com.dat.ai_receptionist_web.dto.Core.PersonDTO.PersonCreationData;
 import com.dat.ai_receptionist_web.dto.Operation.CoachAssignmentResDTO;
 import com.dat.ai_receptionist_web.enums.Core.CoachStatus;
 import com.dat.ai_receptionist_web.enums.Operation.CoachAssignmentStatus;
@@ -26,6 +27,7 @@ import org.springframework.cache.annotation.Caching;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -39,6 +41,7 @@ public class CoachService {
     private final CoachAssignmentService coachAssignmentService;
     private final CoachAssignmentMapper coachAssignmentMapper;
     private final UserProfileRepository userProfileRepository;
+    private final PersonService personService;
 
     public Coach validateCoachAndGetActive(UUID coachId) {
         Coach coach = getCoachById(coachId);
@@ -80,11 +83,13 @@ public class CoachService {
     @Caching(put = {})
     @Transactional(rollbackFor = Exception.class)
     public CoachResDTO.CoachDetail createCoach(CoachReqDTO.CoachCreate createDTO) {
+        return createCoach(createDTO, null);
+    }
+
+    @Caching(put = {})
+    @Transactional(rollbackFor = Exception.class)
+    public CoachResDTO.CoachDetail createCoach(CoachReqDTO.CoachCreate createDTO, MultipartFile file) {
         Coach newCoach = new Coach();
-        newCoach.setFullName(NameConverter.formatVietnameseName(createDTO.getFullName()));
-        newCoach.setBirthDate(createDTO.getBirthDate());
-        newCoach.setBelt(createDTO.getBelt());
-        newCoach.setEmail(createDTO.getEmail());
         newCoach.setCoachStatus(createDTO.getCoachStatus() != null ? createDTO.getCoachStatus() : CoachStatus.ACTIVE);
 
         String generatedCode = AccountUtil.getUserCode(createDTO.getFullName(), createDTO.getBirthDate(), "VQT");
@@ -92,7 +97,16 @@ public class CoachService {
             generatedCode = generatedCode + "_" + RandomStringUtils.secure().nextNumeric(2);
         }
         newCoach.setStaffCode(generatedCode);
-        newCoach = coachRepository.save(newCoach);
+        newCoach = personService.createPerson(newCoach, new PersonCreationData(
+                createDTO.getFullName(),
+                createDTO.getBirthDate(),
+                createDTO.getBelt(),
+                null,
+                createDTO.getEmail()
+        ));
+        if (file != null && !file.isEmpty()) {
+            personService.processAndAttachFaceImage(newCoach, file);
+        }
 
         List<CoachAssignmentResDTO.SimpleResponse> assignmentResponses = new ArrayList<>();
         if (createDTO.getAssignmentRequest() != null
@@ -110,12 +124,21 @@ public class CoachService {
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {})
     public CoachResDTO.CoachDetail updateCoach(CoachReqDTO.CoachUpdate updateDTO) {
+        return updateCoach(updateDTO, null);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @Caching(evict = {})
+    public CoachResDTO.CoachDetail updateCoach(CoachReqDTO.CoachUpdate updateDTO, MultipartFile file) {
         Coach coach = getCoachById(updateDTO.getPersonId());
         if (updateDTO.getBirthDate() != null) coach.setBirthDate(updateDTO.getBirthDate());
         if (updateDTO.getBelt() != null) coach.setBelt(updateDTO.getBelt());
         if (updateDTO.getFullName() != null) coach.setFullName(NameConverter.formatVietnameseName(updateDTO.getFullName()));
         if (updateDTO.getCoachStatus() != null) coach.setCoachStatus(updateDTO.getCoachStatus());
         if (updateDTO.getNationalCode() != null) coach.setNationalCode(updateDTO.getNationalCode());
+        if (file != null && !file.isEmpty()) {
+            personService.processAndAttachFaceImage(coach, file);
+        }
 
         Coach updatedCoach = coachRepository.save(coach);
         List<CoachAssignmentResDTO.SimpleResponse> assignments =

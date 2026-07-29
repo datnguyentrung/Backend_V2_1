@@ -27,6 +27,8 @@ public class CoachResDTO {
     public static class CoachDetail extends UserRes.UserDetail {
         UUID personId;
 
+        String faceImagePath;
+
         String email;
 
         @Override

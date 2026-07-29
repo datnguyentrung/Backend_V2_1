@@ -63,6 +63,8 @@ public class StudentResDTO {
 
         private String studentCode;
 
+        private String faceImagePath;
+
         @Override
         @JsonIgnore
         public UUID getUserId() {
@@ -99,7 +101,11 @@ public class StudentResDTO {
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class StudentOverview {
+        UUID personId;
+
         String studentCode;
+
+        String faceImagePath;
 
         String nationalCode;
 

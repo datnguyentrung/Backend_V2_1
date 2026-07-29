@@ -4,6 +4,7 @@ import com.dat.ai_receptionist_web.client.PythonBackendClient;
 import com.dat.ai_receptionist_web.client.PythonBackendClient.PythonBackendClientException;
 import com.dat.ai_receptionist_web.domain.Core.Person;
 import com.dat.ai_receptionist_web.dto.Core.PersonDTO;
+import com.dat.ai_receptionist_web.dto.Core.PersonDTO.PersonCreationData;
 import com.dat.ai_receptionist_web.dto.Operation.CheckInStudentProjection;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.enums.ErrorCode;
@@ -12,20 +13,27 @@ import com.dat.ai_receptionist_web.enums.Core.StudentStatus;
 import com.dat.ai_receptionist_web.mapper.Core.PersonMapper;
 import com.dat.ai_receptionist_web.repository.Core.PersonRepository;
 import com.dat.ai_receptionist_web.service.Operation.CoachTimesheetService;
+import com.dat.ai_receptionist_web.service.Operation.SupabaseStorageService;
 import com.dat.ai_receptionist_web.service.Operation.StudentAttendanceService;
+import com.dat.ai_receptionist_web.util.converter.NameConverter;
 import com.dat.ai_receptionist_web.util.error.AppException;
+import com.dat.ai_receptionist_web.util.error.BusinessException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 import java.util.List;
+import java.time.Duration;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +44,9 @@ public class PersonService {
     private final PythonBackendClient pythonBackendClient;
     private final StudentAttendanceService studentAttendanceService;
     private final CoachTimesheetService coachTimesheetService;
+    private final SupabaseStorageService supabaseStorageService;
+
+    private static final Duration FACE_IMAGE_SIGNED_URL_DURATION = Duration.ofMinutes(15);
 
     @Value("${FACE_MATCH_THRESHOLD:0.70}")
     private float faceMatchThreshold = 0.70f;
@@ -45,6 +56,28 @@ public class PersonService {
         if (!Float.isFinite(faceMatchThreshold) || faceMatchThreshold < 0.0f || faceMatchThreshold > 1.0f) {
             throw new IllegalStateException("FACE_MATCH_THRESHOLD must be between 0 and 1");
         }
+    }
+
+    /**
+     * Applies and persists the common Person state for a concrete subtype.
+     *
+     * <p>With {@code InheritanceType.JOINED}, persisting a {@code Student} or
+     * {@code Coach} through this repository writes both {@code core.person} and
+     * its subtype row. The subtype-specific fields must therefore be populated
+     * before this method is called.</p>
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public <T extends Person> T createPerson(T person, PersonCreationData data) {
+        if (data.nationalCode() != null && personRepository.existsByNationalCode(data.nationalCode())) {
+            throw new BusinessException("National code already exists");
+        }
+
+        person.setFullName(NameConverter.formatVietnameseName(data.fullName()));
+        person.setBirthDate(data.birthDate());
+        person.setBelt(data.belt());
+        person.setNationalCode(data.nationalCode());
+        person.setEmail(data.email());
+        return personRepository.save(person);
     }
 
     @Transactional(readOnly = true)
@@ -57,35 +90,17 @@ public class PersonService {
         return PageResponse.of(people, personMapper::toSearchItem);
     }
 
-    private void validateImage(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new AppException(ErrorCode.FACE_IMAGE_INVALID);
-        }
-
-        String contentType = file.getContentType();
-
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new AppException(ErrorCode.FACE_IMAGE_INVALID);
-        }
-
-        long maxSize = 10 * 1024 * 1024L;
-
-        if (file.getSize() > maxSize) {
-            throw new AppException(ErrorCode.FACE_IMAGE_INVALID);
-        }
-    }
-
     public PersonDTO.FaceCheckInResponse checkInByFaceImage(MultipartFile file) {
         PythonBackendClient.FaceEmbeddingResponse response = generateFaceEmbedding(file);
         NearestPersonMatch nearestPerson = findNearestPersonByEmbedding(
                 response.embedding(),
                 faceMatchThreshold
         );
-        if (nearestPerson.person() == null) {
+        if (nearestPerson.personId() == null) {
             throw new AppException(ErrorCode.FACE_NOT_MATCHED);
         }
         PersonRepository.FaceCheckInSubjectProjection subject = personRepository
-                .findFaceCheckInSubjectByPersonId(nearestPerson.person().getPersonId())
+                .findFaceCheckInSubjectByPersonId(nearestPerson.personId())
                 .orElseThrow(() -> new AppException(ErrorCode.FACE_CHECK_IN_PERSON_TYPE_INVALID));
 
         boolean isStudent = subject.getStudentCode() != null;
@@ -101,8 +116,10 @@ public class PersonService {
         }
         return coachTimesheetService.checkInResolvedCoach(
                 subject.getPersonId(),
-                toCoachStatus(subject.getCoachStatus())
-            );
+                toCoachStatus(subject.getCoachStatus()),
+                subject.getFullName(),
+                subject.getStaffCode()
+        );
     }
 
     /**
@@ -128,9 +145,9 @@ public class PersonService {
             return new NearestPersonMatch(null, confidence);
         }
 
-        return personRepository.findById(match.getPersonId())
-                .map(person -> new NearestPersonMatch(person, confidence))
-                .orElseGet(() -> new NearestPersonMatch(null, confidence));
+        // The vector query has already produced a stable person id. Loading Person here
+        // materializes the face_embedding float array only to read that same id again.
+        return new NearestPersonMatch(match.getPersonId(), confidence);
     }
 
     private static String toPgVectorLiteral(List<Float> embeddingVector) {
@@ -182,27 +199,60 @@ public class PersonService {
         }
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public PersonDTO.FaceEmbeddingUpdateResponse updateFaceEmbedding(MultipartFile file, UUID personId) {
         Person person = personRepository.findById(personId)
                 .orElseThrow(() -> new AppException(ErrorCode.PERSON_NOT_FOUND));
-        PythonBackendClient.FaceEmbeddingResponse response = generateFaceEmbedding(file);
-
-        float[] embedding = new float[response.embedding().size()];
-        for (int index = 0; index < embedding.length; index++) {
-            embedding[index] = response.embedding().get(index);
-        }
-        person.setFaceEmbedding(embedding);
+        PersonFaceData faceData = processAndAttachFaceImage(person, file);
         Person savedPerson = personRepository.saveAndFlush(person);
         return PersonDTO.FaceEmbeddingUpdateResponse.builder()
                 .personId(savedPerson.getPersonId())
-                .dimension(response.dimension())
-                .model(response.model())
+                .dimension(faceData.dimension())
+                .model(faceData.model())
+                .faceImagePath(savedPerson.getFaceImagePath())
                 .updatedAt(savedPerson.getUpdatedAt())
                 .build();
     }
 
+    /**
+     * Generates an embedding and uploads a versioned private image, then attaches both to a managed Person.
+     * The caller owns the database transaction; uploaded storage is compensated if that transaction rolls back.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public PersonFaceData processAndAttachFaceImage(Person person, MultipartFile file) {
+        if (person.getPersonId() == null) {
+            throw new IllegalStateException("Person must have an id before processing a face image");
+        }
+
+        SupabaseStorageService.ValidatedImage image = supabaseStorageService.validateImage(file);
+        PythonBackendClient.FaceEmbeddingResponse response = generateFaceEmbedding(file);
+        float[] embedding = toEmbeddingArray(response);
+        String oldPath = person.getFaceImagePath();
+        String uploadedPath = null;
+
+        try {
+            uploadedPath = supabaseStorageService.uploadPersonFaceImage(person.getPersonId(), image);
+            person.setFaceEmbedding(embedding);
+            person.setFaceImagePath(uploadedPath);
+            registerStorageCompensation(person.getPersonId(), uploadedPath, oldPath);
+            return new PersonFaceData(embedding, uploadedPath, response.dimension(), response.model());
+        } catch (RuntimeException exception) {
+            if (uploadedPath != null) {
+                cleanupObjectAfterFailure(person.getPersonId(), uploadedPath, "immediate rollback");
+            }
+            throw exception;
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public PersonDTO.FaceImageUrlResponse getFaceImageUrl(UUID personId) {
+        Person person = personRepository.findById(personId)
+                .orElseThrow(() -> new AppException(ErrorCode.PERSON_NOT_FOUND));
+        String url = supabaseStorageService.createSignedUrl(person.getFaceImagePath(), FACE_IMAGE_SIGNED_URL_DURATION);
+        return new PersonDTO.FaceImageUrlResponse(url, FACE_IMAGE_SIGNED_URL_DURATION);
+    }
+
     private PythonBackendClient.FaceEmbeddingResponse generateFaceEmbedding(MultipartFile file) {
-        validateImage(file);
         try {
             return pythonBackendClient.generateFaceEmbedding(file);
         } catch (PythonBackendClientException exception) {
@@ -219,8 +269,63 @@ public class PersonService {
         Person person = personRepository.findById(personId)
                 .orElseThrow(() -> new AppException(ErrorCode.PERSON_NOT_FOUND));
 
+        String oldPath = person.getFaceImagePath();
         person.setFaceEmbedding(null);
+        person.setFaceImagePath(null);
         personRepository.saveAndFlush(person);
+        if (oldPath != null) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    cleanupObjectAfterFailure(personId, oldPath, "delete after commit");
+                }
+            });
+        }
+    }
+
+    private static float[] toEmbeddingArray(PythonBackendClient.FaceEmbeddingResponse response) {
+        if (response.dimension() == null || response.dimension() != 512
+                || response.embedding() == null || response.embedding().size() != 512) {
+            throw new AppException(ErrorCode.INVALID_EMBEDDING);
+        }
+        float[] embedding = new float[512];
+        for (int index = 0; index < embedding.length; index++) {
+            Float value = response.embedding().get(index);
+            if (value == null || !Float.isFinite(value)) {
+                throw new AppException(ErrorCode.INVALID_EMBEDDING);
+            }
+            embedding[index] = value;
+        }
+        return embedding;
+    }
+
+    private void registerStorageCompensation(UUID personId, String uploadedPath, String oldPath) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                if (oldPath != null && !oldPath.equals(uploadedPath)) {
+                    cleanupObjectAfterFailure(personId, oldPath, "replace after commit");
+                }
+            }
+
+            @Override
+            public void afterCompletion(int status) {
+                if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                    cleanupObjectAfterFailure(personId, uploadedPath, "transaction rollback");
+                }
+            }
+        });
+    }
+
+    private void cleanupObjectAfterFailure(UUID personId, String objectPath, String stage) {
+        try {
+            supabaseStorageService.deleteObject(objectPath);
+        } catch (RuntimeException cleanupException) {
+            // Cleanup must never replace the original database or Python/storage failure.
+            org.slf4j.LoggerFactory.getLogger(PersonService.class).error(
+                    "Face-image cleanup failed: personId={}, objectPath={}, stage={}, exceptionType={}",
+                    personId, objectPath, stage, cleanupException.getClass().getSimpleName(), cleanupException);
+        }
     }
 
     private record ResolvedStudentCheckIn(PersonRepository.FaceCheckInSubjectProjection subject)
@@ -247,6 +352,9 @@ public class PersonService {
         }
     }
 
-    public record NearestPersonMatch(Person person, float confidence) {
+    public record NearestPersonMatch(UUID personId, float confidence) {
+    }
+
+    public record PersonFaceData(float[] embedding, String imagePath, int dimension, String model) {
     }
 }

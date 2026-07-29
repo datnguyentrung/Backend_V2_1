@@ -13,6 +13,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -72,6 +73,16 @@ public class GlobalException {
     public ResponseEntity<ProblemDetail> handleMediaTypeNotAcceptable(HttpMediaTypeNotAcceptableException ex) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_ACCEPTABLE, ex.getMessage());
         return buildResponse(problemDetail, HttpStatus.NOT_ACCEPTABLE);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ProblemDetail> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.PAYLOAD_TOO_LARGE,
+                com.dat.ai_receptionist_web.enums.ErrorCode.FILE_TOO_LARGE.getMessage()
+        );
+        problemDetail.setTitle(com.dat.ai_receptionist_web.enums.ErrorCode.FILE_TOO_LARGE.name());
+        return buildResponse(problemDetail, HttpStatus.PAYLOAD_TOO_LARGE);
     }
 
     // Xử lý lỗi NoSuchElementException ở đây, hoặc gom chung vào Generic

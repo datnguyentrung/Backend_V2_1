@@ -84,6 +84,10 @@ public class Person {
     @Column(name = "face_embedding", columnDefinition = "vector(512)")
     float[] faceEmbedding;
 
+    @Size(max = 500)
+    @Column(name = "face_image_path", length = 500)
+    String faceImagePath;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     LocalDateTime createdAt;

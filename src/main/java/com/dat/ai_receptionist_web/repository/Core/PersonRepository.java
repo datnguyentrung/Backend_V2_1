@@ -17,6 +17,8 @@ import java.util.UUID;
 @Repository
 public interface PersonRepository extends JpaRepository<Person, UUID> {
 
+    boolean existsByNationalCode(String nationalCode);
+
     @Query(
             value = """
                     SELECT p.person_id AS personId,

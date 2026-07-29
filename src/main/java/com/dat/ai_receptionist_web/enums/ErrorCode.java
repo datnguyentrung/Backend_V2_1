@@ -78,7 +78,10 @@ public enum ErrorCode {
     PYTHON_BACKEND_ERROR(
             502,
             "Dịch vụ nhận diện khuôn mặt trả về dữ liệu không hợp lệ"
-    );
+    ),
+    SUPABASE_STORAGE_UPLOAD_FAILED(502, "Không thể tải ảnh khuôn mặt lên kho lưu trữ"),
+    SUPABASE_STORAGE_DELETE_FAILED(502, "Không thể xóa ảnh khuôn mặt khỏi kho lưu trữ"),
+    SUPABASE_STORAGE_UNAVAILABLE(503, "Kho lưu trữ ảnh khuôn mặt hiện không khả dụng");
 
     private final int statusCode;
     private final String message;

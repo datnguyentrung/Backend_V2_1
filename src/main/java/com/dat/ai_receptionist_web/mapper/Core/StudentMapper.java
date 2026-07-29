@@ -31,6 +31,7 @@ public interface StudentMapper {
     @Mapping(target = "personId", source = "personId")
     @Mapping(target = "userId", ignore = true)
     @Mapping(target = "roles", ignore = true)
+    @Mapping(target = "faceImagePath", source = "faceImagePath")
     @Mapping(target = "branchId", source = "branch.branchId")
     @Mapping(target = "branchName", source = "branch.branchName")
     @Mapping(target = "branchAddress", source = "branch.address")
@@ -40,6 +41,7 @@ public interface StudentMapper {
     @Mapping(target = "personId", source = "student.personId")
     @Mapping(target = "userId", ignore = true)
     @Mapping(target = "roles", ignore = true)
+    @Mapping(target = "faceImagePath", source = "student.faceImagePath")
     @Mapping(target = "branchId", source = "student.branch.branchId")
     @Mapping(target = "branchName", source = "student.branch.branchName")
     @Mapping(target = "branchAddress", source = "student.branch.address")
@@ -49,6 +51,8 @@ public interface StudentMapper {
             List<StudentEnrollmentResDTO.SimpleResponse> enrollments);
 
     @Mapping(target = "branchName", source = "branch.branchName")
+    @Mapping(target = "personId", source = "personId")
+    @Mapping(target = "faceImagePath", source = "faceImagePath")
     @Mapping(target = "classSchedules", ignore = true)
     @Mapping(target = "phoneNumber", ignore = true)
     @Mapping(target = "roleName", ignore = true)

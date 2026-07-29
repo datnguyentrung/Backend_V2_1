@@ -64,6 +64,14 @@ public class PersonController {
         );
     }
 
+    @GetMapping("/{personId}/face-image-url")
+    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
+    public ResponseEntity<PersonDTO.FaceImageUrlResponse> getFaceImageUrl(
+            @PathVariable UUID personId
+    ) {
+        return ResponseEntity.ok(personService.getFaceImageUrl(personId));
+    }
+
     @DeleteMapping("/{personId}/face-embedding")
     public ResponseEntity<Void> deleteFaceEmbedding(
             @PathVariable UUID personId

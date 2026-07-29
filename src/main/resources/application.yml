@@ -125,6 +125,13 @@ jwt:
 firebase:
   config-base64: ${FIREBASE_CONFIG_BASE64:}
 
+supabase:
+  url: ${SUPABASE_URL}
+  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY}
+  storage:
+    face-image-bucket: ${SUPABASE_FACE_IMAGE_BUCKET:face-images}
+    max-file-size: ${SUPABASE_FACE_IMAGE_MAX_SIZE:5242880}
+
 password:
   time_password_change_days: ${TIME_PASSWORD_CHANGE_DAYS}
 

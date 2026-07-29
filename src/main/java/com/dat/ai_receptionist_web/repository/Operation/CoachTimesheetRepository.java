@@ -25,7 +25,6 @@ public interface CoachTimesheetRepository extends JpaRepository<CoachTimesheet, 
     boolean existsByCoachAssignment_AssignmentIdAndClassSession_SessionId(UUID coachAssignmentId, UUID classSessionId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @EntityGraph(value = "CoachTimesheet.withDetails")
     Optional<CoachTimesheet> findForCheckInByCoachAssignment_AssignmentIdAndClassSession_SessionId(
             UUID coachAssignmentId,
             UUID classSessionId

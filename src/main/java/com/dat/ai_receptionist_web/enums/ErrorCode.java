@@ -6,6 +6,7 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public enum ErrorCode {
+    INVALID_IDENTIFICATION_REQUEST(400, "Identification requires a face image or person code"),
     STUDENT_ALREADY_ENROLLED(409, "Học viên đang theo học lớp này, không thể đăng ký thêm"),
     STUDENT_NOT_FOUND(404, "Không tìm thấy thông tin học viên"),
     PERSON_NOT_FOUND(404, "Không tìm thấy thông tin người dùng"),

@@ -24,23 +24,11 @@ import java.util.UUID;
 public class CoachController {
 
     private final CoachService coachService;
-    private final CoachAssignmentService coachAssignmentService;
 
     /**
      * Tạo huấn luyện viên mới
      * POST /api/v1/coaches
      */
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
-    public ResponseEntity<CoachResDTO.CoachDetail> createCoach(
-            @RequestBody @Valid CoachReqDTO.CoachCreate createDTO) {
-        log.info("Request create coach: {}", createDTO.getFullName());
-
-        CoachResDTO.CoachDetail newCoach = coachService.createCoach(createDTO);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(newCoach);
-    }
-
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<CoachResDTO.CoachDetail> createCoachMultipart(
@@ -83,21 +71,6 @@ public class CoachController {
      * Cập nhật thông tin huấn luyện viên
      * PUT /api/v1/coaches/{personId}
      */
-    @PutMapping(value = "/{personId}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
-    public ResponseEntity<CoachResDTO.CoachDetail> updateCoach(
-            @PathVariable UUID personId,
-            @RequestBody @Valid CoachReqDTO.CoachUpdate updateDTO) {
-        log.info("Request update coach: {}", personId);
-
-        // Set personId từ path variable
-        updateDTO.setPersonId(personId);
-
-        CoachResDTO.CoachDetail updatedCoach = coachService.updateCoach(updateDTO);
-
-        return ResponseEntity.ok(updatedCoach);
-    }
-
     @PutMapping(value = "/{personId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<CoachResDTO.CoachDetail> updateCoachMultipart(

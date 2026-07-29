@@ -28,6 +28,15 @@ public interface CoachTimesheetMapper {
 
     List<CoachTimesheetDTO.Response> toResponseList(List<CoachTimesheet> entities);
 
+    default CoachTimesheetDTO.Response toCheckInResponse(
+            CoachTimesheet timesheet,
+            boolean alreadyCheckedIn
+    ) {
+        CoachTimesheetDTO.Response response = toResponse(timesheet);
+        response.setAlreadyCheckedIn(alreadyCheckedIn);
+        return response;
+    }
+
     @Named("timeToString")
     default String timeToString(LocalTime value) {
         return value == null ? null : value.toString();

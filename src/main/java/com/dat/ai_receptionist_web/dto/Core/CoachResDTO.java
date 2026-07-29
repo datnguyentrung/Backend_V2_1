@@ -29,6 +29,8 @@ public class CoachResDTO {
 
         String faceImagePath;
 
+        String avatarUrl;
+
         String email;
 
         @Override

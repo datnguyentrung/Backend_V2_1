@@ -1,5 +1,6 @@
 package com.dat.ai_receptionist_web.mapper.Core;
 
+import com.dat.ai_receptionist_web.domain.Core.Person;
 import com.dat.ai_receptionist_web.dto.Core.PersonDTO;
 import com.dat.ai_receptionist_web.repository.Core.PersonRepository;
 import org.mapstruct.Mapper;
@@ -10,6 +11,8 @@ import org.mapstruct.ReportingPolicy;
         unmappedTargetPolicy = ReportingPolicy.IGNORE
 )
 public interface PersonMapper {
+
+    PersonDTO.PersonResponse toPersonResponse(Person person);
 
     default PersonDTO.SearchItem toSearchItem(PersonRepository.PersonSearchProjection person) {
         if (person == null) {

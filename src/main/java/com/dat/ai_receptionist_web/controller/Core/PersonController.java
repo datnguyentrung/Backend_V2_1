@@ -3,6 +3,7 @@ package com.dat.ai_receptionist_web.controller.Core;
 import com.dat.ai_receptionist_web.dto.Core.PersonDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.service.Core.PersonService;
+import com.dat.ai_receptionist_web.service.Operation.FaceCheckInService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -21,6 +22,7 @@ import java.util.UUID;
 public class PersonController {
 
     private final PersonService personService;
+    private final FaceCheckInService faceCheckInService;
 
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     @GetMapping
@@ -39,16 +41,34 @@ public class PersonController {
     }
 
     @PostMapping(
+            value = "/identify",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    @PreAuthorize("@securityRule.isCoach(authentication) or @securityRule.isSystem(authentication)")
+    public ResponseEntity<PersonDTO.PersonResponse> identifyPerson(
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "personCode", required = false) String personCode
+    ) {
+        return ResponseEntity.ok(
+                personService.identifyPerson(file, personCode)
+        );
+    }
+
+    @PostMapping(
             value = "/face-check-in",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     @PreAuthorize("@securityRule.isCoach(authentication) or @securityRule.isSystem(authentication)")
-    public ResponseEntity<PersonDTO.FaceCheckInResponse> checkInByFaceImage(
+    public ResponseEntity<PersonDTO.FaceCheckInResult> checkInByFaceImage(
             @RequestPart("file") MultipartFile file
     ) {
-        return ResponseEntity.ok(
-                personService.checkInByFaceImage(file)
-        );
+        return ResponseEntity.ok(faceCheckInService.checkInByFaceImage(file));
+    }
+
+    @GetMapping("/face-image")
+    public ResponseEntity<?> getByFaceImage(@RequestPart("file") MultipartFile file) {
+        // Implementation for getting person by face image
+        return ResponseEntity.ok().build();
     }
 
     @PatchMapping(

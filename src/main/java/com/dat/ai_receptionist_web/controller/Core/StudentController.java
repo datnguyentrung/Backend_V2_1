@@ -39,24 +39,16 @@ public class StudentController {
      * @param createDTO Thông tin tạo mới học viên (bao gồm cả enrollment nếu muốn)
      * @return 201 Created - Thông tin chi tiết học viên vừa tạo
      */
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
-    public ResponseEntity<StudentResDTO.StudentDetail> createStudent(
-            @RequestBody @Valid StudentReqDTO.StudentCreate createDTO) {
-        log.info("Request create student: {}", createDTO.getFullName());
-
-        StudentResDTO.StudentDetail newStudent = studentService.createStudent(createDTO);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(newStudent);
-    }
-
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
-    public ResponseEntity<StudentResDTO.StudentDetail> createStudentMultipart(
+    public ResponseEntity<StudentResDTO.StudentDetail> createStudent(
             @RequestPart("data") @Valid StudentReqDTO.StudentCreate createDTO,
-            @RequestPart(value = "file", required = false) MultipartFile file) {
-        log.info("Request create student with face image: {}", createDTO.getFullName());
-        return ResponseEntity.status(HttpStatus.CREATED).body(studentService.createStudent(createDTO, file));
+            @RequestPart(value = "file", required = false) MultipartFile file
+    ) {
+        StudentResDTO.StudentDetail newStudent =
+                studentService.createStudent(createDTO, file);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(newStudent);
     }
 
     @PreAuthorize("@securityRule.isCoach(authentication)")
@@ -114,21 +106,6 @@ public class StudentController {
      * Cập nhật thông tin học viên
      * PUT /api/v1/students/{personId}
      */
-    @PutMapping(value = "/{personId}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    @PreAuthorize("@securityRule.isManagerSenior(authentication)")
-    public ResponseEntity<StudentResDTO.StudentDetail> updateStudent(
-            @PathVariable UUID personId,
-            @RequestBody @Valid StudentReqDTO.StudentUpdate updateDTO) {
-        log.info("Request update student: {}", personId);
-
-        // Set personId từ path variable
-        updateDTO.setPersonId(personId);
-
-        StudentResDTO.StudentDetail updatedStudent = studentService.updateStudent(updateDTO);
-
-        return ResponseEntity.ok(updatedStudent);
-    }
-
     @PutMapping(value = "/{personId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@securityRule.isManagerSenior(authentication)")
     public ResponseEntity<StudentResDTO.StudentDetail> updateStudentMultipart(

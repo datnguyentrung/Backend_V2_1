@@ -4,8 +4,6 @@ import com.dat.ai_receptionist_web.client.PythonBackendClient;
 import com.dat.ai_receptionist_web.domain.Core.Person;
 import com.dat.ai_receptionist_web.mapper.Core.PersonMapper;
 import com.dat.ai_receptionist_web.repository.Core.PersonRepository;
-import com.dat.ai_receptionist_web.service.Operation.CoachTimesheetService;
-import com.dat.ai_receptionist_web.service.Operation.StudentAttendanceService;
 import com.dat.ai_receptionist_web.service.Operation.SupabaseStorageService;
 import com.dat.ai_receptionist_web.util.error.AppException;
 import org.junit.jupiter.api.AfterEach;
@@ -38,8 +36,6 @@ class PersonServiceFaceImageTest {
             personRepository,
             mock(PersonMapper.class),
             pythonBackendClient,
-            mock(StudentAttendanceService.class),
-            mock(CoachTimesheetService.class),
             storageService
     );
 

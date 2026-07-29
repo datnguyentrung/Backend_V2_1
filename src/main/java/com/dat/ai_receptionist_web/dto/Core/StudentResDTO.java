@@ -65,6 +65,8 @@ public class StudentResDTO {
 
         private String faceImagePath;
 
+        private String avatarUrl;
+
         @Override
         @JsonIgnore
         public UUID getUserId() {
@@ -106,6 +108,8 @@ public class StudentResDTO {
         String studentCode;
 
         String faceImagePath;
+
+        String avatarUrl;
 
         String nationalCode;
 

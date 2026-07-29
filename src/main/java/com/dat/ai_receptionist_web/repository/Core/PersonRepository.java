@@ -21,8 +21,24 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
 
     @Query(
             value = """
+                    SELECT s.person_id
+                    FROM core.student s
+                    WHERE UPPER(s.student_code) = UPPER(:personCode)
+                    UNION ALL
+                    SELECT c.person_id
+                    FROM core.coach c
+                    WHERE UPPER(c.staff_code) = UPPER(:personCode)
+                    """,
+            nativeQuery = true
+    )
+    List<UUID> findPersonIdsByPersonCode(@Param("personCode") String personCode);
+
+    @Query(
+            value = """
                     SELECT p.person_id AS personId,
                            p.full_name AS fullName,
+                           CAST(p.belt AS varchar) AS belt,
+                           p.email AS email,
                            s.student_code AS studentCode,
                            CAST(s.student_status AS varchar) AS studentStatus,
                            c.staff_code AS staffCode,
@@ -129,6 +145,10 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
         UUID getPersonId();
 
         String getFullName();
+
+        String getBelt();
+
+        String getEmail();
 
         String getStudentCode();
 

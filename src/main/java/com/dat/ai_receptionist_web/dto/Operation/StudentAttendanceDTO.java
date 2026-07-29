@@ -1,6 +1,8 @@
 package com.dat.ai_receptionist_web.dto.Operation;
 
+import com.dat.ai_receptionist_web.dto.Core.ClassScheduleResDTO;
 import com.dat.ai_receptionist_web.dto.Core.PersonDTO;
+import com.dat.ai_receptionist_web.dto.Core.StudentResDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.enums.Operation.AttendanceStatus;
 import com.dat.ai_receptionist_web.enums.Operation.EvaluationStatus;
@@ -67,14 +69,13 @@ public class StudentAttendanceDTO {
         UUID enrollmentId;
 
         // Thông tin học viên (Flatten để FE dễ hiển thị)
-        UUID studentId;
-        String studentName;
+        StudentResDTO.StudentSummary studentSummary;
 
 //        // Thông tin học phí (Thông tin cho tts generate nhắc nhở đóng học phí nếu chưa đóng)
 //        TuitionPaymentDetailDTO.TuitionStatusResponse tuitionStatus;
 
         // Thông tin buổi học
-        String classScheduleId;
+        ClassScheduleResDTO.ClassScheduleSummary classSchedule;
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
         LocalDate sessionDate;
 

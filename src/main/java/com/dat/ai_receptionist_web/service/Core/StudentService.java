@@ -59,7 +59,8 @@ public class StudentService {
     }
 
     public StudentResDTO.StudentDetail getStudentDetail(UUID personId) {
-        return studentMapper.toStudentDetail(getStudentById(personId));
+        Student student = getStudentById(personId);
+        return withAvatarUrl(studentMapper.toStudentDetail(student), student);
     }
 
     public StudentResDTO.StudentDetail getStudentDetail(String studentCode) {
@@ -68,7 +69,7 @@ public class StudentService {
                 studentEnrollmentService.findStudentEnrollmentsByStudentCode(studentCode).stream()
                         .map(studentEnrollmentMapper::toSimpleResponse)
                         .toList();
-        return studentMapper.toStudentDetailWithEnrollments(student, enrollments);
+        return withAvatarUrl(studentMapper.toStudentDetailWithEnrollments(student, enrollments), student);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -147,7 +148,7 @@ public class StudentService {
         }
 
         log.info("Created student successfully with code: {}", generatedCode);
-        return studentMapper.toStudentDetailWithEnrollments(newStudent, enrollmentResponses);
+        return withAvatarUrl(studentMapper.toStudentDetailWithEnrollments(newStudent, enrollmentResponses), newStudent);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -194,6 +195,7 @@ public class StudentService {
         final Map<UUID, List<StudentEnrollment>> finalEnrollmentsMap = enrollmentsByStudentId;
         Page<StudentResDTO.StudentOverview> studentOverviews = studentsPage.map(student -> {
             StudentResDTO.StudentOverview overview = studentMapper.toStudentOverview(student);
+            overview.setAvatarUrl(personService.getPublicFaceImageUrl(student.getFaceImagePath()));
             List<ClassScheduleResDTO.ClassScheduleSummary> scheduleResponses =
                     finalEnrollmentsMap.getOrDefault(student.getPersonId(), Collections.emptyList()).stream()
                             .map(studentEnrollmentMapper::toSimpleResponse)
@@ -213,5 +215,10 @@ public class StudentService {
 
     public List<Student> getStudentByParentId(UUID parentId) {
         return List.of();
+    }
+
+    private StudentResDTO.StudentDetail withAvatarUrl(StudentResDTO.StudentDetail response, Student student) {
+        response.setAvatarUrl(personService.getPublicFaceImageUrl(student.getFaceImagePath()));
+        return response;
     }
 }

@@ -69,7 +69,7 @@ public class CoachService {
         Coach coach = getCoachById(personId);
         List<CoachAssignmentResDTO.SimpleResponse> assignments =
                 coachAssignmentService.findCoachAssignmentsByCoachId(personId, CoachAssignmentStatus.ACTIVE);
-        return coachMapper.toCoachDetailWithAssignments(coach, assignments);
+        return withAvatarUrl(coachMapper.toCoachDetailWithAssignments(coach, assignments), coach);
     }
 
     @Transactional(readOnly = true)
@@ -77,7 +77,7 @@ public class CoachService {
         Coach coach = getCoachByStaffCode(staffCode);
         List<CoachAssignmentResDTO.SimpleResponse> assignments =
                 coachAssignmentService.findCoachAssignmentsByCoachId(coach.getPersonId(), CoachAssignmentStatus.ACTIVE);
-        return coachMapper.toCoachDetailWithAssignments(coach, assignments);
+        return withAvatarUrl(coachMapper.toCoachDetailWithAssignments(coach, assignments), coach);
     }
 
     @Caching(put = {})
@@ -118,7 +118,7 @@ public class CoachService {
         }
 
         log.info("Created coach successfully with code: {}", generatedCode);
-        return coachMapper.toCoachDetailWithAssignments(newCoach, assignmentResponses);
+        return withAvatarUrl(coachMapper.toCoachDetailWithAssignments(newCoach, assignmentResponses), newCoach);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -143,7 +143,7 @@ public class CoachService {
         Coach updatedCoach = coachRepository.save(coach);
         List<CoachAssignmentResDTO.SimpleResponse> assignments =
                 coachAssignmentService.findCoachAssignmentsByCoachId(updatedCoach.getPersonId(), CoachAssignmentStatus.ACTIVE);
-        return coachMapper.toCoachDetailWithAssignments(updatedCoach, assignments);
+        return withAvatarUrl(coachMapper.toCoachDetailWithAssignments(updatedCoach, assignments), updatedCoach);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -188,7 +188,15 @@ public class CoachService {
                     assignmentsByCoachId.getOrDefault(coach.getPersonId(), new ArrayList<>()).stream()
                             .map(coachAssignmentMapper::toSimpleResponse)
                             .toList();
-            return coachMapper.toCoachDetailWithAssignments(coach, assignmentResponses, usersByCoachId.get(coach.getPersonId()));
+            return withAvatarUrl(
+                    coachMapper.toCoachDetailWithAssignments(coach, assignmentResponses, usersByCoachId.get(coach.getPersonId())),
+                    coach
+            );
         }).toList();
+    }
+
+    private CoachResDTO.CoachDetail withAvatarUrl(CoachResDTO.CoachDetail response, Coach coach) {
+        response.setAvatarUrl(personService.getPublicFaceImageUrl(coach.getFaceImagePath()));
+        return response;
     }
 }

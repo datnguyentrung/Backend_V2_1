@@ -62,9 +62,11 @@ public class CoachTimesheetService {
     private final AuthTokenService authTokenService;
     private final UserService userService;
 
-    private void sendAttendanceNotification(CoachTimesheet coachTimesheet) {
-        Coach coach = coachTimesheet.getCoach();
-        ClassSchedule schedule = coachTimesheet.getClassSession().getClassSchedule();
+    private void sendAttendanceNotification(
+            CoachTimesheet coachTimesheet,
+            CoachCheckInContext coach,
+            ClassSchedule schedule
+    ) {
         String scheduleId = schedule.getScheduleId();
 
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy", Locale.forLanguageTag("vi-VN"));
@@ -73,7 +75,7 @@ public class CoachTimesheetService {
         String formattedTime = coachTimesheet.getCheckInTime() != null
                 ? coachTimesheet.getCheckInTime().atZone(defaultZoneId).format(timeFormatter)
                 : coachTimesheet.getCreatedAt().atZone(defaultZoneId).format(timeFormatter);
-        String coachDisplayName = "HLV " + coach.getFullName();
+        String coachDisplayName = "HLV " + coach.fullName();
         String sessionStartTime = schedule.getStartTime().format(sessionTimeFormatter);
         String workingDate = coachTimesheet.getWorkingDate().format(dateFormatter);
 
@@ -133,7 +135,7 @@ public class CoachTimesheetService {
         }
 
         List<String> notificationTokens = new ArrayList<>();
-        notificationTokens.addAll(authTokenService.getAllFcmTokensByActivePersonId(coach.getPersonId()));
+        notificationTokens.addAll(authTokenService.getAllFcmTokensByActivePersonId(coach.personId()));
         notificationTokens.addAll(authTokenService.getAllFcmTokensByRoleCode(HEAD_COACH_ROLE_CODE));
         notificationTokens = notificationTokens.stream()
                 .filter(token -> token != null && !token.isEmpty())
@@ -141,7 +143,7 @@ public class CoachTimesheetService {
                 .toList();
 
         List<UUID> recipientUserIds = new ArrayList<>();
-        recipientUserIds.add(coach.getPersonId());
+        recipientUserIds.add(coach.personId());
         recipientUserIds.addAll(userService.getAllUsersByRoleCode(HEAD_COACH_ROLE_CODE).stream()
                 .map(User::getUserId)
                 .toList());
@@ -149,7 +151,7 @@ public class CoachTimesheetService {
 
         Map<String, String> dataPayload = new HashMap<>();
         dataPayload.put("screen", "CoachTimesheet");
-        dataPayload.put("coachId", coach.getPersonId().toString());
+        dataPayload.put("coachId", coach.personId().toString());
         dataPayload.put("timesheetId", coachTimesheet.getTimesheetId().toString());
 
         notificationService.sendMulticastNotification(
@@ -172,7 +174,12 @@ public class CoachTimesheetService {
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND)) :
                 coachRepository.findById(request.getPersonId())
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
-        return checkInResolvedCoach(coach.getPersonId(), coach.getCoachStatus());
+        return checkInResolvedCoach(
+                coach.getPersonId(),
+                coach.getCoachStatus(),
+                coach.getFullName(),
+                coach.getStaffCode()
+        );
     }
 
     /**
@@ -180,12 +187,16 @@ public class CoachTimesheetService {
      * while identifying the check-in target, so no second coach lookup is needed.
      */
     @Transactional(rollbackFor = Exception.class)
-    public CoachTimesheetDTO.Response checkInResolvedCoach(UUID coachId, CoachStatus coachStatus) {
+    public CoachTimesheetDTO.Response checkInResolvedCoach(
+            UUID coachId,
+            CoachStatus coachStatus,
+            String coachFullName,
+            String coachStaffCode
+    ) {
         LocalDateTime now = LocalDateTime.now(defaultZoneId);
         LocalDate today = now.toLocalDate();
         validateCoachActive(coachStatus);
-        Coach coach = coachRepository.findById(coachId)
-                .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
+        CoachCheckInContext coach = new CoachCheckInContext(coachId, coachFullName, coachStaffCode);
 
         List<CoachAssignment> validAssignments = getValidAssignments(coachId, today);
         List<ClassSession> sessions = classSessionRepository
@@ -201,10 +212,10 @@ public class CoachTimesheetService {
                         .equals(classSession.getClassSchedule().getScheduleId()))
                 .findFirst()
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_ASSIGNMENT_INVALID));
-        if (!coachAssignment.getCoach().getPersonId().equals(coach.getPersonId())) {
+        if (!coachAssignment.getCoach().getPersonId().equals(coach.personId())) {
             throw new AppException(ErrorCode.COACH_ASSIGNMENT_INVALID);
         }
-        return checkInForSession(coachAssignment, classSession, now, today);
+        return checkInForSession(coachAssignment, classSession, now, today, coach);
     }
 
     private List<CoachAssignment> getValidAssignments(UUID coachId, LocalDate today) {
@@ -218,7 +229,7 @@ public class CoachTimesheetService {
                 .filter(assignment -> assignment.isEffectiveOn(today))
                 .filter(assignment -> assignment.getClassSchedule() != null)
                 .filter(assignment -> assignment.getClassSchedule().getScheduleStatus() == ScheduleStatus.ACTIVE)
-                .filter(assignment -> assignment.getClassSchedule().getWeekday() == Weekday.fromJavaDayOfWeek(today.getDayOfWeek()))
+//                .filter(assignment -> assignment.getClassSchedule().getWeekday() == Weekday.fromJavaDayOfWeek(today.getDayOfWeek()))
                 .sorted(Comparator.comparing(assignment -> assignment.getClassSchedule().getStartTime()))
                 .toList();
         if (validAssignments.isEmpty()) {
@@ -229,22 +240,27 @@ public class CoachTimesheetService {
     }
 
     private CoachTimesheetDTO.Response checkInForSession(
-            CoachAssignment coachAssignment, ClassSession classSession, LocalDateTime now, LocalDate today) {
+            CoachAssignment coachAssignment,
+            ClassSession classSession,
+            LocalDateTime now,
+            LocalDate today,
+            CoachCheckInContext coach
+    ) {
         Optional<CoachTimesheet> existingTimesheet = coachTimesheetRepository
                 .findForCheckInByCoachAssignment_AssignmentIdAndClassSession_SessionId(
                         coachAssignment.getAssignmentId(), classSession.getSessionId());
         if (existingTimesheet.isPresent()) {
             CoachTimesheet timesheet = existingTimesheet.get();
             if (timesheet.getCheckInTime() != null) {
-                return toCheckInResponse(timesheet, true);
+                return coachTimesheetMapper.toCheckInResponse(timesheet, true);
             }
             timesheet.setCheckInTime(now);
             timesheet.setStatus(CoachTimesheetStatus.CHECKED_IN);
             CoachTimesheet saved = coachTimesheetRepository.saveAndFlush(timesheet);
-            sendAttendanceNotification(saved);
-            return toCheckInResponse(saved, false);
+            sendAttendanceNotification(saved, coach, coachAssignment.getClassSchedule());
+            return coachTimesheetMapper.toCheckInResponse(saved, false);
         }
-        return createTimesheet(coachAssignment, classSession, now, today);
+        return createTimesheet(coachAssignment, classSession, now, today, coach);
     }
 
     @Transactional(readOnly = true)
@@ -320,7 +336,8 @@ public class CoachTimesheetService {
             CoachAssignment coachAssignment,
             ClassSession session,
             LocalDateTime now,
-            LocalDate today
+            LocalDate today,
+            CoachCheckInContext coach
     ) {
         CoachTimesheet saved = coachTimesheetRepository.saveAndFlush(CoachTimesheet.builder()
                 .coach(coachAssignment.getCoach())
@@ -331,17 +348,13 @@ public class CoachTimesheetService {
                 .status(CoachTimesheetStatus.CHECKED_IN)
                 .note("Coach check-in by staffCode scan")
                 .build());
-        sendAttendanceNotification(saved);
+        sendAttendanceNotification(saved, coach, coachAssignment.getClassSchedule());
         log.info("CHECK_IN_RESULT personId={} timesheetId={} alreadyCheckedIn=false previousStatus=null newStatus={}",
                 coachAssignment.getCoach().getPersonId(), saved.getTimesheetId(), CoachTimesheetStatus.CHECKED_IN);
-        return toCheckInResponse(saved, false);
+        return coachTimesheetMapper.toCheckInResponse(saved, false);
     }
 
-    private CoachTimesheetDTO.Response toCheckInResponse(CoachTimesheet timesheet, boolean alreadyCheckedIn) {
-        CoachTimesheetDTO.Response response = coachTimesheetMapper.toResponse(timesheet);
-        response.setAttendanceId(timesheet.getTimesheetId());
-        response.setAlreadyCheckedIn(alreadyCheckedIn);
-        return response;
+    private record CoachCheckInContext(UUID personId, String fullName, String staffCode) {
     }
 
     private void validateCoachActive(CoachStatus coachStatus) {

@@ -5,16 +5,11 @@ import com.dat.ai_receptionist_web.client.PythonBackendClient.PythonBackendClien
 import com.dat.ai_receptionist_web.domain.Core.Person;
 import com.dat.ai_receptionist_web.dto.Core.PersonDTO;
 import com.dat.ai_receptionist_web.dto.Core.PersonDTO.PersonCreationData;
-import com.dat.ai_receptionist_web.dto.Operation.CheckInStudentProjection;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.enums.ErrorCode;
-import com.dat.ai_receptionist_web.enums.Core.CoachStatus;
-import com.dat.ai_receptionist_web.enums.Core.StudentStatus;
 import com.dat.ai_receptionist_web.mapper.Core.PersonMapper;
 import com.dat.ai_receptionist_web.repository.Core.PersonRepository;
-import com.dat.ai_receptionist_web.service.Operation.CoachTimesheetService;
 import com.dat.ai_receptionist_web.service.Operation.SupabaseStorageService;
-import com.dat.ai_receptionist_web.service.Operation.StudentAttendanceService;
 import com.dat.ai_receptionist_web.util.converter.NameConverter;
 import com.dat.ai_receptionist_web.util.error.AppException;
 import com.dat.ai_receptionist_web.util.error.BusinessException;
@@ -42,11 +37,7 @@ public class PersonService {
     private final PersonRepository personRepository;
     private final PersonMapper personMapper;
     private final PythonBackendClient pythonBackendClient;
-    private final StudentAttendanceService studentAttendanceService;
-    private final CoachTimesheetService coachTimesheetService;
     private final SupabaseStorageService supabaseStorageService;
-
-    private static final Duration FACE_IMAGE_SIGNED_URL_DURATION = Duration.ofMinutes(15);
 
     @Value("${FACE_MATCH_THRESHOLD:0.70}")
     private float faceMatchThreshold = 0.70f;
@@ -90,38 +81,6 @@ public class PersonService {
         return PageResponse.of(people, personMapper::toSearchItem);
     }
 
-    public PersonDTO.FaceCheckInResponse checkInByFaceImage(MultipartFile file) {
-        PythonBackendClient.FaceEmbeddingResponse response = generateFaceEmbedding(file);
-        NearestPersonMatch nearestPerson = findNearestPersonByEmbedding(
-                response.embedding(),
-                faceMatchThreshold
-        );
-        if (nearestPerson.personId() == null) {
-            throw new AppException(ErrorCode.FACE_NOT_MATCHED);
-        }
-        PersonRepository.FaceCheckInSubjectProjection subject = personRepository
-                .findFaceCheckInSubjectByPersonId(nearestPerson.personId())
-                .orElseThrow(() -> new AppException(ErrorCode.FACE_CHECK_IN_PERSON_TYPE_INVALID));
-
-        boolean isStudent = subject.getStudentCode() != null;
-        boolean isCoach = subject.getStaffCode() != null;
-        if (isStudent == isCoach) {
-            throw new AppException(ErrorCode.FACE_CHECK_IN_PERSON_TYPE_INVALID);
-        }
-
-        if (isStudent) {
-            return studentAttendanceService.createAttendanceRecordForResolvedStudent(
-                    new ResolvedStudentCheckIn(subject)
-            );
-        }
-        return coachTimesheetService.checkInResolvedCoach(
-                subject.getPersonId(),
-                toCoachStatus(subject.getCoachStatus()),
-                subject.getFullName(),
-                subject.getStaffCode()
-        );
-    }
-
     /**
      * Finds the closest stored face embedding using pgvector cosine distance.
      * A missing candidate and a candidate below the requested threshold both return
@@ -148,6 +107,10 @@ public class PersonService {
         // The vector query has already produced a stable person id. Loading Person here
         // materializes the face_embedding float array only to read that same id again.
         return new NearestPersonMatch(match.getPersonId(), confidence);
+    }
+
+    public NearestPersonMatch findNearestPersonByEmbedding(List<Float> embeddingVector) {
+        return findNearestPersonByEmbedding(embeddingVector, faceMatchThreshold);
     }
 
     private static String toPgVectorLiteral(List<Float> embeddingVector) {
@@ -183,22 +146,6 @@ public class PersonService {
         }
     }
 
-    private static StudentStatus toStudentStatus(String status) {
-        try {
-            return StudentStatus.valueOf(status);
-        } catch (IllegalArgumentException | NullPointerException exception) {
-            throw new AppException(ErrorCode.FACE_CHECK_IN_PERSON_TYPE_INVALID, exception);
-        }
-    }
-
-    private static CoachStatus toCoachStatus(String status) {
-        try {
-            return CoachStatus.valueOf(status);
-        } catch (IllegalArgumentException | NullPointerException exception) {
-            throw new AppException(ErrorCode.FACE_CHECK_IN_PERSON_TYPE_INVALID, exception);
-        }
-    }
-
     @Transactional(rollbackFor = Exception.class)
     public PersonDTO.FaceEmbeddingUpdateResponse updateFaceEmbedding(MultipartFile file, UUID personId) {
         Person person = personRepository.findById(personId)
@@ -210,6 +157,7 @@ public class PersonService {
                 .dimension(faceData.dimension())
                 .model(faceData.model())
                 .faceImagePath(savedPerson.getFaceImagePath())
+                .avatarUrl(getPublicFaceImageUrl(savedPerson.getFaceImagePath()))
                 .updatedAt(savedPerson.getUpdatedAt())
                 .build();
     }
@@ -248,11 +196,14 @@ public class PersonService {
     public PersonDTO.FaceImageUrlResponse getFaceImageUrl(UUID personId) {
         Person person = personRepository.findById(personId)
                 .orElseThrow(() -> new AppException(ErrorCode.PERSON_NOT_FOUND));
-        String url = supabaseStorageService.createSignedUrl(person.getFaceImagePath(), FACE_IMAGE_SIGNED_URL_DURATION);
-        return new PersonDTO.FaceImageUrlResponse(url, FACE_IMAGE_SIGNED_URL_DURATION);
+        return new PersonDTO.FaceImageUrlResponse(getPublicFaceImageUrl(person.getFaceImagePath()));
     }
 
-    private PythonBackendClient.FaceEmbeddingResponse generateFaceEmbedding(MultipartFile file) {
+    public String getPublicFaceImageUrl(String faceImagePath) {
+        return supabaseStorageService.getPublicUrl(faceImagePath);
+    }
+
+    public PythonBackendClient.FaceEmbeddingResponse generateFaceEmbedding(MultipartFile file) {
         try {
             return pythonBackendClient.generateFaceEmbedding(file);
         } catch (PythonBackendClientException exception) {
@@ -328,29 +279,48 @@ public class PersonService {
         }
     }
 
-    private record ResolvedStudentCheckIn(PersonRepository.FaceCheckInSubjectProjection subject)
-            implements CheckInStudentProjection {
+    /**
 
-        @Override
-        public java.util.UUID getPersonId() {
-            return subject.getPersonId();
+     * Tìm Person bằng ảnh khuôn mặt hoặc mã định danh.
+     * <p>
+     * Ưu tiên nhận diện bằng ảnh; nếu không tìm thấy thì fallback sang {@code personCode}.
+     * Mã {@code VQT_} là HLV, {@code VQ_} là học viên.
+     *
+     * @param file ảnh khuôn mặt, có thể {@code null}
+     * @param personCode mã học viên (studentCode) hoặc HLV (StaffCode)
+     * @return thông tin Person, hoặc {@code null} nếu không tìm thấy
+     */
+    @Transactional(readOnly = true)
+    public PersonDTO.PersonResponse identifyPerson(MultipartFile file, String personCode) {
+        if (file != null) {
+            PythonBackendClient.FaceEmbeddingResponse embeddingResponse = generateFaceEmbedding(file);
+            NearestPersonMatch nearestPerson = findNearestPersonByEmbedding(embeddingResponse.embedding());
+            if (nearestPerson.personId() == null) {
+                throw new AppException(ErrorCode.FACE_NOT_MATCHED);
+            }
+            return toPersonResponse(nearestPerson.personId());
         }
 
-        @Override
-        public String getStudentCode() {
-            return subject.getStudentCode();
+        if (!StringUtils.hasText(personCode)) {
+            throw new AppException(ErrorCode.INVALID_IDENTIFICATION_REQUEST);
         }
 
-        @Override
-        public StudentStatus getStudentStatus() {
-            return toStudentStatus(subject.getStudentStatus());
+        List<UUID> personIds = personRepository.findPersonIdsByPersonCode(personCode.trim());
+        if (personIds.isEmpty()) {
+            throw new AppException(ErrorCode.PERSON_NOT_FOUND);
         }
-
-        @Override
-        public String getFullName() {
-            return subject.getFullName();
+        if (personIds.size() > 1) {
+            throw new AppException(ErrorCode.FACE_CHECK_IN_PERSON_TYPE_INVALID);
         }
+        return toPersonResponse(personIds.getFirst());
     }
+
+    private PersonDTO.PersonResponse toPersonResponse(UUID personId) {
+        Person person = personRepository.findById(personId)
+                .orElseThrow(() -> new AppException(ErrorCode.PERSON_NOT_FOUND));
+        return personMapper.toPersonResponse(person);
+    }
+
 
     public record NearestPersonMatch(UUID personId, float confidence) {
     }

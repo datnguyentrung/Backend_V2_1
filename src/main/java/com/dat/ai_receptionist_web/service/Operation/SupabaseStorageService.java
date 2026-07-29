@@ -148,6 +148,18 @@ public class SupabaseStorageService {
         }
     }
 
+    /** Returns a deterministic URL for an object in the configured public bucket. */
+    public String getPublicUrl(String objectPath) {
+        if (!StringUtils.hasText(objectPath)) {
+            return null;
+        }
+        return stripTrailingSlash(properties.getUrl())
+                + "/storage/v1/object/public/"
+                + properties.getStorage().getFaceImageBucket()
+                + "/"
+                + objectPath;
+    }
+
     private static ErrorCode toStorageErrorCode(RestClientResponseException exception) {
         return exception.getStatusCode().is5xxServerError()
                 ? ErrorCode.SUPABASE_STORAGE_UNAVAILABLE

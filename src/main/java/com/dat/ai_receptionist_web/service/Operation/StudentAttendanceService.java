@@ -856,20 +856,13 @@ public class StudentAttendanceService {
             ClassSession classSession,
             boolean alreadyCheckedIn
     ) {
-        return StudentAttendanceDTO.Response.builder()
-                .attendanceId(attendance.getAttendanceId())
-                .enrollmentId(enrollment.getEnrollmentId())
-                .studentId(student.getPersonId())
-                .studentName(student.getFullName())
-                .classScheduleId(classSession.getClassSchedule().getScheduleId())
-                .sessionDate(attendance.getSessionDate())
-                .attendanceStatus(attendance.getAttendanceStatus())
-                .checkInTime(attendance.getCheckInTime())
-                .alreadyCheckedIn(alreadyCheckedIn)
-                .evaluationStatus(attendance.getEvaluationStatus())
-                .note(attendance.getNote())
-                .updatedAt(attendance.getUpdatedAt())
-                .build();
+        return studentAttendanceMapper.toCheckInResponse(
+                attendance,
+                student,
+                enrollment,
+                classSession,
+                alreadyCheckedIn
+        );
     }
 
     @Transactional

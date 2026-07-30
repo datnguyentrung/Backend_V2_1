@@ -66,7 +66,6 @@ public class StudentReqDTO {
     public static class StudentUpdate {
         MultipartFile file;
 
-        @NotNull(message = "ID học viên không được để trống")
         UUID personId;
 
         // === Thông tin có thể cập nhật từ User ===

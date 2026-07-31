@@ -48,12 +48,55 @@ public class TuitionPaymentDTO {
         BigDecimal totalAmount;
         String note;
         LocalDateTime createdAt;
-        List<TuitionPaymentDetailDTO.TuitionPaymentDetailResponse> details;
+        List<TuitionPaymentDetailResponse> details;
     }
 
     /**
      * Response: Lịch sử đóng phí (join Payment + Detail)
      */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class TuitionPaymentDetailResponse {
+        UUID detailId;
+        UUID enrollmentId;
+        String scheduleId;
+        int forMonth;
+        int forYear;
+        BigDecimal amountAllocated;
+    }
+
+    @Builder
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class TuitionStatusResponse {
+        UUID studentId;
+        String studentCode;
+        String fullName;
+        boolean hasPaidCurrentMonth;
+        int currentMonth;
+        int currentYear;
+        List<ActiveClassStatus> activeClasses;
+    }
+
+    @Builder
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class ActiveClassStatus {
+        UUID enrollmentId;
+        String scheduleId;
+        boolean paid;
+        BigDecimal amountAllocated;
+    }
+
     @Data
     @Builder
     @NoArgsConstructor

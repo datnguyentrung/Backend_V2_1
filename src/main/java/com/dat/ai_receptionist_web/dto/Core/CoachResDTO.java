@@ -18,13 +18,14 @@ public class CoachResDTO {
      * DTO trả về thông tin chi tiết Coach
      * Bao gồm thông tin từ Coach và User (parent class)
      */
-    @EqualsAndHashCode(callSuper = true)
     @Data
     @SuperBuilder
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class CoachDetail extends UserRes.UserDetail {
+    public static class CoachDetail {
+        List<UserRes.UserDetail> userDetails; // Thông tin User liên quan đến Coach (nếu có)
+
         UUID personId;
 
         String faceImagePath;
@@ -32,18 +33,6 @@ public class CoachResDTO {
         String avatarUrl;
 
         String email;
-
-        @Override
-        @JsonIgnore
-        public UUID getUserId() {
-            return super.getUserId();
-        }
-
-        @Override
-        @JsonIgnore
-        public void setUserId(UUID userId) {
-            super.setUserId(userId);
-        }
 
         // === Thông tin từ Coach (Child Entity) ===
         String staffCode;

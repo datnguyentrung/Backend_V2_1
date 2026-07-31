@@ -2,6 +2,7 @@ package com.dat.ai_receptionist_web.dto.Security;
 
 import com.dat.ai_receptionist_web.dto.Operation.CoachAssignmentResDTO;
 import com.dat.ai_receptionist_web.enums.Core.Belt;
+import com.dat.ai_receptionist_web.enums.Security.RelationshipType;
 import com.dat.ai_receptionist_web.enums.Security.UserStatus;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
@@ -76,6 +77,10 @@ public class UserRes {
         List<String> roles;
 
         String fullName;
+
+        RelationshipType relationshipType;
+
+        Boolean active;
 
         @Builder.Default
         Boolean gender = Boolean.TRUE; // true = nam, false = nữ

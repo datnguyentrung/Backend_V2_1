@@ -3,6 +3,7 @@ package com.dat.ai_receptionist_web.service.Core;
 import com.dat.ai_receptionist_web.domain.Core.Branch;
 import com.dat.ai_receptionist_web.domain.Core.Student;
 import com.dat.ai_receptionist_web.domain.Operation.StudentEnrollment;
+import com.dat.ai_receptionist_web.domain.Security.UserProfile;
 import com.dat.ai_receptionist_web.dto.Core.ClassScheduleResDTO;
 import com.dat.ai_receptionist_web.dto.Core.PersonDTO.PersonCreationData;
 import com.dat.ai_receptionist_web.dto.Core.StudentReqDTO;
@@ -17,6 +18,7 @@ import com.dat.ai_receptionist_web.mapper.Operation.StudentEnrollmentMapper;
 import com.dat.ai_receptionist_web.repository.Core.StudentRepository;
 import com.dat.ai_receptionist_web.repository.Core.StudentRepositoryCustom;
 import com.dat.ai_receptionist_web.repository.Operation.StudentEnrollmentRepository;
+import com.dat.ai_receptionist_web.repository.Security.UserProfileRepository;
 import com.dat.ai_receptionist_web.service.Operation.StudentEnrollmentService;
 import com.dat.ai_receptionist_web.specification.StudentSpecification;
 import com.dat.ai_receptionist_web.util.AccountUtil;
@@ -47,6 +49,7 @@ public class StudentService {
     private final StudentEnrollmentRepository studentEnrollmentRepository;
     private final StudentEnrollmentService studentEnrollmentService;
     private final PersonService personService;
+    private final UserProfileRepository userProfileRepository;
 
     public Student getStudentById(UUID personId) {
         return studentRepository.findById(personId)
@@ -60,7 +63,7 @@ public class StudentService {
 
     public StudentResDTO.StudentDetail getStudentDetail(UUID personId) {
         Student student = getStudentById(personId);
-        return withAvatarUrl(studentMapper.toStudentDetail(student), student);
+        return withAvatarUrl(studentMapper.toStudentDetail(student, getUserProfiles(student)), student);
     }
 
     public StudentResDTO.StudentDetail getStudentDetail(String studentCode) {
@@ -69,7 +72,7 @@ public class StudentService {
                 studentEnrollmentService.findStudentEnrollmentsByStudentCode(studentCode).stream()
                         .map(studentEnrollmentMapper::toSimpleResponse)
                         .toList();
-        return withAvatarUrl(studentMapper.toStudentDetailWithEnrollments(student, enrollments), student);
+        return withAvatarUrl(studentMapper.toStudentDetailWithEnrollments(student, enrollments, getUserProfiles(student)), student);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -148,7 +151,7 @@ public class StudentService {
         }
 
         log.info("Created student successfully with code: {}", generatedCode);
-        return withAvatarUrl(studentMapper.toStudentDetailWithEnrollments(newStudent, enrollmentResponses), newStudent);
+        return withAvatarUrl(studentMapper.toStudentDetailWithEnrollments(newStudent, enrollmentResponses, List.of()), newStudent);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -220,5 +223,9 @@ public class StudentService {
     private StudentResDTO.StudentDetail withAvatarUrl(StudentResDTO.StudentDetail response, Student student) {
         response.setAvatarUrl(personService.getPublicFaceImageUrl(student.getFaceImagePath()));
         return response;
+    }
+
+    private List<UserProfile> getUserProfiles(Student student) {
+        return userProfileRepository.findAllByPerson_PersonId(student.getPersonId());
     }
 }

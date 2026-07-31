@@ -1,7 +1,7 @@
 package com.dat.ai_receptionist_web.service.Operation;
 
 import com.dat.ai_receptionist_web.domain.Operation.TuitionPaymentDetail;
-import com.dat.ai_receptionist_web.dto.Operation.TuitionPaymentDetailDTO;
+import com.dat.ai_receptionist_web.dto.Operation.TuitionPaymentDTO;
 import com.dat.ai_receptionist_web.repository.Operation.TuitionPaymentDetailRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,7 +37,7 @@ public class TuitionPaymentDetailService {
      * Lấy danh sách tất cả detail của 1 payment (dùng khi cần hiện lại hóa đơn).
      */
     @Transactional(readOnly = true)
-    public List<TuitionPaymentDetailDTO.TuitionPaymentDetailResponse> getDetailsByPaymentId(UUID paymentId) {
+    public List<TuitionPaymentDTO.TuitionPaymentDetailResponse> getDetailsByPaymentId(UUID paymentId) {
         return tuitionPaymentDetailRepository
                 .findByTuitionPayment_PaymentId(paymentId)
                 .stream()
@@ -47,8 +47,8 @@ public class TuitionPaymentDetailService {
 
     // ---- helpers ----
 
-    private TuitionPaymentDetailDTO.TuitionPaymentDetailResponse toResponse(TuitionPaymentDetail d) {
-        return TuitionPaymentDetailDTO.TuitionPaymentDetailResponse.builder()
+    private TuitionPaymentDTO.TuitionPaymentDetailResponse toResponse(TuitionPaymentDetail d) {
+        return TuitionPaymentDTO.TuitionPaymentDetailResponse.builder()
                 .detailId(d.getDetailId())
                 .enrollmentId(d.getEnrollment().getEnrollmentId())
                 .scheduleId(d.getEnrollment().getClassSchedule().getScheduleId())

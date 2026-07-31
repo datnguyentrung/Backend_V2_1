@@ -53,12 +53,13 @@ public class StudentResDTO {
      * DTO trả về thông tin chi tiết Student
      * Bao gồm thông tin từ Student và User (parent class)
      */
-    @EqualsAndHashCode(callSuper = true)
     @Data
     @SuperBuilder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class StudentDetail extends UserRes.UserDetail {
+    public static class StudentDetail {
+        private List<UserRes.UserDetail> userDetails;
+
         private UUID personId;
 
         private String studentCode;
@@ -66,18 +67,6 @@ public class StudentResDTO {
         private String faceImagePath;
 
         private String avatarUrl;
-
-        @Override
-        @JsonIgnore
-        public UUID getUserId() {
-            return super.getUserId();
-        }
-
-        @Override
-        @JsonIgnore
-        public void setUserId(UUID userId) {
-            super.setUserId(userId);
-        }
 
         private String nationalCode; // CCCD/CMND
 

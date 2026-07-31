@@ -4,7 +4,6 @@ import com.dat.ai_receptionist_web.domain.Operation.TuitionPayment;
 import com.dat.ai_receptionist_web.domain.Operation.TuitionPaymentDetail;
 import com.dat.ai_receptionist_web.domain.Operation.StudentEnrollment;
 import com.dat.ai_receptionist_web.dto.Operation.TuitionPaymentDTO;
-import com.dat.ai_receptionist_web.dto.Operation.TuitionPaymentDetailDTO;
 import com.dat.ai_receptionist_web.mapper.Core.StudentMapper;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -31,7 +30,7 @@ public interface TuitionPaymentMapper {
     // Tùy thuộc vào Entity StudentEnrollment của bạn, có thể bạn cần lấy scheduleId thông qua classSchedule
     // VD: source = "enrollment.classSchedule.scheduleId" hoặc source = "enrollment.scheduleId"
     @Mapping(target = "scheduleId", source = "enrollment.classSchedule.scheduleId")
-    TuitionPaymentDetailDTO.TuitionPaymentDetailResponse toDetailResponse(TuitionPaymentDetail detail);
+    TuitionPaymentDTO.TuitionPaymentDetailResponse toDetailResponse(TuitionPaymentDetail detail);
 
     /**
      * 3. Kết hợp Payment và list Details lại thành Response tổng
@@ -57,10 +56,10 @@ public interface TuitionPaymentMapper {
         return item;
     }
 
-    default TuitionPaymentDetailDTO.ActiveClassStatus toActiveClassStatus(
+    default TuitionPaymentDTO.ActiveClassStatus toActiveClassStatus(
             StudentEnrollment enrollment,
             TuitionPaymentDetail paidDetail) {
-        return TuitionPaymentDetailDTO.ActiveClassStatus.builder()
+        return TuitionPaymentDTO.ActiveClassStatus.builder()
                 .enrollmentId(enrollment.getEnrollmentId())
                 .scheduleId(enrollment.getClassSchedule().getScheduleId())
                 .paid(paidDetail != null)
@@ -68,7 +67,7 @@ public interface TuitionPaymentMapper {
                 .build();
     }
 
-    default List<TuitionPaymentDetailDTO.ActiveClassStatus> toActiveClassStatuses(
+    default List<TuitionPaymentDTO.ActiveClassStatus> toActiveClassStatuses(
             List<StudentEnrollment> activeEnrollments,
             List<TuitionPaymentDetail> paidDetails) {
         Map<UUID, TuitionPaymentDetail> paidMap = paidDetails.stream()

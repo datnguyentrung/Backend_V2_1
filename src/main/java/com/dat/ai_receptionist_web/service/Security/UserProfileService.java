@@ -65,4 +65,8 @@ public class UserProfileService {
     public List<UserProfile> getAllByPersonIdAndActiveTrue(UUID personId) {
         return userProfileRepository.findAllByPerson_PersonIdAndActive(personId, true);
     }
+
+    public List<UserProfile> getAllByPersonId(UUID personId) {
+        return userProfileRepository.findAllByPerson_PersonId(personId);
+    }
 }

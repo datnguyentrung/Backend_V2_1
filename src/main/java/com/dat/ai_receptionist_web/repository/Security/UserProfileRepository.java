@@ -47,6 +47,7 @@ public interface UserProfileRepository extends JpaRepository<UserProfile, UUID> 
             RelationshipType relationshipType
     );
 
+    @EntityGraph(attributePaths = {"person", "user", "user.roles"})
     List<UserProfile> findAllByPerson_PersonIdAndActive(UUID personPersonId, Boolean active);
 
     @Query("""
@@ -64,6 +65,12 @@ public interface UserProfileRepository extends JpaRepository<UserProfile, UUID> 
               AND up.active = true
             """)
     List<UUID> findActiveUserIdsByPersonIds(@Param("personIds") Collection<UUID> personIds);
+
+    @EntityGraph(attributePaths = {"person", "user", "user.roles"})
+    List<UserProfile> findAllByPerson_PersonId(UUID personPersonId);
+
+    @EntityGraph(attributePaths = {"person", "user", "user.roles"})
+    List<UserProfile> findAllByPerson_PersonIdIn(Collection<UUID> personIds);
 
     interface UserContextRow {
         UUID getPersonId();

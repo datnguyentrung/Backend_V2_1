@@ -1,9 +1,11 @@
 package com.dat.ai_receptionist_web.mapper.Core;
 
 import com.dat.ai_receptionist_web.domain.Core.Student;
+import com.dat.ai_receptionist_web.domain.Security.UserProfile;
 import com.dat.ai_receptionist_web.dto.Core.StudentResDTO;
 import com.dat.ai_receptionist_web.dto.Operation.StudentEnrollmentResDTO;
 import com.dat.ai_receptionist_web.dto.Security.UserRes;
+import com.dat.ai_receptionist_web.mapper.Security.UserMapper;
 import org.mapstruct.*;
 
 import java.util.List;
@@ -11,7 +13,8 @@ import java.util.List;
 @Mapper(
         componentModel = "spring",
         unmappedTargetPolicy = ReportingPolicy.IGNORE,
-        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE
+        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE,
+        uses = UserMapper.class
 )
 public interface StudentMapper {
 
@@ -28,27 +31,26 @@ public interface StudentMapper {
     @Mapping(target = "phone", ignore = true)
     UserRes.UserProfile toUserProfile(Student student);
 
-    @Mapping(target = "personId", source = "personId")
-    @Mapping(target = "userId", ignore = true)
-    @Mapping(target = "roles", ignore = true)
-    @Mapping(target = "faceImagePath", source = "faceImagePath")
-    @Mapping(target = "branchId", source = "branch.branchId")
-    @Mapping(target = "branchName", source = "branch.branchName")
-    @Mapping(target = "branchAddress", source = "branch.address")
+    @Mapping(target = "personId", source = "student.personId")
+    @Mapping(target = "faceImagePath", source = "student.faceImagePath")
+    @Mapping(target = "branchId", source = "student.branch.branchId")
+    @Mapping(target = "branchName", source = "student.branch.branchName")
+    @Mapping(target = "branchAddress", source = "student.branch.address")
     @Mapping(target = "enrollments", ignore = true)
-    StudentResDTO.StudentDetail toStudentDetail(Student student);
+    @Mapping(target = "userDetails", source = "userProfiles")
+    StudentResDTO.StudentDetail toStudentDetail(Student student, List<UserProfile> userProfiles);
 
     @Mapping(target = "personId", source = "student.personId")
-    @Mapping(target = "userId", ignore = true)
-    @Mapping(target = "roles", ignore = true)
     @Mapping(target = "faceImagePath", source = "student.faceImagePath")
     @Mapping(target = "branchId", source = "student.branch.branchId")
     @Mapping(target = "branchName", source = "student.branch.branchName")
     @Mapping(target = "branchAddress", source = "student.branch.address")
     @Mapping(target = "enrollments", source = "enrollments")
+    @Mapping(target = "userDetails", source = "userProfiles")
     StudentResDTO.StudentDetail toStudentDetailWithEnrollments(
             Student student,
-            List<StudentEnrollmentResDTO.SimpleResponse> enrollments);
+            List<StudentEnrollmentResDTO.SimpleResponse> enrollments,
+            List<UserProfile> userProfiles);
 
     @Mapping(target = "branchName", source = "branch.branchName")
     @Mapping(target = "personId", source = "personId")

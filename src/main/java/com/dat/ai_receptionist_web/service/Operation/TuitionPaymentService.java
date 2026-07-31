@@ -5,7 +5,6 @@ import com.dat.ai_receptionist_web.domain.Operation.StudentEnrollment;
 import com.dat.ai_receptionist_web.domain.Operation.TuitionPayment;
 import com.dat.ai_receptionist_web.domain.Operation.TuitionPaymentDetail;
 import com.dat.ai_receptionist_web.dto.Operation.TuitionPaymentDTO;
-import com.dat.ai_receptionist_web.dto.Operation.TuitionPaymentDetailDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.enums.ErrorCode;
 import com.dat.ai_receptionist_web.enums.Operation.StudentEnrollmentStatus;
@@ -147,7 +146,7 @@ public class TuitionPaymentService {
      * @return TuitionStatusResponse
      */
     @Transactional(readOnly = true)
-    public TuitionPaymentDetailDTO.TuitionStatusResponse checkTuitionStatus(UUID studentId) {
+    public TuitionPaymentDTO.TuitionStatusResponse checkTuitionStatus(UUID studentId) {
 
         Student student = studentService.getStudentById(studentId);
 
@@ -160,7 +159,7 @@ public class TuitionPaymentService {
         int currentYear = now.getYear();
 
         if (activeEnrollments.isEmpty()) {
-            return TuitionPaymentDetailDTO.TuitionStatusResponse.builder()
+            return TuitionPaymentDTO.TuitionStatusResponse.builder()
                     .studentId(student.getPersonId())
                     .studentCode(student.getStudentCode())
                     .fullName(student.getFullName())
@@ -185,12 +184,12 @@ public class TuitionPaymentService {
                 .findPaidEnrollmentsForYear(enrollmentIds, currentYear);
 
         // Map enrollmentId → detail để tra cứu O(1)
-        List<TuitionPaymentDetailDTO.ActiveClassStatus> classStatuses =
+        List<TuitionPaymentDTO.ActiveClassStatus> classStatuses =
                 tuitionPaymentMapper.toActiveClassStatuses(activeEnrollments, paidDetails);
 
-        boolean allPaid = classStatuses.stream().allMatch(TuitionPaymentDetailDTO.ActiveClassStatus::isPaid);
+        boolean allPaid = classStatuses.stream().allMatch(TuitionPaymentDTO.ActiveClassStatus::isPaid);
 
-        return TuitionPaymentDetailDTO.TuitionStatusResponse.builder()
+        return TuitionPaymentDTO.TuitionStatusResponse.builder()
                 .studentId(student.getPersonId())
                 .studentCode(student.getStudentCode())
                 .fullName(student.getFullName())

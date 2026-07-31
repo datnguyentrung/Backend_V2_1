@@ -1,7 +1,6 @@
 package com.dat.ai_receptionist_web.controller.Operation;
 
 import com.dat.ai_receptionist_web.dto.Operation.TuitionPaymentDTO;
-import com.dat.ai_receptionist_web.dto.Operation.TuitionPaymentDetailDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.service.Operation.TuitionPaymentService;
 import jakarta.validation.Valid;
@@ -81,12 +80,12 @@ public class TuitionPaymentController {
      */
     @PreAuthorize("@securityRule.isCoach(authentication)")
     @GetMapping("/status/{studentId}")
-    public ResponseEntity<TuitionPaymentDetailDTO.TuitionStatusResponse> checkTuitionStatus(
+    public ResponseEntity<TuitionPaymentDTO.TuitionStatusResponse> checkTuitionStatus(
             @PathVariable UUID studentId) {
 
         log.info("REST request to check tuition status for student [{}]", studentId);
 
-        TuitionPaymentDetailDTO.TuitionStatusResponse response =
+        TuitionPaymentDTO.TuitionStatusResponse response =
                 tuitionPaymentService.checkTuitionStatus(studentId);
 
         return ResponseEntity.ok(response);

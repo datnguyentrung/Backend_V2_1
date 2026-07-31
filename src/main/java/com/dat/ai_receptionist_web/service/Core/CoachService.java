@@ -2,7 +2,6 @@ package com.dat.ai_receptionist_web.service.Core;
 
 import com.dat.ai_receptionist_web.domain.Core.Coach;
 import com.dat.ai_receptionist_web.domain.Operation.CoachAssignment;
-import com.dat.ai_receptionist_web.domain.Security.User;
 import com.dat.ai_receptionist_web.domain.Security.UserProfile;
 import com.dat.ai_receptionist_web.dto.Core.CoachReqDTO;
 import com.dat.ai_receptionist_web.dto.Core.CoachResDTO;
@@ -10,7 +9,6 @@ import com.dat.ai_receptionist_web.dto.Core.PersonDTO.PersonCreationData;
 import com.dat.ai_receptionist_web.dto.Operation.CoachAssignmentResDTO;
 import com.dat.ai_receptionist_web.enums.Core.CoachStatus;
 import com.dat.ai_receptionist_web.enums.Operation.CoachAssignmentStatus;
-import com.dat.ai_receptionist_web.enums.Security.RelationshipType;
 import com.dat.ai_receptionist_web.mapper.Core.CoachMapper;
 import com.dat.ai_receptionist_web.mapper.Operation.CoachAssignmentMapper;
 import com.dat.ai_receptionist_web.repository.Core.CoachRepository;
@@ -69,7 +67,7 @@ public class CoachService {
         Coach coach = getCoachById(personId);
         List<CoachAssignmentResDTO.SimpleResponse> assignments =
                 coachAssignmentService.findCoachAssignmentsByCoachId(personId, CoachAssignmentStatus.ACTIVE);
-        return withAvatarUrl(coachMapper.toCoachDetailWithAssignments(coach, assignments), coach);
+        return withAvatarUrl(coachMapper.toCoachDetailWithAssignments(coach, assignments, getUserProfiles(coach)), coach);
     }
 
     @Transactional(readOnly = true)
@@ -77,7 +75,7 @@ public class CoachService {
         Coach coach = getCoachByStaffCode(staffCode);
         List<CoachAssignmentResDTO.SimpleResponse> assignments =
                 coachAssignmentService.findCoachAssignmentsByCoachId(coach.getPersonId(), CoachAssignmentStatus.ACTIVE);
-        return withAvatarUrl(coachMapper.toCoachDetailWithAssignments(coach, assignments), coach);
+        return withAvatarUrl(coachMapper.toCoachDetailWithAssignments(coach, assignments, getUserProfiles(coach)), coach);
     }
 
     @Caching(put = {})
@@ -118,7 +116,7 @@ public class CoachService {
         }
 
         log.info("Created coach successfully with code: {}", generatedCode);
-        return withAvatarUrl(coachMapper.toCoachDetailWithAssignments(newCoach, assignmentResponses), newCoach);
+        return withAvatarUrl(coachMapper.toCoachDetailWithAssignments(newCoach, assignmentResponses, List.of()), newCoach);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -143,7 +141,7 @@ public class CoachService {
         Coach updatedCoach = coachRepository.save(coach);
         List<CoachAssignmentResDTO.SimpleResponse> assignments =
                 coachAssignmentService.findCoachAssignmentsByCoachId(updatedCoach.getPersonId(), CoachAssignmentStatus.ACTIVE);
-        return withAvatarUrl(coachMapper.toCoachDetailWithAssignments(updatedCoach, assignments), updatedCoach);
+        return withAvatarUrl(coachMapper.toCoachDetailWithAssignments(updatedCoach, assignments, getUserProfiles(updatedCoach)), updatedCoach);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -174,14 +172,10 @@ public class CoachService {
         Map<UUID, List<CoachAssignment>> assignmentsByCoachId = allActiveAssignments.stream()
                 .collect(Collectors.groupingBy(ca -> ca.getCoach().getPersonId()));
 
-        Map<UUID, User> usersByCoachId = userProfileRepository
-                .findAllByPerson_PersonIdInAndRelationshipTypeAndActiveTrue(coachIds, RelationshipType.OWNER)
+        Map<UUID, List<UserProfile>> userProfilesByCoachId = userProfileRepository
+                .findAllByPerson_PersonIdIn(coachIds)
                 .stream()
-                .collect(Collectors.toMap(
-                        profile -> profile.getPerson().getPersonId(),
-                        UserProfile::getUser,
-                        (current, ignored) -> current
-                ));
+                .collect(Collectors.groupingBy(profile -> profile.getPerson().getPersonId()));
 
         return coaches.stream().map(coach -> {
             List<CoachAssignmentResDTO.SimpleResponse> assignmentResponses =
@@ -189,7 +183,11 @@ public class CoachService {
                             .map(coachAssignmentMapper::toSimpleResponse)
                             .toList();
             return withAvatarUrl(
-                    coachMapper.toCoachDetailWithAssignments(coach, assignmentResponses, usersByCoachId.get(coach.getPersonId())),
+                    coachMapper.toCoachDetailWithAssignments(
+                            coach,
+                            assignmentResponses,
+                            userProfilesByCoachId.getOrDefault(coach.getPersonId(), List.of())
+                    ),
                     coach
             );
         }).toList();
@@ -198,5 +196,9 @@ public class CoachService {
     private CoachResDTO.CoachDetail withAvatarUrl(CoachResDTO.CoachDetail response, Coach coach) {
         response.setAvatarUrl(personService.getPublicFaceImageUrl(coach.getFaceImagePath()));
         return response;
+    }
+
+    private List<UserProfile> getUserProfiles(Coach coach) {
+        return userProfileRepository.findAllByPerson_PersonId(coach.getPersonId());
     }
 }

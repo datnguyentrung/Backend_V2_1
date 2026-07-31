@@ -7,6 +7,7 @@ import com.dat.ai_receptionist_web.dto.Operation.CoachTimesheetDTO;
 import com.dat.ai_receptionist_web.dto.Operation.StudentAttendanceDTO;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,7 +21,7 @@ public class PersonDTO {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    @Builder
+    @SuperBuilder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class PersonResponse {
         UUID personId;
@@ -30,6 +31,8 @@ public class PersonDTO {
         String nationalCode;
         String email;
         Belt belt;
+        String faceImagePath;
+        String avatarUrl;
     }
 
     /**

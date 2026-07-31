@@ -18,26 +18,19 @@ public class CoachResDTO {
      * DTO trả về thông tin chi tiết Coach
      * Bao gồm thông tin từ Coach và User (parent class)
      */
+    @EqualsAndHashCode(callSuper = true)
     @Data
     @SuperBuilder
     @NoArgsConstructor
     @AllArgsConstructor
     @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class CoachDetail {
+    public static class CoachDetail extends PersonDTO.PersonResponse {
         List<UserRes.UserDetail> userDetails; // Thông tin User liên quan đến Coach (nếu có)
-
-        UUID personId;
-
-        String faceImagePath;
-
-        String avatarUrl;
 
         String email;
 
         // === Thông tin từ Coach (Child Entity) ===
         String staffCode;
-
-        String nationalCode;
 
         CoachStatus coachStatus; // Trạng thái công việc (ACTIVE, ON_LEAVE, etc.)
 

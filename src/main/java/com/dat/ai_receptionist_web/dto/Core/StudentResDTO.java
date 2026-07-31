@@ -53,22 +53,15 @@ public class StudentResDTO {
      * DTO trả về thông tin chi tiết Student
      * Bao gồm thông tin từ Student và User (parent class)
      */
+    @EqualsAndHashCode(callSuper = true)
     @Data
     @SuperBuilder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class StudentDetail {
+    public static class StudentDetail extends PersonDTO.PersonResponse {
         private List<UserRes.UserDetail> userDetails;
 
-        private UUID personId;
-
         private String studentCode;
-
-        private String faceImagePath;
-
-        private String avatarUrl;
-
-        private String nationalCode; // CCCD/CMND
 
         @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
         private LocalDate startDate;

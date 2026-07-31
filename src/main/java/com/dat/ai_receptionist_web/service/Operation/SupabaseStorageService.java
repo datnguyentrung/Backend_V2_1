@@ -71,7 +71,7 @@ public class SupabaseStorageService {
         String bucket = properties.getStorage().getFaceImageBucket();
         try {
             supabaseStorageRestClient.post()
-                    .uri("/object/{bucket}/{objectPath}", bucket, objectPath)
+                    .uri(uriBuilder -> storageObjectUri(uriBuilder, bucket, objectPath))
                     .header("x-upsert", "false")
                     .contentType(image.contentType())
                     .body(image.bytes())
@@ -101,7 +101,11 @@ public class SupabaseStorageService {
 
         try {
             supabaseStorageRestClient.delete()
-                    .uri("/object/{bucket}/{objectPath}", properties.getStorage().getFaceImageBucket(), objectPath)
+                    .uri(uriBuilder -> storageObjectUri(
+                            uriBuilder,
+                            properties.getStorage().getFaceImageBucket(),
+                            objectPath
+                    ))
                     .retrieve()
                     .toBodilessEntity();
             log.info("Deleted face image: objectPath={}", objectPath);
@@ -126,7 +130,11 @@ public class SupabaseStorageService {
         }
         try {
             SignedUrlResponse response = supabaseStorageRestClient.post()
-                    .uri("/object/sign/{bucket}/{objectPath}", properties.getStorage().getFaceImageBucket(), objectPath)
+                    .uri(uriBuilder -> signedObjectUri(
+                            uriBuilder,
+                            properties.getStorage().getFaceImageBucket(),
+                            objectPath
+                    ))
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of("expiresIn", duration.toSeconds()))
                     .retrieve()
@@ -191,6 +199,26 @@ public class SupabaseStorageService {
 
     private static String stripTrailingSlash(String value) {
         return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
+    }
+
+    private static java.net.URI storageObjectUri(
+            org.springframework.web.util.UriBuilder uriBuilder,
+            String bucket,
+            String objectPath
+    ) {
+        return uriBuilder.pathSegment("object", bucket)
+                .pathSegment(objectPath.split("/"))
+                .build();
+    }
+
+    private static java.net.URI signedObjectUri(
+            org.springframework.web.util.UriBuilder uriBuilder,
+            String bucket,
+            String objectPath
+    ) {
+        return uriBuilder.pathSegment("object", "sign", bucket)
+                .pathSegment(objectPath.split("/"))
+                .build();
     }
 
     public record ValidatedImage(MediaType contentType, String extension, byte[] bytes) {

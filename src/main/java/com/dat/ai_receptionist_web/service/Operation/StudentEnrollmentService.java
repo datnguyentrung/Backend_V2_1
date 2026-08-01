@@ -208,7 +208,8 @@ public class StudentEnrollmentService {
     @Cacheable(
             value = "studentEnrollmentsByClassDTO",
             key = "#classScheduleId",
-            unless = "#result == null || #result.isEmpty()"
+            unless = "#result == null || #result.isEmpty()",
+            cacheManager = "redisCacheManager"
     )
     @Transactional(readOnly = true)
     public List<StudentEnrollmentResDTO.EnrolledStudentItem> getEnrolledStudentItemsByClass(String classScheduleId) {

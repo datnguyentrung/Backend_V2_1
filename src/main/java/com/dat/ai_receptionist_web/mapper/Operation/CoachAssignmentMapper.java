@@ -28,7 +28,7 @@ public interface CoachAssignmentMapper {
     void updateEntityFromDto(CoachAssignmentReqDTO.UpdateRequest request, @MappingTarget CoachAssignment entity);
 
     // Mapping entity to Response DTO (Detail)
-    @Mapping(target = "coach", source = "coach", qualifiedByName = "toCoachSummary")
+//    @Mapping(target = "coach", source = "coach", qualifiedByName = "toCoachSummary")
     @Mapping(target = "classSchedule", source = "classSchedule", qualifiedByName = "toClassScheduleSummary")
     CoachAssignmentResDTO.Response toResponse(CoachAssignment entity);
 
@@ -36,6 +36,14 @@ public interface CoachAssignmentMapper {
     @Mapping(target = "coach", source = "coach", qualifiedByName = "toCoachSummary")
     @Mapping(target = "classSchedule", source = "classSchedule", qualifiedByName = "toClassScheduleSummary")
     CoachAssignmentResDTO.SimpleResponse toSimpleResponse(CoachAssignment entity);
+
+    @Mapping(target = "coach", source = "coach", qualifiedByName = "toCoachSummary")
+    @Mapping(target = "classSchedule", source = "classSchedule", qualifiedByName = "toClassScheduleSummary")
+    CoachAssignmentResDTO.CacheResponse toCacheResponse(CoachAssignment entity);
+
+    CoachAssignmentResDTO.SimpleResponse toSimpleResponse(CoachAssignmentResDTO.CacheResponse cacheResponse);
+
+    CoachAssignmentResDTO.Response toResponse(CoachAssignmentResDTO.CacheResponse cacheResponse);
 
     // Named method to map Coach to CoachSummary
     @Named("toCoachSummary")

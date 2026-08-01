@@ -1,7 +1,9 @@
 package com.dat.ai_receptionist_web.config;
 
 import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurer;
@@ -9,15 +11,20 @@ import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
+import tools.jackson.databind.DefaultTyping;
+import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 import java.time.Duration;
@@ -69,28 +76,37 @@ public class RedisConfig implements CachingConfigurer {
     }
 
     @Bean
-    public RedisTemplate<String, Object> redisTemplate() {
+    public RedisSerializer<Object> redisValueSerializer() {
+        return GenericJacksonJsonRedisSerializer.builder()
+                .customize(mapper -> mapper.activateDefaultTyping(
+                        BasicPolymorphicTypeValidator.builder().allowIfBaseType(Object.class).build(),
+                        DefaultTyping.NON_FINAL,
+                        JsonTypeInfo.As.WRAPPER_ARRAY))
+                // Cache values are deserialized as Object; force the writer to use the
+                // same root type so immutable lists also retain their collection type id.
+                .writer((mapper, value) -> mapper.writerFor(Object.class).writeValueAsBytes(value))
+                .build();
+    }
+
+    @Bean
+    public RedisTemplate<String, Object> redisTemplate(RedisSerializer<Object> redisValueSerializer) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(lettuceConnectionFactory());
 
-        // ✅ Dùng RedisSerializer.json() với ObjectMapper riêng cho Redis (Spring Boot 4.0+)
-        RedisSerializer<Object> serializer = RedisSerializer.json();
-
         template.setKeySerializer(new StringRedisSerializer());
-        template.setValueSerializer(serializer);
+        template.setValueSerializer(redisValueSerializer);
         template.setHashKeySerializer(new StringRedisSerializer());
-        template.setHashValueSerializer(serializer);
+        template.setHashValueSerializer(redisValueSerializer);
 
         template.afterPropertiesSet();
         return template;
     }
 
     @Bean
-    public RedisTemplate<String, String> customStringRedisTemplate() {
-        RedisTemplate<String, String> template = new RedisTemplate<>();
+    public StringRedisTemplate stringRedisTemplate() {
+        StringRedisTemplate template = new StringRedisTemplate();
         template.setConnectionFactory(lettuceConnectionFactory());
 
-        // Sử dụng StringRedisSerializer cho cả key và value
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(new StringRedisSerializer());
         template.setHashKeySerializer(new StringRedisSerializer());
@@ -101,17 +117,14 @@ public class RedisConfig implements CachingConfigurer {
     }
 
     @Bean
-    public RedisCacheConfiguration cacheConfiguration() {
-        // Tận dụng lại ObjectMapper đã config ở trên để //@Cacheable cũng lưu JSON chuẩn như RedisTemplate (Spring Boot 4.0+)
-        RedisSerializer<Object> serializer = RedisSerializer.json();
-
+    public RedisCacheConfiguration cacheConfiguration(RedisSerializer<Object> redisValueSerializer) {
         return RedisCacheConfiguration.defaultCacheConfig()
                 .entryTtl(Duration.ofDays(7)) // TTL mặc định 7 ngày
                 .disableCachingNullValues()
                 // Thêm prefix "app_name:" hoặc để default "::" tùy bạn, ở đây mình config dùng dấu ":" cho đẹp
                 .computePrefixWith(cacheName -> cacheName + ":")
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer));
+                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(redisValueSerializer));
     }
 
     @Override
@@ -143,11 +156,16 @@ public class RedisConfig implements CachingConfigurer {
         };
     }
 
-    @Bean
-    public CacheManager cacheManager(LettuceConnectionFactory connectionFactory, CacheTtlConfig ttlConfig) {
+    @Bean(name = "redisCacheManager")
+    @Primary
+    public RedisCacheManager redisCacheManager(
+            LettuceConnectionFactory connectionFactory,
+            CacheTtlConfig ttlConfig,
+            RedisCacheConfiguration cacheConfiguration
+    ) {
 
         // 1. Lấy cấu hình mặc định (dùng JSON serializer và TTL 7 ngày mà bạn đã setup)
-        RedisCacheConfiguration defaultConfig = cacheConfiguration();
+        RedisCacheConfiguration defaultConfig = cacheConfiguration;
 
         // 2. Map riêng từng TTL cho từng loại Tên Cache (Tên khai báo trong //@Cacheable)
         Map<String, RedisCacheConfiguration> specificCacheConfigs = new HashMap<>();
@@ -173,5 +191,17 @@ public class RedisConfig implements CachingConfigurer {
                 .cacheDefaults(defaultConfig) // Nếu quên cấu hình tên nào, nó sẽ dùng mặc định 7 ngày
                 .withInitialCacheConfigurations(specificCacheConfigs) // Nạp cấu hình riêng vào
                 .build();
+    }
+
+    @Bean
+    public ApplicationRunner cacheManagerStartupLogger(Map<String, CacheManager> cacheManagers) {
+        return args -> {
+            cacheManagers.forEach((name, cacheManager) ->
+                    log.info("CacheManager bean [{}] = {}", name, cacheManager.getClass().getName())
+            );
+            CacheManager redisCacheManager = cacheManagers.get("redisCacheManager");
+            log.info("Spring cache annotations explicitly use CacheManager [redisCacheManager] = {}",
+                    redisCacheManager == null ? "<missing>" : redisCacheManager.getClass().getName());
+        };
     }
 }

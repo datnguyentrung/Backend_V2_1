@@ -67,7 +67,7 @@ public class ClassScheduleService {
      * - Nếu thay đổi CoachAssignment hoặc StudentEnrollment ở service khác,
      *   service đó cũng phải evict cache này theo scheduleId.
      */
-    @Cacheable(value = "classScheduleDetail", key = "#scheduleId", unless = "#result == null")
+    @Cacheable(value = "classScheduleDetail", key = "#scheduleId", unless = "#result == null", cacheManager = "redisCacheManager")
     @Transactional(readOnly = true)
     public ClassScheduleResDTO.ClassScheduleDetail getClassScheduleDetail(String scheduleId) {
         ClassSchedule schedule = getClassScheduleById(scheduleId);
@@ -86,7 +86,7 @@ public class ClassScheduleService {
      *
      * Không cache empty list để tránh giữ quá nhiều cache rỗng theo filter linh tinh.
      */
-    @Cacheable(value = "classScheduleList", unless = "#result == null || #result.isEmpty()")
+    @Cacheable(value = "classScheduleList", unless = "#result == null || #result.isEmpty()", cacheManager = "redisCacheManager")
     @Transactional(readOnly = true)
     public List<ClassScheduleResDTO.ClassScheduleDetail> filterClassSchedules(
             Long branchId,

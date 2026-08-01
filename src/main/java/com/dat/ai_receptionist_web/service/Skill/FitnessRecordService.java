@@ -80,12 +80,13 @@ public class FitnessRecordService {
         }
 
         // 2. Cập nhật Leaderboard (Nhớ đổi tên hàm cho khớp với Service)
-        leaderboardService.updateFitnessLeaderboard(response, student.getStudentCode());
+        // Tạm tắt đồng bộ leaderboard vào Redis.
+        // leaderboardService.updateFitnessLeaderboard(response, student.getStudentCode());
 
         return response;
     }
 
-    @Cacheable(value = "fitnessRecords", key = "#search + '-' + #skillLevel + '-' + #pageable.pageNumber + '-' + #pageable.pageSize")
+    @Cacheable(value = "fitnessRecords", key = "#search + '-' + #skillLevel + '-' + #pageable.pageNumber + '-' + #pageable.pageSize", cacheManager = "redisCacheManager")
     public PageResponse<FitnessRecordDTO.Response> listFitnessRecords(
             String search, SkillLevel skillLevel, Pageable pageable) {
 

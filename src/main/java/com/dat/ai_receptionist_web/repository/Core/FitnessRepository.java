@@ -13,6 +13,6 @@ import java.util.List;
 public interface FitnessRepository extends JpaRepository<Fitness, FitnessId> {
     @Override
     @NonNull
-    @Cacheable(value = "fitnessCache", key = "'allFitness'")
+    @Cacheable(value = "fitnessCache", key = "'allFitness'", cacheManager = "redisCacheManager")
     List<Fitness> findAll();
 }

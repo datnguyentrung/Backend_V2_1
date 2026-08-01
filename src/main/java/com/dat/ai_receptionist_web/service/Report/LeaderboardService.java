@@ -38,6 +38,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class LeaderboardService {
 
+    /**
+     * Temporary switch: do not create, update, or delete leaderboard Redis keys.
+     * Set to {@code true} only when Redis leaderboard synchronization is needed again.
+     */
+    private static final boolean LEADERBOARD_REDIS_SYNC_ENABLED = false;
+
     private final StringRedisTemplate stringRedisTemplate;
     private final RedisTemplate<String, Object> redisTemplate; // Dùng để lưu/đọc JSON Object phẳng
     private final StudentRepository studentRepository;
@@ -98,7 +104,8 @@ public class LeaderboardService {
         for (int i = 0; i < codesList.size(); i++) {
             String code = codesList.get(i);
             StudentResDTO.StudentRankInfo info = studentMap.get(code);
-            YearlySummaryDTO.QuarterSummaryForRedis summary = (YearlySummaryDTO.QuarterSummaryForRedis) rawSummaries.get(i);
+            YearlySummaryDTO.QuarterSummaryForRedis summary = toRedisDto(
+                    rawSummaries.get(i), YearlySummaryDTO.QuarterSummaryForRedis.class);
 
             if (info != null && summary != null) {
                 rankings.add(leaderboardMapper.toRankItemForRedis(currentRank++, info, summary));
@@ -121,6 +128,11 @@ public class LeaderboardService {
      * Sử dụng GROUP BY trong SQL để xử lý hàng loạt 1 lần duy nhất
      */
     private boolean rebuildLeaderboardCache(int year, int quarter, String redisKey, String redisDataKey) {
+        if (!LEADERBOARD_REDIS_SYNC_ENABLED) {
+            log.debug("Leaderboard Redis synchronization is disabled; skip rebuilding {} and {}.", redisKey, redisDataKey);
+            return false;
+        }
+
         List<Student> activeStudents = studentRepository.findAllByStudentStatus(StudentStatus.ACTIVE);
         if (activeStudents.isEmpty()) return false;
 
@@ -208,9 +220,7 @@ public class LeaderboardService {
             String code = codesList.get(i);
             StudentResDTO.StudentRankInfo info = studentMap.get(code);
 
-            Object rawData = rawRecords.get(i);
-            FitnessRecordDTO.Metrics fitnessData =
-                    objectMapper.convertValue(rawData, FitnessRecordDTO.Metrics.class);
+            FitnessRecordDTO.Metrics fitnessData = toRedisDto(rawRecords.get(i), FitnessRecordDTO.Metrics.class);
 
             // Đọc Rank History
             Object historyObj = rawHistories.get(i);
@@ -238,6 +248,11 @@ public class LeaderboardService {
     }
 
     private boolean rebuildFitnessLeaderboardCache(int year, int quarter, SkillLevel skillLevel, String redisKey, String redisDataKey) {
+        if (!LEADERBOARD_REDIS_SYNC_ENABLED) {
+            log.debug("Leaderboard Redis synchronization is disabled; skip rebuilding {} and {}.", redisKey, redisDataKey);
+            return false;
+        }
+
         List<FitnessRecord> allRecords = fitnessRecordRepository.findBestRecordsForQuarter(year, quarter, skillLevel);
 
         if (allRecords.isEmpty()) return false;
@@ -277,6 +292,11 @@ public class LeaderboardService {
     }
 
     public void updateFitnessLeaderboard(FitnessRecordDTO.Response response, String studentCode) {
+        if (!LEADERBOARD_REDIS_SYNC_ENABLED) {
+            log.debug("Leaderboard Redis synchronization is disabled; skip update for student {}.", studentCode);
+            return;
+        }
+
         int year = response.getMetrics().getAssessmentDate().getYear();
         int quarter = (response.getMetrics().getAssessmentDate().getMonthValue() - 1) / 3 + 1;
         String skillLevel = response.getMetrics().getSkillLevel().toString();
@@ -343,6 +363,11 @@ public class LeaderboardService {
     }
 
     public void syncSingleStudentFitnessLeaderboard(String studentCode, int year, int quarter, SkillLevel skillLevel) {
+        if (!LEADERBOARD_REDIS_SYNC_ENABLED) {
+            log.debug("Leaderboard Redis synchronization is disabled; skip sync for student {}.", studentCode);
+            return;
+        }
+
         String redisKey = String.format("leaderboard:fitness:%d:Q%d:%s", year, quarter, skillLevel);
         String redisDataKey = String.format("leaderboard_data:fitness:%d:Q%d:%s", year, quarter, skillLevel);
         String redisHistoryKey = String.format("leaderboard_history:fitness:%d:Q%d:%s", year, quarter, skillLevel);
@@ -390,6 +415,11 @@ public class LeaderboardService {
     }
 
     public void processBatchSync(List<WebhookPayload<FitnessRecordDTO.Metrics>> payloads) {
+        if (!LEADERBOARD_REDIS_SYNC_ENABLED) {
+            log.debug("Leaderboard Redis synchronization is disabled; skip batch sync of {} payload(s).", payloads.size());
+            return;
+        }
+
         List<Fitness> benchmarks = fitnessService.getAllFitness();
         Set<String> requiresDbSync = new HashSet<>();
         Map<String, WebhookPayload<FitnessRecordDTO.Metrics>> bestInserts = new HashMap<>();
@@ -499,8 +529,8 @@ public class LeaderboardService {
                             payload.getYear(), payload.getQuarter(), payload.getSkillLevel());
 
                     // Serialize Key và Value cho ZSET (dùng mặc định StringSerializer là chuẩn nhất cho Key)
-                    byte[] rawKey = redisTemplate.getStringSerializer().serialize(redisKey);
-                    byte[] rawValue = redisTemplate.getStringSerializer().serialize(studentCode);
+                    byte[] rawKey = stringRedisTemplate.getStringSerializer().serialize(redisKey);
+                    byte[] rawValue = stringRedisTemplate.getStringSerializer().serialize(studentCode);
                     connection.zSetCommands().zAdd(rawKey, score, rawValue);
 
                     try {
@@ -538,5 +568,15 @@ public class LeaderboardService {
             });
             log.info("✅ Đã hoàn tất Pipeline.");
         }
+    }
+
+    private <T> T toRedisDto(Object value, Class<T> targetType) {
+        if (value == null) {
+            return null;
+        }
+        if (targetType.isInstance(value)) {
+            return targetType.cast(value);
+        }
+        return objectMapper.convertValue(value, targetType);
     }
 }

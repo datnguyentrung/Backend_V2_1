@@ -20,7 +20,6 @@ import com.dat.ai_receptionist_web.util.error.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,6 +39,7 @@ public class CoachAssignmentService {
     private final CoachRepository coachRepository;
     private final ClassScheduleService classScheduleService;
     private final CoachAssignmentMapper coachAssignmentMapper;
+    private final CoachAssignmentCacheService coachAssignmentCacheService;
 
     @Transactional(readOnly = true)
     public List<ResponsibleCoachProjection> findResponsibleCoaches(String scheduleId, LocalDate sessionDate) {
@@ -62,7 +62,6 @@ public class CoachAssignmentService {
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
             @CacheEvict(value = "coachAssignments", allEntries = true),
-            @CacheEvict(value = "detailedCoachAssignments", allEntries = true),
             @CacheEvict(value = "coachDetail", allEntries = true),
             @CacheEvict(value = "classScheduleDetail", allEntries = true),
             @CacheEvict(value = "classScheduleList", allEntries = true)
@@ -103,7 +102,6 @@ public class CoachAssignmentService {
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
             @CacheEvict(value = "coachAssignments", allEntries = true),
-            @CacheEvict(value = "detailedCoachAssignments", allEntries = true),
             @CacheEvict(value = "coachDetail", allEntries = true),
             @CacheEvict(value = "classScheduleDetail", allEntries = true),
             @CacheEvict(value = "classScheduleList", allEntries = true)
@@ -119,7 +117,6 @@ public class CoachAssignmentService {
     @Transactional(rollbackFor = Exception.class)
     @Caching(evict = {
             @CacheEvict(value = "coachAssignments", allEntries = true),
-            @CacheEvict(value = "detailedCoachAssignments", allEntries = true),
             @CacheEvict(value = "coachDetail", allEntries = true),
             @CacheEvict(value = "classScheduleDetail", allEntries = true),
             @CacheEvict(value = "classScheduleList", allEntries = true)
@@ -205,21 +202,17 @@ public class CoachAssignmentService {
         return assignment;
     }
 
-    @Cacheable(value = "coachAssignments", key = "#coachId.toString() + '_' + #status.name()", unless = "#result == null || #result.isEmpty()")
     @Transactional(readOnly = true)
     public List<CoachAssignmentResDTO.SimpleResponse> findCoachAssignmentsByCoachId(UUID coachId, CoachAssignmentStatus status) {
-        coachRepository.findById(coachId).orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
-        return coachAssignmentRepository.findByCoach_PersonIdAndStatusWithClassSchedule(coachId, status)
+        return coachAssignmentCacheService.findByCoachId(coachId, status)
                 .stream()
                 .map(coachAssignmentMapper::toSimpleResponse)
                 .toList();
     }
 
-    @Cacheable(value = "detailedCoachAssignments", key = "#coachId.toString() + '_' + #status.name()", unless = "#result == null || #result.isEmpty()")
     @Transactional(readOnly = true)
     public List<CoachAssignmentResDTO.Response> findDetailedCoachAssignmentsByCoachId(UUID coachId, CoachAssignmentStatus status) {
-        coachRepository.findById(coachId).orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
-        return coachAssignmentRepository.findByCoach_PersonIdAndStatusWithClassSchedule(coachId, status)
+        return coachAssignmentCacheService.findByCoachId(coachId, status)
                 .stream()
                 .map(coachAssignmentMapper::toResponse)
                 .toList();

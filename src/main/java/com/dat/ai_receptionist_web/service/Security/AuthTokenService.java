@@ -177,7 +177,7 @@ public class AuthTokenService {
         return authTokenRepository.findAllByUser_UserId(userId);
     }
 
-    @Cacheable(value = "fcmTokensByRole", key = "#roleCode", unless = "#result == null || #result.isEmpty()")
+    @Cacheable(value = "fcmTokensByRole", key = "#roleCode", unless = "#result == null || #result.isEmpty()", cacheManager = "redisCacheManager")
     public List<String> getAllFcmTokensByRoleCode(String roleCode) {
         List<UUID> userIds = userService.getAllUsersByRoleCode(roleCode).stream()
                 .map(User::getUserId)

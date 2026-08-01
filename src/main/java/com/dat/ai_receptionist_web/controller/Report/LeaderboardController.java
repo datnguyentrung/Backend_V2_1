@@ -52,7 +52,8 @@ public class LeaderboardController {
 
     @PostMapping("/sync-batch")
     public ResponseEntity<String> syncBatch(@RequestBody List<WebhookPayload<FitnessRecordDTO.Metrics>> payloads) {
-        leaderboardService.processBatchSync(payloads);
-        return ResponseEntity.ok("Đã xử lý Batch thành công");
+        // Tạm tắt xử lý webhook để không ghi leaderboard/leaderboard_data vào Redis.
+        // leaderboardService.processBatchSync(payloads);
+        return ResponseEntity.ok("Đồng bộ leaderboard vào Redis đang tạm tắt");
     }
 }

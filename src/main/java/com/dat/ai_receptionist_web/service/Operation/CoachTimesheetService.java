@@ -475,14 +475,14 @@ public class CoachTimesheetService {
                 .map(assignment -> {
                     String coachName = "Không xác định";
 
-                    if (assignment.getCoach() != null &&
-                            assignment.getCoach().getFullName() != null &&
-                            !assignment.getCoach().getFullName().isBlank()) {
-
-                        coachName = assignment.getCoach()
-                                .getFullName()
-                                .trim();
-                    }
+//                    if (assignment.getCoach() != null &&
+//                            assignment.getCoach().getFullName() != null &&
+//                            !assignment.getCoach().getFullName().isBlank()) {
+//
+//                        coachName = assignment.getCoach()
+//                                .getFullName()
+//                                .trim();
+//                    }
 
                     CoachTimesheet timesheet =
                             timesheetByAssignmentId.get(

@@ -13,4 +13,6 @@ public interface CoachRepository extends JpaRepository<Coach, UUID> {
     boolean existsByStaffCode(String staffCode);
 
     Optional<Coach> findByStaffCode(String staffCode);
+
+    Optional<Coach> findByPersonId(UUID personId);
 }

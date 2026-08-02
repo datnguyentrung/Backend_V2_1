@@ -67,7 +67,7 @@ public class CoachAssignmentService {
             @CacheEvict(value = "classScheduleList", allEntries = true)
     })
     public List<CoachAssignment> createCoachAssignment(CoachAssignmentReqDTO.CreateRequest request) {
-        Coach coach = coachRepository.findByStaffCode(request.getCoachId())
+        Coach coach = coachRepository.findByPersonId(UUID.fromString(request.getCoachId()))
                 .orElseThrow(() -> new AppException(ErrorCode.COACH_NOT_FOUND));
         validateCoachActive(coach);
 

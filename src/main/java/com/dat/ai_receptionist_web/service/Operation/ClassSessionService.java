@@ -67,7 +67,7 @@ public class ClassSessionService {
     @Value("${CLASS_SESSION_COMPLETE_AFTER_END_MINUTES}")
     private int classSessionCompleteAfterEndMinutes;
 
-    @Scheduled(cron = "0 37 18 * * *")
+    @Scheduled(cron = "0 10 10 * * *")
     @Transactional(rollbackFor = Exception.class)
     public void generateClassSessions() {
         LocalDate today = LocalDate.now();

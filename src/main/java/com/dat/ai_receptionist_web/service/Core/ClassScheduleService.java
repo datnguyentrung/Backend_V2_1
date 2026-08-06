@@ -18,7 +18,6 @@ import com.dat.ai_receptionist_web.repository.Operation.CoachAssignmentRepositor
 import com.dat.ai_receptionist_web.repository.Operation.StudentEnrollmentRepository;
 import com.dat.ai_receptionist_web.util.error.AppException;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.nimbusds.oauth2.sdk.util.CollectionUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -27,6 +26,7 @@ import org.springframework.cache.annotation.Caching;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
 import java.time.LocalTime;
 import java.util.Collections;

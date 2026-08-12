@@ -36,7 +36,7 @@ build/
 .env_comment
 *.md
 
-.agents/**
+.agents**
 .claude/**
 .codex/**
 .codegraph/
@@ -44,16 +44,4 @@ skills-lock.json
 
 src/main/resources/serviceAccountKey.json
 src/test/**
-!src/test/java/
-!src/test/java/com/
-!src/test/java/com/dat/
-!src/test/java/com/dat/ai_receptionist_web/
-!src/test/java/com/dat/ai_receptionist_web/client/
-!src/test/java/com/dat/ai_receptionist_web/client/PythonBackendClientTest.java
-!src/test/java/com/dat/ai_receptionist_web/config/
-!src/test/java/com/dat/ai_receptionist_web/config/RateLimitFilterTest.java
-!src/test/java/com/dat/ai_receptionist_web/service/
-!src/test/java/com/dat/ai_receptionist_web/service/Core/
-!src/test/java/com/dat/ai_receptionist_web/service/Core/PersonServicePythonBackendFailureTest.java
-!src/test/java/com/dat/ai_receptionist_web/service/Security/
-!src/test/java/com/dat/ai_receptionist_web/service/Security/RateLimitingServiceTest.java
+!docs/leaderboard-operations.md

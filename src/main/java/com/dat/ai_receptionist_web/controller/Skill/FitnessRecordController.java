@@ -32,6 +32,19 @@ public class FitnessRecordController {
         return ResponseEntity.ok(response);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<FitnessRecordDTO.Response> update(
+            @PathVariable Long id,
+            @Valid @RequestBody FitnessRecordDTO.UpdateRequest request) {
+        return ResponseEntity.ok(fitnessRecordService.updateFitnessRecord(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        fitnessRecordService.deleteFitnessRecord(id);
+        return ResponseEntity.noContent().build();
+    }
+
     /**
      * API Lấy danh sách kỷ lục Fitness có phân trang và tìm kiếm
      * GET /api/v1/fitness-record?search=abc&skillLevel=BEGINNER&page=0&size=20

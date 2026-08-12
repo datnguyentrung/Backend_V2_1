@@ -95,12 +95,11 @@ public class StudentAttendanceService {
         int year = sessionDate.getYear();
         int quarter = (sessionDate.getMonthValue() - 1) / 3 + 1; // Công thức tính Quý
 
-        ScoreRecalculateEvent event = new ScoreRecalculateEvent(
+        eventPublisher.publishEvent(new ScoreRecalculateEvent(
                 student.getStudentCode(),
                 quarter,
                 year
-        );
-        runAfterCommit(() -> eventPublisher.publishEvent(event));
+        ));
     }
 
     private void runAfterCommit(Runnable action) {
@@ -195,16 +194,21 @@ public class StudentAttendanceService {
         }
 
         // 6. Lưu tất cả thay đổi chỉ với 1 câu lệnh saveAll (thay vì save từng bản ghi)
-        Set<String> processedStudents = new HashSet<>(); // Dùng Set để tránh 1 học sinh bị tính lại 2 lần trong 1
-        // request
+        Set<QuarterScoreScope> processedScopes = new HashSet<>();
         for (StudentAttendance entity : existingRecords) {
-            String uniqueKey =
-                    entity.getStudentEnrollment().getStudent().getStudentCode() + "_" + entity.getSessionDate().getMonthValue();
-            if (processedStudents.add(uniqueKey)) {
+            Student student = entity.getStudentEnrollment().getStudent();
+            LocalDate sessionDate = entity.getSessionDate();
+            QuarterScoreScope scope = new QuarterScoreScope(
+                    student.getStudentCode(), sessionDate.getYear(), (sessionDate.getMonthValue() - 1) / 3 + 1
+            );
+            if (processedScopes.add(scope)) {
                 publishScoreRecalculateEvent(entity.getStudentEnrollment().getStudent(), entity.getSessionDate());
             }
         }
         return studentAttendanceMapper.toResponseList(existingRecords);
+    }
+
+    private record QuarterScoreScope(String studentCode, int year, int quarter) {
     }
 
     public List<StudentAttendance> getAttendancesByUserIdAndSessionDate(UUID studentUserId, LocalDate sessionDate) {
@@ -289,6 +293,10 @@ public class StudentAttendanceService {
             attendance.setAttendanceStatus(newStatus);
             attendance.setCheckInTime(now);
             StudentAttendance savedAttendance = studentAttendanceRepository.saveAndFlush(attendance);
+            publishScoreRecalculateEvent(
+                    savedAttendance.getStudentEnrollment().getStudent(),
+                    savedAttendance.getSessionDate()
+            );
             enqueueAttendanceNotificationAfterCommit(savedAttendance.getAttendanceId());
             log.info("CHECK_IN_RESULT personId={} attendanceId={} alreadyCheckedIn=false previousStatus={} newStatus={}",
                     student.getPersonId(), savedAttendance.getAttendanceId(), previousStatus, newStatus);
@@ -304,6 +312,10 @@ public class StudentAttendanceService {
                 .checkInTime(now)
                 .note("Điểm danh tự động qua API")
                 .build());
+        publishScoreRecalculateEvent(
+                savedAttendance.getStudentEnrollment().getStudent(),
+                savedAttendance.getSessionDate()
+        );
         enqueueAttendanceNotificationAfterCommit(savedAttendance.getAttendanceId());
         log.info("CHECK_IN_RESULT personId={} attendanceId={} alreadyCheckedIn=false previousStatus=null newStatus={}",
                 student.getPersonId(), savedAttendance.getAttendanceId(), newStatus);
@@ -829,6 +841,8 @@ public class StudentAttendanceService {
         } catch (DataIntegrityViolationException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Attendance already exists for this class session", e);
         }
+
+        publishScoreRecalculateEvent(student, savedAttendance.getSessionDate());
 
         return studentAttendanceMapper.toResponse(savedAttendance);
     }

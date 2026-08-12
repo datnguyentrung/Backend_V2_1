@@ -14,7 +14,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Collection;
 
 @Repository
 public interface FitnessRecordRepository extends JpaRepository<FitnessRecord, Long>, JpaSpecificationExecutor<FitnessRecord> {
@@ -24,28 +24,30 @@ public interface FitnessRecordRepository extends JpaRepository<FitnessRecord, Lo
             @NonNull Specification<FitnessRecord> spec, @NonNull Pageable pageable
     );
 
-    @EntityGraph(attributePaths = {"student"}) // Ép lấy Student và User
+    @EntityGraph(attributePaths = {"student"})
     @Query("""
                 SELECT fr FROM FitnessRecord fr
                 WHERE year(fr.assessmentDate) = :year
                   AND quarter(fr.assessmentDate) = :quarter
                   AND fr.skillLevel = :skillLevel
-                ORDER BY fr.student.studentCode, fr.duration DESC, fr.amount DESC
+                  AND fr.student.studentCode IN :studentCodes
+                ORDER BY fr.student.studentCode, fr.id
             """)
-    List<FitnessRecord> findBestRecordsForQuarter(
+    List<FitnessRecord> findRecordsForQuarterAndStudents(
             @Param("year") int year,
             @Param("quarter") int quarter,
-            @Param("skillLevel") SkillLevel skillLevel
+            @Param("skillLevel") SkillLevel skillLevel,
+            @Param("studentCodes") Collection<String> studentCodes
     );
 
+    @EntityGraph(attributePaths = {"student"})
     @Query("""
                 SELECT fr FROM FitnessRecord fr
                 WHERE year(fr.assessmentDate) = :year
                   AND quarter(fr.assessmentDate) = :quarter
                   AND fr.skillLevel = :skillLevel
                   AND fr.student.studentCode = :studentCode
-                ORDER BY fr.duration DESC, fr.amount DESC
-                LIMIT 1
+                ORDER BY fr.id
             """)
-    Optional<FitnessRecord> findBestRecordForSingleStudent(int year, int quarter, SkillLevel skillLevel, String studentCode);
+    List<FitnessRecord> findRecordsForSingleStudent(int year, int quarter, SkillLevel skillLevel, String studentCode);
 }

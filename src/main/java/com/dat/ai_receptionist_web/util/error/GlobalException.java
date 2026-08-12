@@ -69,6 +69,17 @@ public class GlobalException {
         return buildResponse(problemDetail, HttpStatus.valueOf(ex.getStatusCode().value()));
     }
 
+    @ExceptionHandler(LeaderboardUnavailableException.class)
+    public ResponseEntity<ProblemDetail> handleLeaderboardUnavailable(LeaderboardUnavailableException ex) {
+        log.error("Leaderboard read model unavailable", ex);
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Leaderboard is temporarily unavailable"
+        );
+        problemDetail.setTitle("LEADERBOARD_UNAVAILABLE");
+        return buildResponse(problemDetail, HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
     @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
     public ResponseEntity<ProblemDetail> handleMediaTypeNotAcceptable(HttpMediaTypeNotAcceptableException ex) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_ACCEPTABLE, ex.getMessage());

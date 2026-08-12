@@ -3,16 +3,15 @@ package com.dat.ai_receptionist_web.controller.Report;
 import com.dat.ai_receptionist_web.dto.Report.LeaderboardDTO;
 import com.dat.ai_receptionist_web.dto.Report.YearlySummaryDTO;
 import com.dat.ai_receptionist_web.dto.Skill.FitnessRecordDTO;
-import com.dat.ai_receptionist_web.dto.WebhookPayload;
 import com.dat.ai_receptionist_web.enums.Skill.SkillLevel;
 import com.dat.ai_receptionist_web.service.Report.LeaderboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/leaderboards")
@@ -28,6 +27,7 @@ public class LeaderboardController {
             @RequestParam SkillLevel skillLevel, // Thêm filter bắt buộc như bạn muốn
             @PageableDefault(size = 50) Pageable pageable
     ) {
+        validateQuarter(quarter);
         // Gọi đúng hàm Fitness
         LeaderboardDTO.Response<FitnessRecordDTO.Metrics> response = leaderboardService.getFitnessLeaderboard(year, quarter, skillLevel, pageable);
         return ResponseEntity.ok(response);
@@ -43,17 +43,17 @@ public class LeaderboardController {
             @RequestParam int quarter,
             @PageableDefault(size = 50) Pageable pageable
     ) {
+        validateQuarter(quarter);
         // Ép kiểu chuẩn xác cho Response
         LeaderboardDTO.Response<YearlySummaryDTO.QuarterSummary> response =
-                leaderboardService.getQuarterLeaderboard(year, quarter, null, pageable);
+                leaderboardService.getQuarterLeaderboard(year, quarter, pageable);
 
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/sync-batch")
-    public ResponseEntity<String> syncBatch(@RequestBody List<WebhookPayload<FitnessRecordDTO.Metrics>> payloads) {
-        // Tạm tắt xử lý webhook để không ghi leaderboard/leaderboard_data vào Redis.
-        // leaderboardService.processBatchSync(payloads);
-        return ResponseEntity.ok("Đồng bộ leaderboard vào Redis đang tạm tắt");
+    private void validateQuarter(int quarter) {
+        if (quarter < 1 || quarter > 4) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quarter must be between 1 and 4");
+        }
     }
 }

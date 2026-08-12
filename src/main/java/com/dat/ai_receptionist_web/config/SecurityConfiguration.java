@@ -117,7 +117,6 @@ public class SecurityConfiguration {
                                 .requestMatchers(
                                         "/actuator/**",
                                         "/ws/**",
-                                        "/api/v1/leaderboards/sync-batch",
                                         "/api/v1/webhook/**"
                                 ).permitAll() // Thêm dòng này
                                 .requestMatchers(

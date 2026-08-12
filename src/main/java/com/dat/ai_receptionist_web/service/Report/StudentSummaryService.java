@@ -40,7 +40,11 @@ public class StudentSummaryService {
 
         // CHỌC SQL 1 LẦN DUY NHẤT ĐỂ LẤY STATS CỦA TẤT CẢ HỌC VIÊN!
         Map<String, StudentAttendanceDTO.AttendanceStats> statsMap =
-                studentAttendanceRepository.getStatisticsGroupedByStudent(startDate, endDate);
+                studentAttendanceRepository.getStatisticsGroupedByStudent(
+                        startDate,
+                        endDate,
+                        activeStudents.stream().map(Student::getStudentCode).toList()
+                );
 
         Map<String, YearlySummaryDTO.QuarterSummary> resultMap = new HashMap<>();
 
@@ -108,7 +112,7 @@ public class StudentSummaryService {
         double perfScore = calculatePerformanceScore(stats);
 
         boolean isPending = !LocalDate.now().isAfter(endDate)
-                || stats.getEvalPendingCount() == 0;
+                || stats.getEvalPendingCount() > 0;
 
         return YearlySummaryDTO.QuarterSummary.builder()
                 .quarterNumber(quarter)

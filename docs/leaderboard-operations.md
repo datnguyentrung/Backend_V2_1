@@ -15,6 +15,15 @@ GET endpoints read only Redis. They never aggregate from PostgreSQL and never re
 - An unknown scope returns `200` with no rankings and emits `leaderboard.read{result=uninitialized}`.
 - Redis connection failure or an incomplete initialized projection returns `503`.
 
+Active Redis projection keys use the scope path after the key family prefix:
+
+- Conduct: `leaderboard:2026:Q3:conduct`, `leaderboard_data:2026:Q3:conduct`,
+  `leaderboard_member:2026:Q3:conduct`, `leaderboard_state:2026:Q3:conduct`,
+  and `leaderboard_history:2026:Q3:conduct`.
+- Fitness: `leaderboard:2026:Q3:fitness:BASIC`, `leaderboard_data:2026:Q3:fitness:BASIC`,
+  `leaderboard_member:2026:Q3:fitness:BASIC`, `leaderboard_state:2026:Q3:fitness:BASIC`,
+  and `leaderboard_history:2026:Q3:fitness:BASIC`.
+
 ## Recovery Command
 
 Recovery is disabled by default and has no HTTP endpoint. Run the application artifact with the web server disabled.
@@ -29,6 +38,19 @@ Required properties:
 - `--leaderboard.rebuild.skill-level=BASIC|ADVANCED` for a single fitness level only
 
 The artifact name follows the current Maven artifact and version: `target/AI_Receptionist_Web-1.0.0.jar`.
+
+On Localhost, use
+```powershell
+Get-Content .env | ForEach-Object {
+    if ($_ -match '^\s*([^#][^=]*)=(.*)$') {
+        [Environment]::SetEnvironmentVariable(
+            $matches[1].Trim(),
+            $matches[2].Trim().Trim('"').Trim("'"),
+            "Process"
+        )
+    }
+}
+```
 
 Rebuild quarter training-score leaderboard:
 
@@ -107,7 +129,7 @@ The recovery command uses PostgreSQL as the source of truth and Redis as a repla
 
 The command pages active students in batches of 500, writes generation-specific temporary keys,
 validates rank/detail/member counts, and atomically swaps the complete projection. Repeating the
-command against unchanged database state produces the same result. Fitness rebuild resets
+command against unchanged database state produces the same result. Rebuild resets
 `rankBefore`; subsequent mutations repopulate it. Temporary generation keys expire after 24 hours
 so an interrupted process does not leave permanent rebuild data.
 
@@ -154,7 +176,7 @@ Alert on these metric/result combinations and corresponding structured logs:
 - HTTP `503` from leaderboard GET endpoints
 
 Also verify production Redis persistence and eviction policy. Active leaderboard keys have no TTL;
-fitness rank history expires after 30 days. Redis persistence reduces recovery frequency but is not a correctness source.
+leaderboard rank history expires after 30 days. Redis persistence reduces recovery frequency but is not a correctness source.
 
 ## Failure and Rollback
 

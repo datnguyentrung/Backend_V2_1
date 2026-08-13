@@ -3,12 +3,12 @@ package com.dat.ai_receptionist_web.util;
 import com.dat.ai_receptionist_web.dto.Operation.StudentAttendanceDTO;
 
 public class ScoreCalculator {
-    // Đánh giá (Awareness)
+    // Đánh giá (Performance)
     private static final double HIGH_SCORE_WEIGHT = 5.0;
     private static final double MEDIUM_SCORE_WEIGHT = 3.0;
     private static final double LOW_SCORE_WEIGHT = 0.0;
 
-    // Điểm danh (Conduct)
+    // Điểm danh (Attendance)
     private static final double ABSENT_WEIGHT = -1.0; // vắng -1
     private static final double EXCUSED_WEIGHT = -0.5; // phép -0,5
     private static final double LATE_WEIGHT = -0.5; // muộn -0,5

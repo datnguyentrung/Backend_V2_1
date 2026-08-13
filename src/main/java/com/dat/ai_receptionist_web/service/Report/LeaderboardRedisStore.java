@@ -131,7 +131,7 @@ public class LeaderboardRedisStore {
                 Double.toString(score),
                 json(data),
                 json(member),
-                scope.type() == LeaderboardScope.Type.FITNESS ? "1" : "0",
+                scope.historyEnabled() ? "1" : "0",
                 Instant.now().toString(),
                 scope.registryValue()
         ));
@@ -142,7 +142,7 @@ public class LeaderboardRedisStore {
                 REMOVE_SCRIPT,
                 keys(scope),
                 studentCode,
-                scope.type() == LeaderboardScope.Type.FITNESS ? "1" : "0",
+                scope.historyEnabled() ? "1" : "0",
                 Instant.now().toString(),
                 scope.registryValue()
         ));
@@ -163,7 +163,7 @@ public class LeaderboardRedisStore {
                     List.of(scope.rankKey(), scope.dataKey(), scope.memberKey(), scope.historyKey(), scope.stateKey()),
                     Long.toString(offset),
                     Long.toString(offset + pageSize - 1),
-                    scope.type() == LeaderboardScope.Type.FITNESS ? "1" : "0"
+                    scope.historyEnabled() ? "1" : "0"
             );
             if (snapshot == null || snapshot.size() < 2) {
                 throw integrityFailure(scope, "empty_snapshot");
@@ -251,7 +251,7 @@ public class LeaderboardRedisStore {
                 SWAP_SCRIPT,
                 keys,
                 Integer.toString(expectedCount),
-                scope.type() == LeaderboardScope.Type.FITNESS ? "1" : "0",
+                scope.historyEnabled() ? "1" : "0",
                 Instant.now().toString(),
                 generation,
                 scope.registryValue()

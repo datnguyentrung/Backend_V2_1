@@ -41,6 +41,7 @@ public class LeaderboardService {
             );
             rankings.add(LeaderboardDTO.RankItem.<YearlySummaryDTO.QuarterSummary>builder()
                     .rank(rank++)
+                    .rankBefore(row.rankBefore())
                     .studentCode(member.studentCode())
                     .fullName(member.fullName())
                     .belt(member.belt())

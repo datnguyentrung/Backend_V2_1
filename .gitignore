@@ -44,4 +44,13 @@ skills-lock.json
 
 src/main/resources/serviceAccountKey.json
 src/test/**
+!src/test/
+!src/test/java/
+!src/test/java/com/
+!src/test/java/com/dat/
+!src/test/java/com/dat/ai_receptionist_web/
+!src/test/java/com/dat/ai_receptionist_web/service/
+!src/test/java/com/dat/ai_receptionist_web/service/Report/
+!src/test/java/com/dat/ai_receptionist_web/service/Report/LeaderboardScopeTest.java
+!src/test/java/com/dat/ai_receptionist_web/service/Report/LeaderboardServiceTest.java
 !docs/leaderboard-operations.md

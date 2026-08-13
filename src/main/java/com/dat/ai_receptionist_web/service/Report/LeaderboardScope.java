@@ -28,31 +28,27 @@ public record LeaderboardScope(Type type, int year, int quarter, SkillLevel skil
     }
 
     public String rankKey() {
-        return type == Type.QUARTER
-                ? "leaderboard:%d:Q%d".formatted(year, quarter)
-                : "leaderboard:fitness:%d:Q%d:%s".formatted(year, quarter, skillLevel);
+        return "leaderboard:" + scopePath();
     }
 
     public String dataKey() {
-        return type == Type.QUARTER
-                ? "leaderboard_data:%d:Q%d".formatted(year, quarter)
-                : "leaderboard_data:fitness:%d:Q%d:%s".formatted(year, quarter, skillLevel);
+        return "leaderboard_data:" + scopePath();
     }
 
     public String memberKey() {
-        return type == Type.QUARTER
-                ? "leaderboard_member:%d:Q%d".formatted(year, quarter)
-                : "leaderboard_member:fitness:%d:Q%d:%s".formatted(year, quarter, skillLevel);
+        return "leaderboard_member:" + scopePath();
     }
 
     public String historyKey() {
-        return "leaderboard_history:fitness:%d:Q%d:%s".formatted(year, quarter, skillLevel);
+        return "leaderboard_history:" + scopePath();
     }
 
     public String stateKey() {
-        return type == Type.QUARTER
-                ? "leaderboard_state:%d:Q%d".formatted(year, quarter)
-                : "leaderboard_state:fitness:%d:Q%d:%s".formatted(year, quarter, skillLevel);
+        return "leaderboard_state:" + scopePath();
+    }
+
+    public boolean historyEnabled() {
+        return true;
     }
 
     public String registryValue() {
@@ -70,5 +66,11 @@ public record LeaderboardScope(Type type, int year, int quarter, SkillLevel skil
             return fitness(Integer.parseInt(parts[1]), Integer.parseInt(parts[2]), SkillLevel.valueOf(parts[3]));
         }
         throw new IllegalArgumentException("Invalid leaderboard scope: " + value);
+    }
+
+    private String scopePath() {
+        return type == Type.QUARTER
+                ? "%d:Q%d:conduct".formatted(year, quarter)
+                : "%d:Q%d:fitness:%s".formatted(year, quarter, skillLevel);
     }
 }

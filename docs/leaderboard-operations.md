@@ -32,6 +32,18 @@ The artifact name follows the current Maven artifact and version: `target/AI_Rec
 
 Rebuild quarter training-score leaderboard:
 
+.\mvnw.cmd clean package -DskipTests
+
+```powershell
+Get-Content .env | ForEach-Object {
+    if ($_ -match '^\s*([^#][^=]*)=(.*)$') {
+        $name = $matches[1].Trim()
+        $value = $matches[2].Trim()
+        [System.Environment]::SetEnvironmentVariable($name, $value, "Process")
+    }
+}
+```
+
 ```powershell
 java -jar target/AI_Receptionist_Web-1.0.0.jar `
   --spring.main.web-application-type=none `

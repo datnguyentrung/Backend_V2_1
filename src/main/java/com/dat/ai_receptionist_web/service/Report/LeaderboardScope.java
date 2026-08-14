@@ -30,29 +30,29 @@ public record LeaderboardScope(Type type, int year, int quarter, SkillLevel skil
     public String rankKey() {
         return type == Type.QUARTER
                 ? "leaderboard:%d:Q%d".formatted(year, quarter)
-                : "leaderboard:fitness:%d:Q%d:%s".formatted(year, quarter, skillLevel);
+                : "leaderboard:%d:Q%d:fitness:%s".formatted(year, quarter, skillLevel);
     }
 
     public String dataKey() {
         return type == Type.QUARTER
                 ? "leaderboard_data:%d:Q%d".formatted(year, quarter)
-                : "leaderboard_data:fitness:%d:Q%d:%s".formatted(year, quarter, skillLevel);
+                : "leaderboard_data:%d:Q%d:fitness:%s".formatted(year, quarter, skillLevel);
     }
 
     public String memberKey() {
         return type == Type.QUARTER
                 ? "leaderboard_member:%d:Q%d".formatted(year, quarter)
-                : "leaderboard_member:fitness:%d:Q%d:%s".formatted(year, quarter, skillLevel);
+                : "leaderboard_member:%d:Q%d:fitness:%s".formatted(year, quarter, skillLevel);
     }
 
     public String historyKey() {
-        return "leaderboard_history:fitness:%d:Q%d:%s".formatted(year, quarter, skillLevel);
+        return "leaderboard_history:%d:Q%d:fitness:%s".formatted(year, quarter, skillLevel);
     }
 
     public String stateKey() {
         return type == Type.QUARTER
                 ? "leaderboard_state:%d:Q%d".formatted(year, quarter)
-                : "leaderboard_state:fitness:%d:Q%d:%s".formatted(year, quarter, skillLevel);
+                : "leaderboard_state:%d:Q%d:fitness:%s".formatted(year, quarter, skillLevel);
     }
 
     public String registryValue() {

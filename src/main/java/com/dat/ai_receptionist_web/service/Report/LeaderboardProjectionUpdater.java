@@ -11,6 +11,7 @@ import com.dat.ai_receptionist_web.repository.Core.StudentRepository;
 import com.dat.ai_receptionist_web.repository.Report.LeaderboardLockRepository;
 import com.dat.ai_receptionist_web.repository.Skill.FitnessRecordRepository;
 import com.dat.ai_receptionist_web.service.Core.FitnessService;
+import com.dat.ai_receptionist_web.service.Core.PersonAvatarUrlCacheService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -29,6 +30,7 @@ public class LeaderboardProjectionUpdater {
     private final FitnessService fitnessService;
     private final FitnessLeaderboardScorer fitnessLeaderboardScorer;
     private final LeaderboardRedisStore redisStore;
+    private final PersonAvatarUrlCacheService avatarUrlCacheService;
 
     @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
     public void refreshQuarter(String studentCode, int year, int quarter) {
@@ -85,6 +87,7 @@ public class LeaderboardProjectionUpdater {
     }
 
     private LeaderboardMember memberOf(Student student) {
-        return new LeaderboardMember(student.getStudentCode(), student.getFullName(), student.getBelt());
+        avatarUrlCacheService.putFromFaceImagePath(student.getPersonId(), student.getFaceImagePath());
+        return new LeaderboardMember(student.getPersonId(), student.getStudentCode(), student.getFullName(), student.getBelt());
     }
 }

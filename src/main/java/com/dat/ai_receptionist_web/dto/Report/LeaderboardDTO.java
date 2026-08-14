@@ -6,6 +6,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.SuperBuilder;
 
 import java.util.List;
+import java.util.UUID;
 
 public class LeaderboardDTO {
     @Data
@@ -41,6 +42,8 @@ public class LeaderboardDTO {
     public static class RankItem<T> {
         int rank;            // Hạng (1, 2, 3...)
         Integer rankBefore;
+        UUID personId;
+        String avatarUrl;
         String studentCode;  // Mã HV (Dùng để FE làm key hoặc link tới trang chi tiết)
         String fullName;     // Tên HV
         Belt belt;     // Cấp đai (Rất cần để FE render màu đai tương ứng)

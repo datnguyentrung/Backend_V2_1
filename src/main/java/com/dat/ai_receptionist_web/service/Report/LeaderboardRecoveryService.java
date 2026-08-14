@@ -138,7 +138,7 @@ public class LeaderboardRecoveryService {
                 student.getStudentCode(),
                 score,
                 data,
-                new LeaderboardMember(student.getStudentCode(), student.getFullName(), student.getBelt())
+                new LeaderboardMember(student.getPersonId(), student.getStudentCode(), student.getFullName(), student.getBelt())
         );
     }
 

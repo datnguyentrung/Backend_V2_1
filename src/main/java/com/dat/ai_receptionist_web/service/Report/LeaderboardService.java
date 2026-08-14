@@ -6,6 +6,7 @@ import com.dat.ai_receptionist_web.dto.Report.YearlySummaryDTO;
 import com.dat.ai_receptionist_web.dto.Skill.FitnessRecordDTO;
 import com.dat.ai_receptionist_web.enums.Skill.SkillLevel;
 import com.dat.ai_receptionist_web.mapper.Report.YearlySummaryMapper;
+import com.dat.ai_receptionist_web.service.Core.PersonAvatarUrlCacheService;
 import com.dat.ai_receptionist_web.util.error.LeaderboardUnavailableException;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +16,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +26,7 @@ public class LeaderboardService {
     private final LeaderboardRedisStore redisStore;
     private final YearlySummaryMapper yearlySummaryMapper;
     private final MeterRegistry meterRegistry;
+    private final PersonAvatarUrlCacheService avatarUrlCacheService;
 
     public LeaderboardDTO.Response<YearlySummaryDTO.QuarterSummary> getQuarterLeaderboard(
             int year,
@@ -31,16 +35,25 @@ public class LeaderboardService {
     ) {
         LeaderboardScope scope = LeaderboardScope.quarter(year, quarter);
         LeaderboardRedisStore.Page page = read(scope, pageable);
+        List<LeaderboardMember> members = page.rows().stream()
+                .map(row -> redisStore.decode(row.memberJson(), LeaderboardMember.class))
+                .toList();
+        Map<UUID, String> avatarUrls = avatarUrlCacheService.getMany(
+                members.stream().map(LeaderboardMember::personId).toList()
+        );
         List<LeaderboardDTO.RankItem<YearlySummaryDTO.QuarterSummary>> rankings = new ArrayList<>();
         int rank = Math.toIntExact(pageable.getOffset()) + 1;
 
-        for (LeaderboardRedisStore.Row row : page.rows()) {
-            LeaderboardMember member = redisStore.decode(row.memberJson(), LeaderboardMember.class);
+        for (int index = 0; index < page.rows().size(); index++) {
+            LeaderboardRedisStore.Row row = page.rows().get(index);
+            LeaderboardMember member = members.get(index);
             YearlySummaryDTO.QuarterSummaryForRedis stored = redisStore.decode(
                     row.dataJson(), YearlySummaryDTO.QuarterSummaryForRedis.class
             );
             rankings.add(LeaderboardDTO.RankItem.<YearlySummaryDTO.QuarterSummary>builder()
                     .rank(rank++)
+                    .personId(member.personId())
+                    .avatarUrl(avatarUrls.get(member.personId()))
                     .studentCode(member.studentCode())
                     .fullName(member.fullName())
                     .belt(member.belt())
@@ -64,14 +77,23 @@ public class LeaderboardService {
     ) {
         LeaderboardScope scope = LeaderboardScope.fitness(year, quarter, skillLevel);
         LeaderboardRedisStore.Page page = read(scope, pageable);
+        List<LeaderboardMember> members = page.rows().stream()
+                .map(row -> redisStore.decode(row.memberJson(), LeaderboardMember.class))
+                .toList();
+        Map<UUID, String> avatarUrls = avatarUrlCacheService.getMany(
+                members.stream().map(LeaderboardMember::personId).toList()
+        );
         List<LeaderboardDTO.RankItem<FitnessRecordDTO.Metrics>> rankings = new ArrayList<>();
         int rank = Math.toIntExact(pageable.getOffset()) + 1;
 
-        for (LeaderboardRedisStore.Row row : page.rows()) {
-            LeaderboardMember member = redisStore.decode(row.memberJson(), LeaderboardMember.class);
+        for (int index = 0; index < page.rows().size(); index++) {
+            LeaderboardRedisStore.Row row = page.rows().get(index);
+            LeaderboardMember member = members.get(index);
             rankings.add(LeaderboardDTO.RankItem.<FitnessRecordDTO.Metrics>builder()
                     .rank(rank++)
                     .rankBefore(row.rankBefore())
+                    .personId(member.personId())
+                    .avatarUrl(avatarUrls.get(member.personId()))
                     .studentCode(member.studentCode())
                     .fullName(member.fullName())
                     .belt(member.belt())

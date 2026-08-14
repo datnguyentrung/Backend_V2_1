@@ -32,7 +32,9 @@ The artifact name follows the current Maven artifact and version: `target/AI_Rec
 
 Rebuild quarter training-score leaderboard:
 
+```powershell
 .\mvnw.cmd clean package -DskipTests
+```
 
 ```powershell
 Get-Content .env | ForEach-Object {
@@ -102,6 +104,33 @@ Run recovery only as an operator action:
 
 Do not run recovery as a scheduler, startup task, GET fallback, or replacement for normal business events.
 Do not enable `leaderboard.rebuild.enabled=true` in the normal web application process.
+
+## Avatar URL Cache Rebuild Command
+
+Leaderboard responses include `avatarUrl`, but leaderboard rebuild does not rebuild avatar cache.
+Avatar URLs are a person-level Redis read model stored separately from leaderboard rank data.
+
+The Redis hash is:
+
+- key: `person:avatar-url`
+- field: `personId`
+- value: public Supabase avatar URL
+
+Run this command when `person:avatar-url` is missing, flushed, restored incompletely, or after deploying
+the avatar URL cache for the first time:
+
+```powershell
+java -jar target/AI_Receptionist_Web-1.0.0.jar `
+  --spring.main.web-application-type=none `
+  --avatar.cache.rebuild.enabled=true
+```
+
+This command does not take `year`, `quarter`, or leaderboard `type` because avatar URLs are keyed by
+`personId`, not by leaderboard scope. The command scans `core.person` in pages, reads only `person_id`
+and `face_image_path`, writes to a generation-specific temporary Redis hash, then swaps it into
+`person:avatar-url`.
+
+Do not enable `avatar.cache.rebuild.enabled=true` in the normal web application process.
 
 ### Rebuild Business Flow
 

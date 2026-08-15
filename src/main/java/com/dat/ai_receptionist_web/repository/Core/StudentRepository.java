@@ -80,6 +80,8 @@ public interface StudentRepository extends JpaRepository<Student, UUID>,
 
     List<Student> findAllByStudentStatus(StudentStatus studentStatus);
 
+    Page<Student> findAllByStudentStatus(StudentStatus studentStatus, Pageable pageable);
+
     Optional<Object> findByPersonId(UUID personId);
 
     interface StudentStatusCount {

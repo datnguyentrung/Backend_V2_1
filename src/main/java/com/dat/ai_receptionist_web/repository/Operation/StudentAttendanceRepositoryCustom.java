@@ -8,6 +8,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.Collection;
 
 /**
  * Custom Repository Interface để xử lý các query phức tạp
@@ -26,6 +27,10 @@ public interface StudentAttendanceRepositoryCustom {
 
     StudentAttendanceDTO.AttendanceStats getStatistics(Specification<StudentAttendance> spec);
 
-    Map<String, StudentAttendanceDTO.AttendanceStats> getStatisticsGroupedByStudent(LocalDate startDate, LocalDate endDate);
+    Map<String, StudentAttendanceDTO.AttendanceStats> getStatisticsGroupedByStudent(
+            LocalDate startDate,
+            LocalDate endDate,
+            Collection<String> studentCodes
+    );
 }
 

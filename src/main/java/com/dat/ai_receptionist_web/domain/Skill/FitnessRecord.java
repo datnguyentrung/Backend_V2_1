@@ -31,7 +31,7 @@ import java.time.LocalDateTime;
                 @UniqueConstraint(
                         name = "unique_fitness_record", // Tên của constraint trong database
                         columnNames = {
-                                "student_user_id",
+                                "person_id",
                                 "assessment_date",
                                 "skill_level",
                                 "duration",
@@ -53,7 +53,7 @@ public class FitnessRecord {
 
     @NotNull(message = "Học viên không được để trống")
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_user_id", nullable = false)
+    @JoinColumn(name = "person_id", nullable = false)
     @OnDelete(action = OnDeleteAction.CASCADE)
     Student student;
 

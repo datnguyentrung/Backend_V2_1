@@ -117,7 +117,6 @@ public class SecurityConfiguration {
                                 .requestMatchers(
                                         "/actuator/**",
                                         "/ws/**",
-                                        "/api/v1/leaderboards/sync-batch",
                                         "/api/v1/webhook/**"
                                 ).permitAll() // Thêm dòng này
                                 .requestMatchers(
@@ -129,6 +128,7 @@ public class SecurityConfiguration {
                                 .requestMatchers(
                                         HttpMethod.GET,
                                         "/api/v1/fitness",
+                                        "/api/v1/fitness-record**",
                                         "/api/v1/leaderboards/**",
                                         "/api/v1/students/**",
                                         "/api/v1/student-attendances",

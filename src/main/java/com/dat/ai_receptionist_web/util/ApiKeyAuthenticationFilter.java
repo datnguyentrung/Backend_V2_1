@@ -24,8 +24,7 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
     // 🚀 BƯỚC 1: KHAI BÁO DANH SÁCH CÁC API DÙNG X-API-KEY (WEBHOOK, AI, CRON JOB...)
     private static final List<String> API_KEY_ENDPOINTS = List.of(
             "/api/v1/student-attendances/check-in",
-            "/api/v1/persons/face-check-in",
-            "/api/v1/leaderboards/sync-batch" // <-- Đã thêm API đồng bộ thi đua vào đây
+            "/api/v1/persons/face-check-in"
     );
 
     @Override

@@ -18,6 +18,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -169,7 +170,11 @@ public class StudentAttendanceRepositoryCustomImpl implements StudentAttendanceR
     // File: StudentAttendanceRepositoryCustomImpl.java
 
     @Override
-    public Map<String, StudentAttendanceDTO.AttendanceStats> getStatisticsGroupedByStudent(LocalDate startDate, LocalDate endDate) {
+    public Map<String, StudentAttendanceDTO.AttendanceStats> getStatisticsGroupedByStudent(
+            LocalDate startDate,
+            LocalDate endDate,
+            Collection<String> studentCodes
+    ) {
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
         Root<StudentAttendance> root = query.from(StudentAttendance.class);
@@ -182,6 +187,9 @@ public class StudentAttendanceRepositoryCustomImpl implements StudentAttendanceR
         List<Predicate> predicates = new ArrayList<>();
         if (startDate != null) predicates.add(cb.greaterThanOrEqualTo(root.get("sessionDate"), startDate));
         if (endDate != null) predicates.add(cb.lessThanOrEqualTo(root.get("sessionDate"), endDate));
+        if (studentCodes != null && !studentCodes.isEmpty()) {
+            predicates.add(studentJoin.get("studentCode").in(studentCodes));
+        }
 
         query.where(cb.and(predicates.toArray(new Predicate[0])));
 

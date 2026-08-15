@@ -29,14 +29,10 @@ public class UserStatusValidationFilter extends OncePerRequestFilter {
             "/api/v1/auth/refresh"
     );
 
-    private static final List<String> SYSTEM_ENDPOINTS = List.of(
-            "/api/v1/leaderboards/sync-batch"
-    );
-
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return "OPTIONS".equalsIgnoreCase(request.getMethod()) || SYSTEM_ENDPOINTS.contains(path);
+        return "OPTIONS".equalsIgnoreCase(request.getMethod());
     }
 
     @Override

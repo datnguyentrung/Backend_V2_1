@@ -38,6 +38,7 @@ public class PersonService {
     private final PersonMapper personMapper;
     private final PythonBackendClient pythonBackendClient;
     private final SupabaseStorageService supabaseStorageService;
+    private final PersonAvatarUrlCacheService avatarUrlCacheService;
 
     @Value("${FACE_MATCH_THRESHOLD:0.70}")
     private float faceMatchThreshold = 0.70f;
@@ -152,12 +153,19 @@ public class PersonService {
                 .orElseThrow(() -> new AppException(ErrorCode.PERSON_NOT_FOUND));
         PersonFaceData faceData = processAndAttachFaceImage(person, file);
         Person savedPerson = personRepository.saveAndFlush(person);
+        String avatarUrl = getPublicFaceImageUrl(savedPerson.getFaceImagePath());
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                avatarUrlCacheService.put(savedPerson.getPersonId(), avatarUrl);
+            }
+        });
         return PersonDTO.FaceEmbeddingUpdateResponse.builder()
                 .personId(savedPerson.getPersonId())
                 .dimension(faceData.dimension())
                 .model(faceData.model())
                 .faceImagePath(savedPerson.getFaceImagePath())
-                .avatarUrl(getPublicFaceImageUrl(savedPerson.getFaceImagePath()))
+                .avatarUrl(avatarUrl)
                 .updatedAt(savedPerson.getUpdatedAt())
                 .build();
     }
@@ -224,6 +232,12 @@ public class PersonService {
         person.setFaceEmbedding(null);
         person.setFaceImagePath(null);
         personRepository.saveAndFlush(person);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                avatarUrlCacheService.remove(personId);
+            }
+        });
         if (oldPath != null) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override

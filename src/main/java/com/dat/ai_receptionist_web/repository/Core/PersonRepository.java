@@ -125,6 +125,21 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
             Pageable pageable
     );
 
+    @Query(
+            value = """
+                    SELECT p.person_id AS personId,
+                           p.face_image_path AS faceImagePath
+                    FROM core.person p
+                    ORDER BY p.person_id
+                    """,
+            countQuery = """
+                    SELECT COUNT(*)
+                    FROM core.person p
+                    """,
+            nativeQuery = true
+    )
+    Page<PersonAvatarProjection> findPersonAvatarProjections(Pageable pageable);
+
     interface PersonSearchProjection {
         UUID getPersonId();
 
@@ -163,5 +178,11 @@ public interface PersonRepository extends JpaRepository<Person, UUID> {
         UUID getPersonId();
 
         Double getDistance();
+    }
+
+    interface PersonAvatarProjection {
+        UUID getPersonId();
+
+        String getFaceImagePath();
     }
 }

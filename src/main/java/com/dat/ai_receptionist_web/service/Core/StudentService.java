@@ -20,6 +20,7 @@ import com.dat.ai_receptionist_web.repository.Core.StudentRepositoryCustom;
 import com.dat.ai_receptionist_web.repository.Operation.StudentEnrollmentRepository;
 import com.dat.ai_receptionist_web.repository.Security.UserProfileRepository;
 import com.dat.ai_receptionist_web.service.Operation.StudentEnrollmentService;
+import com.dat.ai_receptionist_web.service.Projection.ProjectionOutboxService;
 import com.dat.ai_receptionist_web.specification.StudentSpecification;
 import com.dat.ai_receptionist_web.util.AccountUtil;
 import com.dat.ai_receptionist_web.util.converter.NameConverter;
@@ -50,6 +51,7 @@ public class StudentService {
     private final StudentEnrollmentService studentEnrollmentService;
     private final PersonService personService;
     private final UserProfileRepository userProfileRepository;
+    private final ProjectionOutboxService projectionOutboxService;
 
     public Student getStudentById(UUID personId) {
         return studentRepository.findById(personId)
@@ -83,6 +85,11 @@ public class StudentService {
     @Transactional(rollbackFor = Exception.class)
     public StudentResDTO.StudentDetail updateStudent(StudentReqDTO.StudentUpdate updateDTO, MultipartFile file) {
         Student student = getStudentById(updateDTO.getPersonId());
+        boolean profileChanged = updateDTO.getBelt() != null && updateDTO.getBelt() != student.getBelt()
+                || updateDTO.getFullName() != null
+                && !NameConverter.formatVietnameseName(updateDTO.getFullName()).equals(student.getFullName());
+        boolean membershipChanged = updateDTO.getStudentStatus() != null
+                && updateDTO.getStudentStatus() != student.getStudentStatus();
 
         if (updateDTO.getNationalCode() != null &&
                 !updateDTO.getNationalCode().equals(student.getNationalCode()) &&
@@ -106,6 +113,9 @@ public class StudentService {
         }
 
         Student updatedStudent = studentRepository.save(student);
+        if (profileChanged || membershipChanged) {
+            projectionOutboxService.markMemberDirty(updatedStudent.getStudentCode(), membershipChanged);
+        }
         return getStudentDetail(updatedStudent.getPersonId());
     }
 
@@ -151,6 +161,7 @@ public class StudentService {
         }
 
         log.info("Created student successfully with code: {}", generatedCode);
+        projectionOutboxService.markMemberDirty(newStudent.getStudentCode(), true);
         return withAvatarUrl(studentMapper.toStudentDetailWithEnrollments(newStudent, enrollmentResponses, List.of()), newStudent);
     }
 
@@ -162,12 +173,14 @@ public class StudentService {
         }
         student.setStudentStatus(StudentStatus.DROPPED);
         studentRepository.save(student);
+        projectionOutboxService.markMemberDirty(studentCode, true);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void permanentlyDeleteStudent(String studentCode) {
         Student student = getStudentByStudentCode(studentCode);
         studentRepository.delete(student);
+        projectionOutboxService.markMemberDirty(studentCode, true);
     }
 
     public StudentResDTO.StudentListResponse getStudentsWithStats(String search, StudentStatus status,

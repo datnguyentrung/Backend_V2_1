@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -32,18 +33,35 @@ public class FitnessRecordController {
         return ResponseEntity.ok(response);
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<FitnessRecordDTO.Response> update(
+            @PathVariable Long id,
+            @Valid @RequestBody FitnessRecordDTO.UpdateRequest request) {
+        return ResponseEntity.ok(fitnessRecordService.updateFitnessRecord(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        fitnessRecordService.deleteFitnessRecord(id);
+        return ResponseEntity.noContent().build();
+    }
+
     /**
      * API Lấy danh sách kỷ lục Fitness có phân trang và tìm kiếm
      * GET /api/v1/fitness-record?search=abc&skillLevel=BEGINNER&page=0&size=20
      */
     @GetMapping
-    public ResponseEntity<PageResponse<FitnessRecordDTO.Response>> getList(
+    public ResponseEntity<PageResponse<FitnessRecordDTO.ListResponse>> getList(
             @RequestParam(required = false, defaultValue = "") String search,
             @RequestParam(required = false) SkillLevel skillLevel,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @PageableDefault(
+                    size = 20,
+                    sort = "assessmentDate",
+                    direction = Sort.Direction.DESC
+            ) Pageable pageable) {
 
         log.info("REST request to get a page of FitnessRecords");
-        PageResponse<FitnessRecordDTO.Response> response =
+        PageResponse<FitnessRecordDTO.ListResponse> response =
                 fitnessRecordService.listFitnessRecords(search, skillLevel, pageable);
 
         return ResponseEntity.ok(response);

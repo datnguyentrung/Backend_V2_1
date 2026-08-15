@@ -26,6 +26,8 @@ import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializ
 import tools.jackson.databind.DefaultTyping;
 import tools.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import org.springframework.scheduling.annotation.EnableAsync;
+import io.lettuce.core.ClientOptions;
+import io.lettuce.core.SocketOptions;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -49,6 +51,18 @@ public class RedisConfig implements CachingConfigurer {
     @Value("${spring.data.redis.password}")
     private String redisPassword;
 
+    @Value("${spring.data.redis.connect-timeout:10s}")
+    private Duration redisConnectTimeout;
+
+    @Value("${spring.data.redis.timeout:10s}")
+    private Duration redisCommandTimeout;
+
+    @Value("${spring.data.redis.ssl.enabled:false}")
+    private boolean redisSslEnabled;
+
+    @Value("${spring.data.redis.ssl.disable-peer-verification:true}")
+    private boolean redisDisablePeerVerification;
+
     @Bean
     public LettuceConnectionFactory lettuceConnectionFactory() {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(redisHost, redisPort);
@@ -61,18 +75,33 @@ public class RedisConfig implements CachingConfigurer {
             config.setPassword(redisPassword);
         }
 
-        // ĐÂY LÀ ĐOẠN QUYẾT ĐỊNH SỰ SỐNG CÒN CỦA KẾT NỐI
-        // Nếu thấy chữ render.com thì ép nó dùng SSL và TẮT kiểm tra chứng chỉ
-        if (redisHost != null && redisHost.contains("render.com")) {
-            LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
-                    .useSsl() // Ép bật SSL
-                    .disablePeerVerification() // Tắt kiểm tra chứng chỉ (Bắt buộc phải có dòng này)
-                    .build();
-            return new LettuceConnectionFactory(config, clientConfig);
-        }
+        LettuceClientConfiguration.LettuceClientConfigurationBuilder clientBuilder =
+                LettuceClientConfiguration.builder()
+                        .commandTimeout(redisCommandTimeout)
+                        .shutdownTimeout(Duration.ofMillis(100))
+                        .clientOptions(ClientOptions.builder()
+                                .socketOptions(SocketOptions.builder()
+                                        .connectTimeout(redisConnectTimeout)
+                                        .build())
+                                .build());
 
-        // Còn nếu chạy localhost ở máy nhà ông thì cứ chạy bình thường không cần SSL
-        return new LettuceConnectionFactory(config);
+        if (redisSslEnabled) {
+            LettuceClientConfiguration.LettuceSslClientConfigurationBuilder sslBuilder = clientBuilder.useSsl();
+            if (redisDisablePeerVerification) {
+                sslBuilder.disablePeerVerification();
+            }
+            sslBuilder.and();
+        }
+        log.info(
+                "Redis connection configured host={} port={} usernameConfigured={} sslEnabled={} connectTimeout={} commandTimeout={}",
+                redisHost,
+                redisPort,
+                redisUsername != null && !redisUsername.isBlank(),
+                redisSslEnabled,
+                redisConnectTimeout,
+                redisCommandTimeout
+        );
+        return new LettuceConnectionFactory(config, clientBuilder.build());
     }
 
     @Bean

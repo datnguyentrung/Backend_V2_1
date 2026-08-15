@@ -13,8 +13,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Collection;
+import java.util.UUID;
 
 @Repository
 public interface FitnessRecordRepository extends JpaRepository<FitnessRecord, Long>, JpaSpecificationExecutor<FitnessRecord> {
@@ -22,6 +25,37 @@ public interface FitnessRecordRepository extends JpaRepository<FitnessRecord, Lo
     @NonNull
     Page<FitnessRecord> findAll(
             @NonNull Specification<FitnessRecord> spec, @NonNull Pageable pageable
+    );
+
+    @Query(
+            value = """
+                    SELECT fr.id AS id,
+                           fr.createdAt AS createdAt,
+                           fr.assessmentDate AS assessmentDate,
+                           fr.duration AS duration,
+                           fr.amount AS amount,
+                           fr.skillLevel AS skillLevel,
+                           student.personId AS studentPersonId,
+                           student.fullName AS studentFullName,
+                           student.studentCode AS studentCode,
+                           student.belt AS studentBelt
+                    FROM FitnessRecord fr
+                    JOIN fr.student student
+                    WHERE (:search IS NULL OR :search = '' OR LOWER(student.fullName) LIKE LOWER(CONCAT('%', :search, '%')))
+                      AND (:skillLevel IS NULL OR fr.skillLevel = :skillLevel)
+                    """,
+            countQuery = """
+                    SELECT COUNT(fr.id)
+                    FROM FitnessRecord fr
+                    JOIN fr.student student
+                    WHERE (:search IS NULL OR :search = '' OR LOWER(student.fullName) LIKE LOWER(CONCAT('%', :search, '%')))
+                      AND (:skillLevel IS NULL OR fr.skillLevel = :skillLevel)
+                    """
+    )
+    Page<FitnessRecordListRow> findListRows(
+            @Param("search") String search,
+            @Param("skillLevel") SkillLevel skillLevel,
+            Pageable pageable
     );
 
     @EntityGraph(attributePaths = {"student"})
@@ -50,4 +84,26 @@ public interface FitnessRecordRepository extends JpaRepository<FitnessRecord, Lo
                 ORDER BY fr.id
             """)
     List<FitnessRecord> findRecordsForSingleStudent(int year, int quarter, SkillLevel skillLevel, String studentCode);
+
+    interface FitnessRecordListRow {
+        Long getId();
+
+        LocalDateTime getCreatedAt();
+
+        LocalDate getAssessmentDate();
+
+        Integer getDuration();
+
+        Integer getAmount();
+
+        SkillLevel getSkillLevel();
+
+        UUID getStudentPersonId();
+
+        String getStudentFullName();
+
+        String getStudentCode();
+
+        com.dat.ai_receptionist_web.enums.Core.Belt getStudentBelt();
+    }
 }

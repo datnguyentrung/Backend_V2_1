@@ -35,6 +35,33 @@ public class FitnessRecordDTO {
         CoachResDTO.CoachSummary recordedByCoach;
     }
 
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class ListResponse {
+        Long id;
+        StudentResDTO.StudentSummary studentSummary;
+        ListMetrics metrics;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @FieldDefaults(level = AccessLevel.PRIVATE)
+    public static class ListMetrics {
+        LocalDate assessmentDate;
+        Integer duration;
+        Integer amount;
+        SkillLevel skillLevel;
+        Integer durationLevel;
+        Integer amountLevel;
+        Integer fitnessLevel;
+        Boolean isQualified;
+    }
+
     // 3. Đổi "SimpleResponse" thành "Metrics" (Các chỉ số đo lường)
     @Data
     @Builder

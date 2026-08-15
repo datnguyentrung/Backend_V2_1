@@ -16,10 +16,15 @@ import org.mapstruct.ReportingPolicy;
         uses = {StudentMapper.class, CoachMapper.class}
 )
 public interface FitnessRecordMapper {
+
+    @Mapping(target = "studentSummary", source = "student")
+    @Mapping(target = "id", source = "id")
+
+    @Mapping(target = "metrics.createdAt", source = "createdAt")
+    @Mapping(target = "metrics.assessmentDate", source = "assessmentDate")
     @Mapping(target = "metrics.duration", source = "duration")
     @Mapping(target = "metrics.amount", source = "amount")
     @Mapping(target = "metrics.skillLevel", source = "skillLevel")
-    @Mapping(target = "id", source = "id")
     FitnessRecordDTO.Response toResponse(FitnessRecord fitnessRecord);
 
     FitnessRecordDTO.Metrics toMetrics(FitnessRecord fitnessRecord);

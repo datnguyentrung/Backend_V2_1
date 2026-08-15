@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -50,13 +51,17 @@ public class FitnessRecordController {
      * GET /api/v1/fitness-record?search=abc&skillLevel=BEGINNER&page=0&size=20
      */
     @GetMapping
-    public ResponseEntity<PageResponse<FitnessRecordDTO.Response>> getList(
+    public ResponseEntity<PageResponse<FitnessRecordDTO.ListResponse>> getList(
             @RequestParam(required = false, defaultValue = "") String search,
             @RequestParam(required = false) SkillLevel skillLevel,
-            @PageableDefault(size = 20) Pageable pageable) {
+            @PageableDefault(
+                    size = 20,
+                    sort = "assessmentDate",
+                    direction = Sort.Direction.DESC
+            ) Pageable pageable) {
 
         log.info("REST request to get a page of FitnessRecords");
-        PageResponse<FitnessRecordDTO.Response> response =
+        PageResponse<FitnessRecordDTO.ListResponse> response =
                 fitnessRecordService.listFitnessRecords(search, skillLevel, pageable);
 
         return ResponseEntity.ok(response);

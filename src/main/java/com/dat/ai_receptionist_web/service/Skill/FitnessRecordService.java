@@ -7,18 +7,17 @@ import com.dat.ai_receptionist_web.domain.Skill.FitnessRecord;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.dto.Skill.FitnessRecordDTO;
 import com.dat.ai_receptionist_web.enums.Skill.SkillLevel;
-import com.dat.ai_receptionist_web.event.FitnessLeaderboardChangedEvent;
 import com.dat.ai_receptionist_web.mapper.Skill.FitnessRecordMapper;
+import com.dat.ai_receptionist_web.repository.Core.FitnessRepository;
 import com.dat.ai_receptionist_web.repository.Skill.FitnessRecordRepository;
 import com.dat.ai_receptionist_web.service.Core.CoachService;
 import com.dat.ai_receptionist_web.service.Core.FitnessService;
 import com.dat.ai_receptionist_web.service.Core.StudentService;
+import com.dat.ai_receptionist_web.service.Projection.ProjectionOutboxService;
 import com.dat.ai_receptionist_web.specification.FitnessRecordSpecification;
 import com.dat.ai_receptionist_web.util.Helper.SkillCalculator;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -35,15 +34,15 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class FitnessRecordService {
     private final FitnessRecordRepository fitnessRecordRepository;
+    private final FitnessRepository fitnessRepository;
     private final StudentService studentService;
     private final CoachService coachService;
     private final FitnessRecordMapper fitnessRecordMapper;
     private final FitnessService fitnessService;
     private final SkillCalculator skillCalculator;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ProjectionOutboxService projectionOutboxService;
 
     @Transactional
-    @CacheEvict(value = "fitnessRecords", allEntries = true) // Xóa sạch cache danh sách khi có record mới
     public FitnessRecordDTO.Response createFitnessRecord(
             FitnessRecordDTO.CreateRequest request) {
         Student student = studentService.getStudentByStudentCode(request.getStudentCode());
@@ -59,21 +58,20 @@ public class FitnessRecordService {
                 .recordByCoach(currentCoach)
                 .build();
 
-        // 3. Lưu vào database
+        // 3. LÃ†Â°u vÃƒÂ o database
         FitnessRecord savedRecord = fitnessRecordRepository.save(fitnessRecord);
 
-        FitnessRecordDTO.Response response = toResponseWithMetrics(savedRecord, fitnessService.getAllFitness());
+        FitnessRecordDTO.Response response = toResponseWithMetrics(savedRecord, fitnessRepository.findAllForProjection());
 
-        publishLeaderboardChange(student.getStudentCode(), scopeOf(savedRecord));
+        markLeaderboardDirty(student.getStudentCode(), scopeOf(savedRecord));
 
         return response;
     }
 
     @Transactional
-    @CacheEvict(value = "fitnessRecords", allEntries = true)
     public FitnessRecordDTO.Response updateFitnessRecord(Long id, FitnessRecordDTO.UpdateRequest request) {
         FitnessRecord record = findRecord(id);
-        FitnessLeaderboardChangedEvent.Scope oldScope = scopeOf(record);
+        FitnessScope oldScope = scopeOf(record);
 
         record.setAssessmentDate(request.getAssessmentDate());
         record.setDuration(request.getDuration());
@@ -81,41 +79,40 @@ public class FitnessRecordService {
         record.setSkillLevel(request.getSkillLevel());
 
         FitnessRecord savedRecord = fitnessRecordRepository.save(record);
-        FitnessRecordDTO.Response response = toResponseWithMetrics(savedRecord, fitnessService.getAllFitness());
-        publishLeaderboardChange(record.getStudent().getStudentCode(), oldScope, scopeOf(savedRecord));
+        FitnessRecordDTO.Response response = toResponseWithMetrics(savedRecord, fitnessRepository.findAllForProjection());
+        markLeaderboardDirty(record.getStudent().getStudentCode(), oldScope, scopeOf(savedRecord));
         return response;
     }
 
     @Transactional
-    @CacheEvict(value = "fitnessRecords", allEntries = true)
     public void deleteFitnessRecord(Long id) {
         FitnessRecord record = findRecord(id);
         String studentCode = record.getStudent().getStudentCode();
-        FitnessLeaderboardChangedEvent.Scope oldScope = scopeOf(record);
+        FitnessScope oldScope = scopeOf(record);
         fitnessRecordRepository.delete(record);
-        publishLeaderboardChange(studentCode, oldScope);
+        markLeaderboardDirty(studentCode, oldScope);
     }
 
     @Cacheable(value = "fitnessRecords", key = "#search + '-' + #skillLevel + '-' + #pageable.pageNumber + '-' + #pageable.pageSize", cacheManager = "redisCacheManager")
     public PageResponse<FitnessRecordDTO.Response> listFitnessRecords(
             String search, SkillLevel skillLevel, Pageable pageable) {
 
-        // 1. Lấy dữ liệu phân trang từ DB
+        // 1. LÃ¡ÂºÂ¥y dÃ¡Â»Â¯ liÃ¡Â»â€¡u phÃƒÂ¢n trang tÃ¡Â»Â« DB
         Specification<FitnessRecord> spec = Specification.where(FitnessRecordSpecification.hasSearch(search))
                 .and(FitnessRecordSpecification.hasSkillLevel(skillLevel));
         Page<FitnessRecord> pageResult = fitnessRecordRepository.findAll(spec, pageable);
 
-        // 2. Lấy toàn bộ mốc chuẩn (Hàm này đã có @Cacheable nên rất nhanh)
+        // 2. LÃ¡ÂºÂ¥y toÃƒÂ n bÃ¡Â»â„¢ mÃ¡Â»â€˜c chuÃ¡ÂºÂ©n (HÃƒÂ m nÃƒÂ y Ã„â€˜ÃƒÂ£ cÃƒÂ³ @Cacheable nÃƒÂªn rÃ¡ÂºÂ¥t nhanh)
         List<Fitness> benchmarkList = fitnessService.getAllFitness();
 
-        // 3. Map sang DTO và tính toán level cho từng record
+        // 3. Map sang DTO vÃƒÂ  tÃƒÂ­nh toÃƒÂ¡n level cho tÃ¡Â»Â«ng record
         List<FitnessRecordDTO.Response> content = pageResult.getContent().stream()
                 .map(entity -> {
                     return toResponseWithMetrics(entity, benchmarkList);
                 })
                 .toList();
 
-        // 4. Trả về PageResponse custom của bạn
+        // 4. TrÃ¡ÂºÂ£ vÃ¡Â»Â PageResponse custom cÃ¡Â»Â§a bÃ¡ÂºÂ¡n
         return PageResponse.<FitnessRecordDTO.Response>builder()
                 .content(content)
                 .pageNumber(pageable.getPageNumber())
@@ -141,20 +138,23 @@ public class FitnessRecordService {
         return response;
     }
 
-    private FitnessLeaderboardChangedEvent.Scope scopeOf(FitnessRecord record) {
+    private FitnessScope scopeOf(FitnessRecord record) {
         LocalDate date = record.getAssessmentDate();
-        return new FitnessLeaderboardChangedEvent.Scope(
+        return new FitnessScope(
                 date.getYear(),
                 (date.getMonthValue() - 1) / 3 + 1,
                 record.getSkillLevel()
         );
     }
 
-    private void publishLeaderboardChange(
-            String studentCode,
-            FitnessLeaderboardChangedEvent.Scope... scopes
-    ) {
-        Set<FitnessLeaderboardChangedEvent.Scope> affectedScopes = new LinkedHashSet<>(List.of(scopes));
-        eventPublisher.publishEvent(new FitnessLeaderboardChangedEvent(studentCode, affectedScopes));
+    private void markLeaderboardDirty(String studentCode, FitnessScope... scopes) {
+        Set<FitnessScope> affectedScopes = new LinkedHashSet<>(List.of(scopes));
+        for (FitnessScope scope : affectedScopes) {
+            projectionOutboxService.markFitnessDirty(studentCode, scope.year(), scope.quarter(), scope.skillLevel());
+        }
+        projectionOutboxService.markFitnessRecordsCacheDirty();
+    }
+
+    private record FitnessScope(int year, int quarter, SkillLevel skillLevel) {
     }
 }

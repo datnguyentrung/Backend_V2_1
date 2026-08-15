@@ -22,7 +22,6 @@ import com.dat.ai_receptionist_web.enums.Operation.EvaluationStatus;
 import com.dat.ai_receptionist_web.enums.Operation.NotificationType;
 import com.dat.ai_receptionist_web.enums.Operation.SessionStatus;
 import com.dat.ai_receptionist_web.enums.Operation.StudentEnrollmentStatus;
-import com.dat.ai_receptionist_web.event.ScoreRecalculateEvent;
 import com.dat.ai_receptionist_web.mapper.Operation.StudentAttendanceMapper;
 import com.dat.ai_receptionist_web.repository.Core.CoachRepository;
 import com.dat.ai_receptionist_web.repository.Core.StudentRepository;
@@ -31,6 +30,7 @@ import com.dat.ai_receptionist_web.repository.Operation.StudentAttendanceReposit
 import com.dat.ai_receptionist_web.repository.Operation.StudentEnrollmentRepository;
 import com.dat.ai_receptionist_web.service.Core.CoachService;
 import com.dat.ai_receptionist_web.service.Core.StudentService;
+import com.dat.ai_receptionist_web.service.Projection.ProjectionOutboxService;
 import com.dat.ai_receptionist_web.service.Security.AuthTokenService;
 import com.dat.ai_receptionist_web.service.Security.UserProfileService;
 import com.dat.ai_receptionist_web.specification.StudentAttendanceSpecification;
@@ -39,7 +39,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -79,7 +78,7 @@ public class StudentAttendanceService {
     private final ClassSessionRepository classSessionRepository;
     private final StudentRepository studentRepository;
     private final StudentEnrollmentRepository studentEnrollmentRepository;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ProjectionOutboxService projectionOutboxService;
     private final AttendanceNotificationTaskExecutor attendanceNotificationTaskExecutor;
     private final AttendanceNotificationDispatcher attendanceNotificationDispatcher;
 
@@ -89,17 +88,12 @@ public class StudentAttendanceService {
     @Autowired
     private UserProfileService userProfileService;
 
-    private void publishScoreRecalculateEvent(Student student, LocalDate sessionDate) {
+    private void markConductProjectionDirty(Student student, LocalDate sessionDate) {
         if (student == null || sessionDate == null) return;
 
         int year = sessionDate.getYear();
-        int quarter = (sessionDate.getMonthValue() - 1) / 3 + 1; // Công thức tính Quý
-
-        eventPublisher.publishEvent(new ScoreRecalculateEvent(
-                student.getStudentCode(),
-                quarter,
-                year
-        ));
+        int quarter = (sessionDate.getMonthValue() - 1) / 3 + 1;
+        projectionOutboxService.markConductDirty(student.getStudentCode(), year, quarter);
     }
 
     private void runAfterCommit(Runnable action) {
@@ -202,7 +196,7 @@ public class StudentAttendanceService {
                     student.getStudentCode(), sessionDate.getYear(), (sessionDate.getMonthValue() - 1) / 3 + 1
             );
             if (processedScopes.add(scope)) {
-                publishScoreRecalculateEvent(entity.getStudentEnrollment().getStudent(), entity.getSessionDate());
+                markConductProjectionDirty(entity.getStudentEnrollment().getStudent(), entity.getSessionDate());
             }
         }
         return studentAttendanceMapper.toResponseList(existingRecords);
@@ -293,7 +287,7 @@ public class StudentAttendanceService {
             attendance.setAttendanceStatus(newStatus);
             attendance.setCheckInTime(now);
             StudentAttendance savedAttendance = studentAttendanceRepository.saveAndFlush(attendance);
-            publishScoreRecalculateEvent(
+            markConductProjectionDirty(
                     savedAttendance.getStudentEnrollment().getStudent(),
                     savedAttendance.getSessionDate()
             );
@@ -312,7 +306,7 @@ public class StudentAttendanceService {
                 .checkInTime(now)
                 .note("Điểm danh tự động qua API")
                 .build());
-        publishScoreRecalculateEvent(
+        markConductProjectionDirty(
                 savedAttendance.getStudentEnrollment().getStudent(),
                 savedAttendance.getSessionDate()
         );
@@ -444,7 +438,7 @@ public class StudentAttendanceService {
             enqueueAttendanceNotificationAfterCommit(attendance.getAttendanceId());
         }
 
-        publishScoreRecalculateEvent(
+        markConductProjectionDirty(
                 attendance.getStudentEnrollment().getStudent(),
                 attendance.getSessionDate()
         );
@@ -601,7 +595,7 @@ public class StudentAttendanceService {
             runAfterCommit(() -> self.sendCommittedEvaluationNotification(attendance.getAttendanceId()));
         }
 
-        publishScoreRecalculateEvent(attendance.getStudentEnrollment().getStudent(), attendance.getSessionDate());
+        markConductProjectionDirty(attendance.getStudentEnrollment().getStudent(), attendance.getSessionDate());
 
         log.info("Coach {} updated evaluation for attendance record {} to status {}",
                 currentCoach.getFullName(), attendanceId, request.getEvaluationStatus());
@@ -771,7 +765,7 @@ public class StudentAttendanceService {
         if (!newAttendances.isEmpty()) {
             studentAttendanceRepository.saveAll(newAttendances);
             for (StudentAttendance sa : newAttendances) {
-                publishScoreRecalculateEvent(sa.getStudentEnrollment().getStudent(), sessionDate);
+                markConductProjectionDirty(sa.getStudentEnrollment().getStudent(), sessionDate);
             }
         }
     }
@@ -842,7 +836,7 @@ public class StudentAttendanceService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Attendance already exists for this class session", e);
         }
 
-        publishScoreRecalculateEvent(student, savedAttendance.getSessionDate());
+        markConductProjectionDirty(student, savedAttendance.getSessionDate());
 
         return studentAttendanceMapper.toResponse(savedAttendance);
     }
@@ -895,7 +889,7 @@ public class StudentAttendanceService {
 
         // Xóa xong thì bắn event báo tính lại điểm (Lúc này hàm count = 0 -> điểm về mặc định)
         for (StudentAttendance sa : attendancesToDelete) {
-            publishScoreRecalculateEvent(sa.getStudentEnrollment().getStudent(), sa.getSessionDate());
+            markConductProjectionDirty(sa.getStudentEnrollment().getStudent(), sa.getSessionDate());
         }
     }
 }

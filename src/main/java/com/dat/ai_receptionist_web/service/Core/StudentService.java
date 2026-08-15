@@ -13,7 +13,6 @@ import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.enums.Core.Belt;
 import com.dat.ai_receptionist_web.enums.Core.StudentStatus;
 import com.dat.ai_receptionist_web.enums.Operation.StudentEnrollmentStatus;
-import com.dat.ai_receptionist_web.event.StudentLeaderboardChangedEvent;
 import com.dat.ai_receptionist_web.mapper.Core.StudentMapper;
 import com.dat.ai_receptionist_web.mapper.Operation.StudentEnrollmentMapper;
 import com.dat.ai_receptionist_web.repository.Core.StudentRepository;
@@ -21,6 +20,7 @@ import com.dat.ai_receptionist_web.repository.Core.StudentRepositoryCustom;
 import com.dat.ai_receptionist_web.repository.Operation.StudentEnrollmentRepository;
 import com.dat.ai_receptionist_web.repository.Security.UserProfileRepository;
 import com.dat.ai_receptionist_web.service.Operation.StudentEnrollmentService;
+import com.dat.ai_receptionist_web.service.Projection.ProjectionOutboxService;
 import com.dat.ai_receptionist_web.specification.StudentSpecification;
 import com.dat.ai_receptionist_web.util.AccountUtil;
 import com.dat.ai_receptionist_web.util.converter.NameConverter;
@@ -31,7 +31,6 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -52,7 +51,7 @@ public class StudentService {
     private final StudentEnrollmentService studentEnrollmentService;
     private final PersonService personService;
     private final UserProfileRepository userProfileRepository;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ProjectionOutboxService projectionOutboxService;
 
     public Student getStudentById(UUID personId) {
         return studentRepository.findById(personId)
@@ -115,9 +114,7 @@ public class StudentService {
 
         Student updatedStudent = studentRepository.save(student);
         if (profileChanged || membershipChanged) {
-            eventPublisher.publishEvent(new StudentLeaderboardChangedEvent(
-                    updatedStudent.getStudentCode(), membershipChanged
-            ));
+            projectionOutboxService.markMemberDirty(updatedStudent.getStudentCode(), membershipChanged);
         }
         return getStudentDetail(updatedStudent.getPersonId());
     }
@@ -164,7 +161,7 @@ public class StudentService {
         }
 
         log.info("Created student successfully with code: {}", generatedCode);
-        eventPublisher.publishEvent(new StudentLeaderboardChangedEvent(newStudent.getStudentCode(), true));
+        projectionOutboxService.markMemberDirty(newStudent.getStudentCode(), true);
         return withAvatarUrl(studentMapper.toStudentDetailWithEnrollments(newStudent, enrollmentResponses, List.of()), newStudent);
     }
 
@@ -176,14 +173,14 @@ public class StudentService {
         }
         student.setStudentStatus(StudentStatus.DROPPED);
         studentRepository.save(student);
-        eventPublisher.publishEvent(new StudentLeaderboardChangedEvent(studentCode, true));
+        projectionOutboxService.markMemberDirty(studentCode, true);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void permanentlyDeleteStudent(String studentCode) {
         Student student = getStudentByStudentCode(studentCode);
         studentRepository.delete(student);
-        eventPublisher.publishEvent(new StudentLeaderboardChangedEvent(studentCode, true));
+        projectionOutboxService.markMemberDirty(studentCode, true);
     }
 
     public StudentResDTO.StudentListResponse getStudentsWithStats(String search, StudentStatus status,

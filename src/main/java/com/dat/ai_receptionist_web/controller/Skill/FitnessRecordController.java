@@ -56,7 +56,7 @@ public class FitnessRecordController {
             @RequestParam(required = false) SkillLevel skillLevel,
             @PageableDefault(
                     size = 20,
-                    sort = "assessmentDate",
+                    sort = "createdAt",
                     direction = Sort.Direction.DESC
             ) Pageable pageable) {
 

@@ -95,6 +95,7 @@ public class AuthenticationController {
                 currentUser,
                 RefreshTokenUtil.sha256(rawRefreshToken),
                 loginReq.getIdDevice(),
+                "WEB",
                 loginReq.getFcmToken(),
                 activeContext
         );
@@ -117,6 +118,59 @@ public class AuthenticationController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshCookie(rawRefreshToken).toString())
                 .body(response);
+    }
+
+    @PostMapping("/mobile/login")
+    public ResponseEntity<?> mobileLogin(@Valid @RequestBody LoginReq.MobileLoginRequest loginReq) {
+        String phoneNumber;
+        try {
+            phoneNumber = PhoneNumberUtil.normalize(loginReq.getPhoneNumber());
+            UsernamePasswordAuthenticationToken authenticationToken =
+                    new UsernamePasswordAuthenticationToken(phoneNumber, loginReq.getPassword());
+            Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+        } catch (BadCredentialsException | DisabledException | LockedException | IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(BAD_LOGIN_MESSAGE);
+        }
+
+        User currentUser = userService.getUserWithRolesByPhoneNumber(phoneNumber);
+        if (currentUser.getStatus() != UserStatus.ACTIVE) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Tài khoản không ở trạng thái ACTIVE.");
+        }
+
+        List<LoginRes.UserContextRes> contexts = authTokenService.getActiveContexts(currentUser.getUserId());
+        if (contexts.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Tài khoản chưa được liên kết hồ sơ.");
+        }
+
+        userService.updateLastLogin(currentUser.getUserId());
+        LoginRes.UserLogin userLogin = toUserLogin(currentUser);
+
+        String rawRefreshToken = RefreshTokenUtil.generateRawToken();
+        AuthToken session = authTokenService.createSession(
+                currentUser,
+                RefreshTokenUtil.sha256(rawRefreshToken),
+                loginReq.getIdDevice(),
+                loginReq.getPlatform().trim().toUpperCase(),
+                loginReq.getFcmToken(),
+                null
+        );
+
+        String accessToken = securityUtil.createAccessToken(
+                currentUser.getUserId(),
+                session.getSessionId(),
+                userLogin,
+                null
+        );
+
+        return ResponseEntity.ok(new LoginRes.MobileResponse(
+                accessToken,
+                rawRefreshToken,
+                userLogin,
+                null,
+                contexts,
+                true
+        ));
     }
 
     @GetMapping("/account")
@@ -222,12 +276,68 @@ public class AuthenticationController {
                 .body(response);
     }
 
+    @PostMapping("/mobile/refresh")
+    public ResponseEntity<LoginRes.MobileResponse> mobileRefresh(
+            @Valid @RequestBody LoginReq.RefreshTokenRequest request
+    ) {
+        String refreshToken = request.getRefreshToken();
+        AuthToken current = authTokenService.getByRefreshTokenHash(refreshToken);
+        if (current == null || !isRefreshable(current)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String newRawRefreshToken = RefreshTokenUtil.generateRawToken();
+        AuthToken rotated;
+        try {
+            rotated = authTokenService.rotateRefreshToken(refreshToken, newRawRefreshToken);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        User user = userService.getUserWithRolesById(rotated.getUser().getUserId());
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            authTokenService.revokeBySessionId(rotated.getSessionId());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        List<LoginRes.UserContextRes> contexts = authTokenService.getActiveContexts(user.getUserId());
+        LoginRes.UserContextRes activeContext = resolveActiveContext(rotated, contexts);
+        if (hasStoredContext(rotated) && activeContext == null) {
+            authTokenService.updateContext(rotated.getSessionId(), null);
+        }
+
+        LoginRes.UserLogin userLogin = toUserLogin(user);
+        String accessToken = securityUtil.createAccessToken(
+                user.getUserId(),
+                rotated.getSessionId(),
+                userLogin,
+                activeContext
+        );
+
+        return ResponseEntity.ok(new LoginRes.MobileResponse(
+                accessToken,
+                newRawRefreshToken,
+                userLogin,
+                activeContext,
+                contexts,
+                activeContext == null
+        ));
+    }
+
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(@CookieValue(name = REFRESH_COOKIE, defaultValue = "") String refreshToken) {
         authTokenService.revokeByRawRefreshToken(refreshToken);
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, deleteRefreshCookie().toString())
                 .build();
+    }
+
+    @PostMapping("/mobile/logout")
+    public ResponseEntity<Void> mobileLogout(
+            @Valid @RequestBody LoginReq.RefreshTokenRequest request
+    ) {
+        authTokenService.revokeByRawRefreshToken(request.getRefreshToken());
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/logout-all")
@@ -242,7 +352,7 @@ public class AuthenticationController {
     public ResponseEntity<Void> updateFcmToken(@Valid @RequestBody LoginReq.UpdateFcmReq req) {
         String sessionId = SecurityUtil.getCurrentSessionId()
                 .orElseThrow(() -> new AccessDeniedException("Missing session"));
-        authTokenService.updateFcmTokenForSession(sessionId, req.getFcmToken());
+        authTokenService.updateFcmTokenForSession(sessionId, req.getFcmToken(), req.getPlatform());
         return ResponseEntity.ok().build();
     }
 
@@ -329,12 +439,14 @@ public class AuthenticationController {
                 .build();
     }
 
-    public record SessionRes(String sessionId, String deviceInfo, boolean revoked, LocalDateTime createdAt,
-                             LocalDateTime lastUsedAt, LocalDateTime expiresAt, String activeContextType) {
+    public record SessionRes(String sessionId, String deviceInfo, String platform, boolean revoked,
+                             LocalDateTime createdAt, LocalDateTime lastUsedAt, LocalDateTime expiresAt,
+                             String activeContextType) {
         static SessionRes from(AuthToken token) {
             return new SessionRes(
                     token.getSessionId(),
                     token.getDeviceInfo(),
+                    token.getPlatform() == null ? "WEB" : token.getPlatform(),
                     token.isRevoked(),
                     token.getCreatedAt(),
                     token.getLastUsedAt(),

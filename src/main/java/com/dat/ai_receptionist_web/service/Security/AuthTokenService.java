@@ -37,13 +37,14 @@ public class AuthTokenService {
 
     @Transactional
     @CacheEvict(value = "fcmTokensByRole", allEntries = true)
-    public AuthToken createSession(User user, String refreshTokenHash, String deviceInfo, String fcmToken,
-                                   LoginRes.UserContextRes activeContext) {
+    public AuthToken createSession(User user, String refreshTokenHash, String deviceInfo, String platform,
+                                   String fcmToken, LoginRes.UserContextRes activeContext) {
         AuthToken token = new AuthToken();
         token.setSessionId(UUID.randomUUID().toString());
         token.setUser(user);
         token.setRefreshTokenHash(refreshTokenHash);
         token.setDeviceInfo(deviceInfo);
+        token.setPlatform(platform);
         token.setFcmToken(fcmToken);
         token.setExpiresAt(LocalDateTime.now().plusSeconds(refreshTokenExpiration));
         applyContext(token, activeContext);
@@ -109,6 +110,16 @@ public class AuthTokenService {
     public void updateFcmTokenForSession(String sessionId, String fcmToken) {
         AuthToken token = getBySessionId(sessionId);
         token.setFcmToken(fcmToken);
+    }
+
+    @Transactional
+    @CacheEvict(value = "fcmTokensByRole", allEntries = true)
+    public void updateFcmTokenForSession(String sessionId, String fcmToken, String platform) {
+        AuthToken token = getBySessionId(sessionId);
+        token.setFcmToken(fcmToken);
+        if (platform != null && !platform.isBlank()) {
+            token.setPlatform(platform.trim().toUpperCase());
+        }
     }
 
     public List<LoginRes.UserContextRes> getActiveContexts(UUID userId) {

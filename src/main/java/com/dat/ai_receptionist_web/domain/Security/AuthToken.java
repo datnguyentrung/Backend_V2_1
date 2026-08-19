@@ -53,6 +53,9 @@ public class AuthToken {
     @Column(name = "device_info", length = 255)
     String deviceInfo;
 
+    @Column(name = "platform", length = 20)
+    String platform;
+
     @Column(name = "fcm_token", length = 500)
     String fcmToken;
 

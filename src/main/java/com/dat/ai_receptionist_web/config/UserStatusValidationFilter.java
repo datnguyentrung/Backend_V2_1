@@ -26,7 +26,10 @@ public class UserStatusValidationFilter extends OncePerRequestFilter {
     private static final List<String> EXCLUDED_PATHS = List.of(
             "/api/v1/auth/login",
             "/api/v1/auth/logout",
-            "/api/v1/auth/refresh"
+            "/api/v1/auth/refresh",
+            "/api/v1/auth/mobile/login",
+            "/api/v1/auth/mobile/logout",
+            "/api/v1/auth/mobile/refresh"
     );
 
     @Override

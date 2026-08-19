@@ -23,6 +23,18 @@ public class LoginRes {
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
+    public static class MobileResponse {
+        private String accessToken;
+        private String refreshToken;
+        private UserLogin user;
+        private UserContextRes activeContext;
+        private List<UserContextRes> availableContexts = List.of();
+        private boolean requiresContextSelection;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
     public static class UserLogin {
         private UUID userId;
         private String phoneNumber;

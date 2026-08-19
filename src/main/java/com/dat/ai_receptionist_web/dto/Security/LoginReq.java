@@ -1,7 +1,9 @@
 package com.dat.ai_receptionist_web.dto.Security;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
 public class LoginReq {
@@ -20,6 +22,20 @@ public class LoginReq {
     }
 
     @Data
+    @EqualsAndHashCode(callSuper = true)
+    public static class MobileLoginRequest extends UserBase {
+        @NotBlank(message = "Platform must not be blank")
+        @Pattern(regexp = "(?i)^(ANDROID|IOS|WEB)$", message = "Platform must be ANDROID, IOS or WEB")
+        private String platform;
+    }
+
+    @Data
+    public static class RefreshTokenRequest {
+        @NotBlank(message = "Refresh token must not be blank")
+        private String refreshToken;
+    }
+
+    @Data
     public static class RefreshRequest {
     }
 
@@ -27,6 +43,9 @@ public class LoginReq {
     public static class UpdateFcmReq {
         @NotBlank(message = "FCM token must not be blank")
         private String fcmToken;
+
+        @Pattern(regexp = "(?i)^(ANDROID|IOS|WEB)$", message = "Platform must be ANDROID, IOS or WEB")
+        private String platform;
     }
 
     @Data

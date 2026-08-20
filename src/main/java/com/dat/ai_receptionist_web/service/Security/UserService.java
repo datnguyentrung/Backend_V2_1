@@ -18,7 +18,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -99,9 +98,7 @@ public class UserService {
     @Transactional
     @Async
     public void updateLastLogin(UUID userId) {
-        User user = getUserById(userId);
-        user.setLastLoginAt(LocalDateTime.now());
-        userRepository.save(user);
+        userRepository.updateLastLogin(userId);
     }
 
     public void changePassword(String phoneNumber, ChangePasswordReq passwordReq) {

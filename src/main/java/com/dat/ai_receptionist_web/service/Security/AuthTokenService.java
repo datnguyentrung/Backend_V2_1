@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,11 +38,11 @@ public class AuthTokenService {
 
     @Transactional
     @CacheEvict(value = "fcmTokensByRole", allEntries = true)
-    public AuthToken createSession(User user, String refreshTokenHash, String deviceInfo, String platform,
+    public AuthToken createSession(UUID userId, String refreshTokenHash, String deviceInfo, String platform,
                                    String fcmToken, LoginRes.UserContextRes activeContext) {
         AuthToken token = new AuthToken();
         token.setSessionId(UUID.randomUUID().toString());
-        token.setUser(user);
+        token.setUser(entityManager.getReference(User.class, userId));
         token.setRefreshTokenHash(refreshTokenHash);
         token.setDeviceInfo(deviceInfo);
         token.setPlatform(platform);
@@ -103,6 +104,27 @@ public class AuthTokenService {
     public void updateContext(String sessionId, LoginRes.UserContextRes context) {
         AuthToken token = getBySessionId(sessionId);
         applyContext(token, context);
+    }
+
+    @Transactional
+    public ContextSwitchResult switchContext(UUID userId, String sessionId, UUID personId, String contextType) {
+        AuthToken token = getBySessionId(sessionId);
+        if (!token.getUser().getUserId().equals(userId)
+                || token.isRevoked()
+                || token.getExpiresAt() == null
+                || !token.getExpiresAt().isAfter(LocalDateTime.now())) {
+            throw new AccessDeniedException("Session is not active");
+        }
+
+        List<LoginRes.UserContextRes> contexts = getActiveContexts(userId);
+        LoginRes.UserContextRes context = contexts.stream()
+                .filter(item -> item.getPersonId().equals(personId)
+                        && item.getContextType().equalsIgnoreCase(contextType))
+                .findFirst()
+                .orElseThrow(() -> new AccessDeniedException("Context is not allowed"));
+
+        applyContext(token, context);
+        return new ContextSwitchResult(context, contexts);
     }
 
     @Transactional
@@ -310,5 +332,11 @@ public class AuthTokenService {
             case "MANAGER" -> RelationshipType.MANAGER;
             default -> RelationshipType.OWNER;
         };
+    }
+
+    public record ContextSwitchResult(
+            LoginRes.UserContextRes activeContext,
+            List<LoginRes.UserContextRes> availableContexts
+    ) {
     }
 }

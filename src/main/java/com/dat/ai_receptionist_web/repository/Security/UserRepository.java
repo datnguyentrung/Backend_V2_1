@@ -3,6 +3,7 @@ package com.dat.ai_receptionist_web.repository.Security;
 import com.dat.ai_receptionist_web.domain.Security.User;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -20,6 +21,15 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     @EntityGraph(attributePaths = "roles")
     Optional<User> findWithRolesByUserId(UUID userId);
+
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            UPDATE User u
+            SET u.lastLoginAt = CURRENT_TIMESTAMP,
+                u.updatedAt = CURRENT_TIMESTAMP
+            WHERE u.userId = :userId
+            """)
+    int updateLastLogin(@Param("userId") UUID userId);
 
     List<User> findDistinctByRoles_Code(String code);
 

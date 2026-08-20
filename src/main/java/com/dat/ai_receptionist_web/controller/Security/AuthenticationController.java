@@ -6,6 +6,7 @@ import com.dat.ai_receptionist_web.dto.Security.LoginReq;
 import com.dat.ai_receptionist_web.dto.Security.LoginRes;
 import com.dat.ai_receptionist_web.enums.Security.UserStatus;
 import com.dat.ai_receptionist_web.service.Security.AuthTokenService;
+import com.dat.ai_receptionist_web.service.Security.AuthenticatedUserPrincipal;
 import com.dat.ai_receptionist_web.service.Security.UserService;
 import com.dat.ai_receptionist_web.util.PhoneNumberUtil;
 import com.dat.ai_receptionist_web.util.RefreshTokenUtil;
@@ -66,33 +67,35 @@ public class AuthenticationController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginReq.UserBase loginReq) {
         String phoneNumber;
+        AuthenticatedUserPrincipal principal;
         try {
             phoneNumber = PhoneNumberUtil.normalize(loginReq.getPhoneNumber());
             UsernamePasswordAuthenticationToken authenticationToken =
                     new UsernamePasswordAuthenticationToken(phoneNumber, loginReq.getPassword());
             Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
             SecurityContextHolder.getContext().setAuthentication(authentication);
+            principal = (AuthenticatedUserPrincipal) authentication.getPrincipal();
         } catch (BadCredentialsException | DisabledException | LockedException | IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(BAD_LOGIN_MESSAGE);
         }
 
-        User currentUser = userService.getUserWithRolesByPhoneNumber(phoneNumber);
-        if (currentUser.getStatus() != UserStatus.ACTIVE) {
+        if (principal.getStatus() != UserStatus.ACTIVE) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Tài khoản không ở trạng thái ACTIVE.");
         }
 
-        List<LoginRes.UserContextRes> contexts = authTokenService.getActiveContexts(currentUser.getUserId());
+        UUID userId = principal.getUserId();
+        List<LoginRes.UserContextRes> contexts = authTokenService.getActiveContexts(userId);
         if (contexts.isEmpty()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Tài khoản chưa được liên kết hồ sơ.");
         }
 
-        userService.updateLastLogin(currentUser.getUserId());
-        LoginRes.UserLogin userLogin = toUserLogin(currentUser);
+        userService.updateLastLogin(userId);
+        LoginRes.UserLogin userLogin = toUserLogin(principal);
         LoginRes.UserContextRes activeContext = contexts.size() == 1 ? contexts.getFirst() : null;
 
         String rawRefreshToken = RefreshTokenUtil.generateRawToken();
         AuthToken session = authTokenService.createSession(
-                currentUser,
+                userId,
                 RefreshTokenUtil.sha256(rawRefreshToken),
                 loginReq.getIdDevice(),
                 "WEB",
@@ -101,7 +104,7 @@ public class AuthenticationController {
         );
 
         String accessToken = securityUtil.createAccessToken(
-                currentUser.getUserId(),
+                userId,
                 session.getSessionId(),
                 userLogin,
                 activeContext
@@ -123,53 +126,56 @@ public class AuthenticationController {
     @PostMapping("/mobile/login")
     public ResponseEntity<?> mobileLogin(@Valid @RequestBody LoginReq.MobileLoginRequest loginReq) {
         String phoneNumber;
+        AuthenticatedUserPrincipal principal;
         try {
             phoneNumber = PhoneNumberUtil.normalize(loginReq.getPhoneNumber());
             UsernamePasswordAuthenticationToken authenticationToken =
                     new UsernamePasswordAuthenticationToken(phoneNumber, loginReq.getPassword());
             Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
             SecurityContextHolder.getContext().setAuthentication(authentication);
+            principal = (AuthenticatedUserPrincipal) authentication.getPrincipal();
         } catch (BadCredentialsException | DisabledException | LockedException | IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(BAD_LOGIN_MESSAGE);
         }
 
-        User currentUser = userService.getUserWithRolesByPhoneNumber(phoneNumber);
-        if (currentUser.getStatus() != UserStatus.ACTIVE) {
+        if (principal.getStatus() != UserStatus.ACTIVE) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Tài khoản không ở trạng thái ACTIVE.");
         }
 
-        List<LoginRes.UserContextRes> contexts = authTokenService.getActiveContexts(currentUser.getUserId());
+        UUID userId = principal.getUserId();
+        List<LoginRes.UserContextRes> contexts = authTokenService.getActiveContexts(userId);
         if (contexts.isEmpty()) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Tài khoản chưa được liên kết hồ sơ.");
         }
 
-        userService.updateLastLogin(currentUser.getUserId());
-        LoginRes.UserLogin userLogin = toUserLogin(currentUser);
+        userService.updateLastLogin(userId);
+        LoginRes.UserLogin userLogin = toUserLogin(principal);
+        LoginRes.UserContextRes activeContext = contexts.size() == 1 ? contexts.getFirst() : null;
 
         String rawRefreshToken = RefreshTokenUtil.generateRawToken();
         AuthToken session = authTokenService.createSession(
-                currentUser,
+                userId,
                 RefreshTokenUtil.sha256(rawRefreshToken),
                 loginReq.getIdDevice(),
                 loginReq.getPlatform().trim().toUpperCase(),
                 loginReq.getFcmToken(),
-                null
+                activeContext
         );
 
         String accessToken = securityUtil.createAccessToken(
-                currentUser.getUserId(),
+                userId,
                 session.getSessionId(),
                 userLogin,
-                null
+                activeContext
         );
 
         return ResponseEntity.ok(new LoginRes.MobileResponse(
                 accessToken,
                 rawRefreshToken,
                 userLogin,
-                null,
+                activeContext,
                 contexts,
-                true
+                activeContext == null
         ));
     }
 
@@ -210,16 +216,14 @@ public class AuthenticationController {
         UUID userId = currentUserId();
         String sessionId = SecurityUtil.getCurrentSessionId()
                 .orElseThrow(() -> new AccessDeniedException("Missing session"));
-        AuthToken session = authTokenService.getBySessionId(sessionId);
-        ensureSessionActive(session);
-
-        List<LoginRes.UserContextRes> contexts = authTokenService.getActiveContexts(userId);
-        LoginRes.UserContextRes context = requireActiveContext(
-                contexts,
+        AuthTokenService.ContextSwitchResult switchResult = authTokenService.switchContext(
+                userId,
+                sessionId,
                 UUID.fromString(req.getPersonId()),
                 req.getContextType()
         );
-        authTokenService.updateContext(sessionId, context);
+        LoginRes.UserContextRes context = switchResult.activeContext();
+        List<LoginRes.UserContextRes> contexts = switchResult.availableContexts();
 
         User user = userService.getUserWithRolesById(userId);
         LoginRes.UserLogin userLogin = toUserLogin(user);
@@ -356,6 +360,13 @@ public class AuthenticationController {
         return ResponseEntity.ok().build();
     }
 
+    private LoginRes.UserLogin toUserLogin(AuthenticatedUserPrincipal principal) {
+        Set<String> roles = principal.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .collect(Collectors.toSet());
+        return new LoginRes.UserLogin(principal.getUserId(), principal.getUsername(), principal.getStatus(), roles);
+    }
+
     private LoginRes.UserLogin toUserLogin(User user) {
         Set<String> roles = user.getRoles().stream()
                 .map(role -> role.getCode())
@@ -383,18 +394,6 @@ public class AuthenticationController {
                 .orElse(null);
     }
 
-    private LoginRes.UserContextRes requireActiveContext(
-            List<LoginRes.UserContextRes> contexts,
-            UUID personId,
-            String contextType
-    ) {
-        return contexts.stream()
-                .filter(context -> context.getPersonId().equals(personId)
-                        && context.getContextType().equalsIgnoreCase(contextType))
-                .findFirst()
-                .orElseThrow(() -> new AccessDeniedException("Context is not allowed"));
-    }
-
     private boolean hasStoredContext(AuthToken session) {
         return session != null
                 && session.getActivePerson() != null
@@ -405,12 +404,6 @@ public class AuthenticationController {
         return !token.isRevoked()
                 && token.getExpiresAt() != null
                 && token.getExpiresAt().isAfter(LocalDateTime.now());
-    }
-
-    private void ensureSessionActive(AuthToken token) {
-        if (!isRefreshable(token)) {
-            throw new AccessDeniedException("Session is not active");
-        }
     }
 
     private ResponseEntity<LoginRes> unauthorizedWithDeletedCookie() {

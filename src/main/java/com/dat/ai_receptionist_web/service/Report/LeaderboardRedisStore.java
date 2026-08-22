@@ -67,6 +67,9 @@ public class LeaderboardRedisStore {
               redis.call('RENAME', KEYS[1], KEYS[4])
               redis.call('RENAME', KEYS[2], KEYS[5])
               redis.call('RENAME', KEYS[3], KEYS[6])
+              redis.call('PERSIST', KEYS[4])
+              redis.call('PERSIST', KEYS[5])
+              redis.call('PERSIST', KEYS[6])
             else
               redis.call('DEL', KEYS[1], KEYS[2], KEYS[3])
             end
@@ -92,7 +95,7 @@ public class LeaderboardRedisStore {
             local dataCount = redis.call('HLEN', KEYS[2])
             local memberCount = redis.call('HLEN', KEYS[3])
             if rankCount ~= expected or dataCount ~= rankCount or memberCount ~= rankCount then
-              return {'invalid', 'count_mismatch'}
+              return {'invalid', 'count_mismatch', tostring(expected), tostring(rankCount), tostring(dataCount), tostring(memberCount)}
             end
             local result = {'initialized', tostring(rankCount)}
             local codes = redis.call('ZREVRANGE', KEYS[1], ARGV[1], ARGV[2])
@@ -173,7 +176,17 @@ public class LeaderboardRedisStore {
                 return Page.uninitialized();
             }
             if ("invalid".equals(state)) {
-                throw integrityFailure(scope, snapshot.get(1).toString());
+                String reason = snapshot.get(1).toString();
+                if ("count_mismatch".equals(reason) && snapshot.size() >= 6) {
+                    throw integrityCountMismatchFailure(
+                            scope,
+                            parseInteger(snapshot.get(2), scope, "expected_count"),
+                            parseInteger(snapshot.get(3), scope, "rank_count"),
+                            parseInteger(snapshot.get(4), scope, "data_count"),
+                            parseInteger(snapshot.get(5), scope, "member_count")
+                    );
+                }
+                throw integrityFailure(scope, reason);
             }
             if (!"initialized".equals(state)) {
                 throw integrityFailure(scope, "unknown_state");
@@ -300,6 +313,20 @@ public class LeaderboardRedisStore {
         } catch (NumberFormatException exception) {
             throw integrityFailure(scope, "invalid_" + field);
         }
+    }
+
+    private LeaderboardUnavailableException integrityCountMismatchFailure(
+            LeaderboardScope scope, int expected, int rankCount, int dataCount, int memberCount) {
+        meterRegistry.counter(
+                "leaderboard.redis.integrity", "type", scope.type().name().toLowerCase(), "reason", "count_mismatch"
+        ).increment();
+        return new LeaderboardUnavailableException(
+                "Leaderboard projection integrity check failed for " + scope.registryValue()
+                        + ": count_mismatch expected=" + expected
+                        + " rank=" + rankCount
+                        + " data=" + dataCount
+                        + " member=" + memberCount
+        );
     }
 
     private LeaderboardUnavailableException integrityFailure(LeaderboardScope scope, String reason) {

@@ -4,10 +4,10 @@
 
 Leaderboard data is a Redis read model. PostgreSQL remains the source of truth.
 
-1. A business service validates and commits an attendance, fitness record, or student change.
-2. The service publishes an application event inside the database transaction.
-3. A synchronous `AFTER_COMMIT` listener recalculates the affected student and scope from PostgreSQL.
-4. The updater takes a PostgreSQL advisory lock for the scope and writes an absolute score to Redis atomically.
+1. A business service validates and writes an attendance, fitness record, or student change in PostgreSQL.
+2. In the same database transaction, the service upserts the affected projection into operation.projection_outbox.
+3. After commit, ProjectionOutboxWorker claims ready jobs and dispatches the matching projection handler.
+4. The handler recalculates the affected student/scope from PostgreSQL, writes the Redis projection atomically, then acknowledges the outbox revision.
 
 GET endpoints read only Redis. They never aggregate from PostgreSQL and never rebuild on a miss.
 
@@ -137,20 +137,20 @@ Do not enable `avatar.cache.rebuild.enabled=true` in the normal web application 
 The recovery command uses PostgreSQL as the source of truth and Redis as a replaceable read model:
 
 1. Validate the requested `type`, `year`, `quarter`, and optional `skill-level`.
-2. Acquire the same scope advisory lock used by normal leaderboard updates.
+2. Mark the scope as rebuilding in operation.projection_scope_state and wait for in-flight projection workers for that scope to drain.
 3. Read active students from PostgreSQL in pages of 500.
 4. For `quarter`, calculate the existing quarter training-score summary for each active student.
 5. For `fitness`, load the matching `FitnessRecord` data for the requested quarter and skill level, then select the best record using the current `FitnessLeaderboardScorer`.
 6. Write rank, detail, and member data to generation-specific temporary Redis keys.
 7. Validate temporary key counts.
-8. Atomically swap the completed generation into the active Redis keys.
+8. Atomically swap the completed generation into the active Redis keys and remove the temporary TTL from active rank/data/member keys.
 9. Log completion and close the non-web application process.
 
 The command pages active students in batches of 500, writes generation-specific temporary keys,
 validates rank/detail/member counts, and atomically swaps the complete projection. Repeating the
 command against unchanged database state produces the same result. Fitness rebuild resets
 `rankBefore`; subsequent mutations repopulate it. Temporary generation keys expire after 24 hours
-so an interrupted process does not leave permanent rebuild data.
+so an interrupted process does not leave permanent rebuild data. After a successful swap, active rank/data/member/state keys must be persistent (TTL = -1); only fitness rank history remains intentionally temporary.
 
 ### Verification After Rebuild
 
@@ -199,10 +199,10 @@ fitness rank history expires after 30 days. Redis persistence reduces recovery f
 
 ## Failure and Rollback
 
-Redis updates are retried three times after the database commit. If all retries fail, the business API
-still remains successful because PostgreSQL has committed; monitoring must trigger operator recovery.
-The application deliberately does not introduce an outbox. A process crash between commit and listener
-execution is therefore a known recoverable window.
+Redis projection work is persisted in operation.projection_outbox in the same transaction as the business write.
+After commit, the worker retries runtime failures with jittered backoff (1s, 5s, 15s, 1m, 5m, then 15m).
+The business API remains successful once PostgreSQL commits; Redis can catch up asynchronously from the durable outbox.
+Invalid/non-retryable projection jobs are marked dead and must be investigated or recovered operationally.
 
 Rollback is code-only and does not revert database data. No destructive schema migration is required.
 If the Redis projection is incompatible or incomplete after rollback, run the recovery command supported

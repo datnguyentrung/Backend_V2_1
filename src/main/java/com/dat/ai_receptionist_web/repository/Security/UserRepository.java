@@ -1,43 +1,61 @@
 package com.dat.ai_receptionist_web.repository.Security;
 
 import com.dat.ai_receptionist_web.domain.Security.User;
-import org.springframework.data.jpa.repository.EntityGraph;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.*;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@Repository
 public interface UserRepository extends JpaRepository<User, UUID> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.userId = :userId")
+    Optional<User> findByIdForUpdate(@Param("userId") UUID userId);
+
     Optional<User> findByPhoneNumber(String phoneNumber);
 
-    @EntityGraph(attributePaths = "roles")
-    Optional<User> findWithRolesByPhoneNumber(String phoneNumber);
-
-    @EntityGraph(attributePaths = "roles")
-    Optional<User> findWithRolesByUserId(UUID userId);
-
     @Modifying(clearAutomatically = true)
-    @Query("""
-            UPDATE User u
-            SET u.lastLoginAt = CURRENT_TIMESTAMP,
-                u.updatedAt = CURRENT_TIMESTAMP
-            WHERE u.userId = :userId
-            """)
+    @Query("update User u set u.lastLoginAt = current_timestamp where u.userId = :userId")
     int updateLastLogin(@Param("userId") UUID userId);
 
-    List<User> findDistinctByRoles_Code(String code);
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update User u set u.authorizationVersion = u.authorizationVersion + 1 where u.userId = :userId")
+    int incrementAuthorizationVersion(@Param("userId") UUID userId);
 
-    @Query("""
-            SELECT DISTINCT u.userId
-            FROM User u
-            JOIN u.roles role
-            WHERE role.code = :roleCode
-            """)
+    @Query(value = """
+            SELECT u.user_id AS userId,
+                   u.phone_number AS phoneNumber,
+                   u.user_status AS userStatus,
+                   u.authorization_version AS authorizationVersion,
+                   r.role_id AS roleCode,
+                   r.permission_version AS permissionVersion,
+                   p.code AS permissionCode
+            FROM security.users u
+            LEFT JOIN security.user_role ur ON ur.user_id = u.user_id
+            LEFT JOIN security.role r ON r.role_id = ur.role_id
+            LEFT JOIN security.role_permission rp ON rp.role_id = r.role_id
+            LEFT JOIN security.permission p ON p.permission_id = rp.permission_id
+            WHERE u.user_id = :userId
+            ORDER BY r.role_id, p.code
+            """, nativeQuery = true)
+    List<AuthorizationRow> findAuthorizationRows(@Param("userId") UUID userId);
+
+    @Query(value = """
+            SELECT DISTINCT ur.user_id
+            FROM security.user_role ur
+            WHERE ur.role_id = :roleCode
+            """, nativeQuery = true)
     List<UUID> findUserIdsByRoleCode(@Param("roleCode") String roleCode);
+
+    interface AuthorizationRow {
+        UUID getUserId();
+        String getPhoneNumber();
+        String getUserStatus();
+        long getAuthorizationVersion();
+        String getRoleCode();
+        Long getPermissionVersion();
+        String getPermissionCode();
+    }
 }

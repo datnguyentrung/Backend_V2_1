@@ -1,58 +1,64 @@
 package com.dat.ai_receptionist_web.config;
 
 import com.dat.ai_receptionist_web.service.Security.RateLimitingService;
-import io.github.bucket4j.Bucket;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import org.jspecify.annotations.NonNull;
-import org.springframework.http.HttpStatus;
+import com.dat.ai_receptionist_web.util.SecurityUtil;
+import jakarta.servlet.*;
+import jakarta.servlet.http.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.UUID;
 
 @Component
+@RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
-
     private final RateLimitingService rateLimitingService;
-
-    public RateLimitFilter(RateLimitingService rateLimitingService) {
-        this.rateLimitingService = rateLimitingService;
-    }
+    private final RateLimitProperties properties;
+    private final AntPathMatcher matcher = new AntPathMatcher();
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
-            throws ServletException, IOException {
-
-        String requestUri = request.getRequestURI();
-        if (requestUri.startsWith("/api/v1/auth/login") || requestUri.equals("/api/v1/persons/face-check-in")) {
-            String ipAddress = getClientIP(request);
-            boolean isFaceCheckIn = requestUri.equals("/api/v1/persons/face-check-in");
-            Bucket bucket = isFaceCheckIn
-                    ? rateLimitingService.resolveFaceCheckInBucket(ipAddress)
-                    : rateLimitingService.resolveBucket(ipAddress);
-            if (!bucket.tryConsume(1)) {
-                response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-                response.setContentType("application/json;charset=UTF-8");
-                String message = isFaceCheckIn
-                        ? "Too many face check-in requests. Please try again later."
-                        : "Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.";
-                response.getWriter().write("{\"statusCode\":429,\"message\":\"" + message + "\",\"data\":null}");
-                return;
-            }
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
+                                    FilterChain chain) throws ServletException, IOException {
+        RateLimitProperties.Policy policy = properties.getPolicies().stream()
+                .filter(value -> (value.getMethod() == null
+                        || value.getMethod().equalsIgnoreCase(request.getMethod()))
+                        && matcher.match(value.getPath(), request.getRequestURI()))
+                .findFirst().orElse(null);
+        if (policy == null) {
+            chain.doFilter(request, response);
+            return;
         }
-
-        filterChain.doFilter(request, response);
+        String subject = subject(policy.getSubject(), request);
+        if (!rateLimitingService.allow(policy.getName(), subject, policy.getLimit(), policy.getWindow())) {
+            response.setStatus(429);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.getWriter().write("{\"error\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"}");
+            return;
+        }
+        chain.doFilter(request, response);
     }
 
-    // Hàm hỗ trợ lấy IP thật (rất quan trọng khi deploy thực tế)
-    private String getClientIP(HttpServletRequest request) {
-        String xfHeader = request.getHeader("X-Forwarded-For");
-        if (xfHeader == null || xfHeader.isEmpty() || !xfHeader.contains(request.getRemoteAddr())) {
-            return request.getRemoteAddr();
+    private String subject(RateLimitProperties.Subject mode, HttpServletRequest request) {
+        if (mode != RateLimitProperties.Subject.IP) {
+            UUID sessionId = SecurityUtil.getCurrentSessionId().orElse(null);
+            if (sessionId != null) return "session:" + sessionId;
+            UUID userId = SecurityUtil.getCurrentUserId().orElse(null);
+            if (userId != null) return "user:" + userId;
         }
-        return xfHeader.split(",")[0];
+        return "ip:" + clientIp(request);
+    }
+
+    private String clientIp(HttpServletRequest request) {
+        if (properties.isTrustForwardedHeaders()) {
+            String forwardedFor = request.getHeader("X-Forwarded-For");
+            if (forwardedFor != null && !forwardedFor.isBlank()) {
+                return forwardedFor.split(",", 2)[0].trim();
+            }
+        }
+        return request.getRemoteAddr();
     }
 }

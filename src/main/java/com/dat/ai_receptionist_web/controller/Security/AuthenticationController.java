@@ -1,451 +1,244 @@
 package com.dat.ai_receptionist_web.controller.Security;
 
-import com.dat.ai_receptionist_web.domain.Security.AuthToken;
-import com.dat.ai_receptionist_web.domain.Security.User;
-import com.dat.ai_receptionist_web.dto.Security.LoginReq;
-import com.dat.ai_receptionist_web.dto.Security.LoginRes;
+import com.dat.ai_receptionist_web.domain.Security.AuthSession;
+import com.dat.ai_receptionist_web.dto.Security.*;
 import com.dat.ai_receptionist_web.enums.Security.UserStatus;
-import com.dat.ai_receptionist_web.service.Security.AuthTokenService;
-import com.dat.ai_receptionist_web.service.Security.AuthenticatedUserPrincipal;
-import com.dat.ai_receptionist_web.service.Security.UserService;
-import com.dat.ai_receptionist_web.util.PhoneNumberUtil;
-import com.dat.ai_receptionist_web.util.RefreshTokenUtil;
-import com.dat.ai_receptionist_web.util.SecurityUtil;
+import com.dat.ai_receptionist_web.service.Security.*;
+import com.dat.ai_receptionist_web.util.*;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseCookie;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.DisabledException;
-import org.springframework.security.authentication.LockedException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
+@RequiredArgsConstructor
 public class AuthenticationController {
     private static final String REFRESH_COOKIE = "refresh_token";
-    private static final String BAD_LOGIN_MESSAGE = "Số điện thoại hoặc mật khẩu không chính xác.";
 
-    private final AuthenticationManagerBuilder authenticationManagerBuilder;
-    private final SecurityUtil securityUtil;
+    private final AuthenticationManager authenticationManager;
     private final UserService userService;
-    private final AuthTokenService authTokenService;
+    private final AuthorizationService authorizationService;
+    private final AuthSessionService sessionService;
+    private final SecurityUtil securityUtil;
 
     @Value("${jwt.refresh-token-validity-in-seconds}")
     private long refreshTokenExpiration;
-
-    @Value("${auth.refresh-cookie.secure:false}")
+    @Value("${auth.refresh-cookie.secure:true}")
     private boolean refreshCookieSecure;
-
     @Value("${auth.refresh-cookie.same-site:Lax}")
     private String refreshCookieSameSite;
 
-    public AuthenticationController(AuthenticationManagerBuilder authenticationManagerBuilder,
-                                    SecurityUtil securityUtil,
-                                    UserService userService,
-                                    AuthTokenService authTokenService) {
-        this.authenticationManagerBuilder = authenticationManagerBuilder;
-        this.securityUtil = securityUtil;
-        this.userService = userService;
-        this.authTokenService = authTokenService;
-    }
-
     @PostMapping("/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginReq.UserBase loginReq) {
-        String phoneNumber;
-        AuthenticatedUserPrincipal principal;
-        try {
-            phoneNumber = PhoneNumberUtil.normalize(loginReq.getPhoneNumber());
-            UsernamePasswordAuthenticationToken authenticationToken =
-                    new UsernamePasswordAuthenticationToken(phoneNumber, loginReq.getPassword());
-            Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-            principal = (AuthenticatedUserPrincipal) authentication.getPrincipal();
-        } catch (BadCredentialsException | DisabledException | LockedException | IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(BAD_LOGIN_MESSAGE);
-        }
-
-        if (principal.getStatus() != UserStatus.ACTIVE) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Tài khoản không ở trạng thái ACTIVE.");
-        }
-
-        UUID userId = principal.getUserId();
-        List<LoginRes.UserContextRes> contexts = authTokenService.getActiveContexts(userId);
-        if (contexts.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Tài khoản chưa được liên kết hồ sơ.");
-        }
-
-        userService.updateLastLogin(userId);
-        LoginRes.UserLogin userLogin = toUserLogin(principal);
-        LoginRes.UserContextRes activeContext = contexts.size() == 1 ? contexts.getFirst() : null;
-
-        String rawRefreshToken = RefreshTokenUtil.generateRawToken();
-        AuthToken session = authTokenService.createSession(
-                userId,
-                RefreshTokenUtil.sha256(rawRefreshToken),
-                loginReq.getIdDevice(),
-                "WEB",
-                loginReq.getFcmToken(),
-                activeContext
-        );
-
-        String accessToken = securityUtil.createAccessToken(
-                userId,
-                session.getSessionId(),
-                userLogin,
-                activeContext
-        );
-
-        LoginRes response = new LoginRes();
-        response.setAccessToken(accessToken);
-        response.setIdDevice(loginReq.getIdDevice());
-        response.setUser(userLogin);
-        response.setActiveContext(activeContext);
-        response.setAvailableContexts(contexts);
-        response.setRequiresContextSelection(activeContext == null);
-
+    public ResponseEntity<LoginRes> login(@Valid @RequestBody LoginReq.UserBase request) {
+        LoginBundle bundle = authenticate(request, "WEB");
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, refreshCookie(rawRefreshToken).toString())
-                .body(response);
+                .header(HttpHeaders.SET_COOKIE, refreshCookie(bundle.refreshToken()).toString())
+                .body(bundle.response());
     }
 
     @PostMapping("/mobile/login")
-    public ResponseEntity<?> mobileLogin(@Valid @RequestBody LoginReq.MobileLoginRequest loginReq) {
-        String phoneNumber;
-        AuthenticatedUserPrincipal principal;
-        try {
-            phoneNumber = PhoneNumberUtil.normalize(loginReq.getPhoneNumber());
-            UsernamePasswordAuthenticationToken authenticationToken =
-                    new UsernamePasswordAuthenticationToken(phoneNumber, loginReq.getPassword());
-            Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-            principal = (AuthenticatedUserPrincipal) authentication.getPrincipal();
-        } catch (BadCredentialsException | DisabledException | LockedException | IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(BAD_LOGIN_MESSAGE);
-        }
-
-        if (principal.getStatus() != UserStatus.ACTIVE) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Tài khoản không ở trạng thái ACTIVE.");
-        }
-
-        UUID userId = principal.getUserId();
-        List<LoginRes.UserContextRes> contexts = authTokenService.getActiveContexts(userId);
-        if (contexts.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Tài khoản chưa được liên kết hồ sơ.");
-        }
-
-        userService.updateLastLogin(userId);
-        LoginRes.UserLogin userLogin = toUserLogin(principal);
-        LoginRes.UserContextRes activeContext = contexts.size() == 1 ? contexts.getFirst() : null;
-
-        String rawRefreshToken = RefreshTokenUtil.generateRawToken();
-        AuthToken session = authTokenService.createSession(
-                userId,
-                RefreshTokenUtil.sha256(rawRefreshToken),
-                loginReq.getIdDevice(),
-                loginReq.getPlatform().trim().toUpperCase(),
-                loginReq.getFcmToken(),
-                activeContext
-        );
-
-        String accessToken = securityUtil.createAccessToken(
-                userId,
-                session.getSessionId(),
-                userLogin,
-                activeContext
-        );
-
-        return ResponseEntity.ok(new LoginRes.MobileResponse(
-                accessToken,
-                rawRefreshToken,
-                userLogin,
-                activeContext,
-                contexts,
-                activeContext == null
-        ));
-    }
-
-    @GetMapping("/account")
-    public ResponseEntity<LoginRes> getAccount() {
-        UUID userId = currentUserId();
-        User user = userService.getUserWithRolesById(userId);
-        String sessionId = SecurityUtil.getCurrentSessionId().orElse(null);
-        AuthToken session = sessionId == null ? null : authTokenService.getBySessionId(sessionId);
-        List<LoginRes.UserContextRes> contexts = authTokenService.getActiveContexts(userId);
-        LoginRes.UserContextRes activeContext = resolveActiveContext(session, contexts);
-
-        LoginRes response = new LoginRes();
-        response.setUser(toUserLogin(user));
-        response.setActiveContext(activeContext);
-        response.setAvailableContexts(contexts);
-        response.setRequiresContextSelection(activeContext == null);
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/contexts")
-    public ResponseEntity<List<LoginRes.UserContextRes>> contexts() {
-        return ResponseEntity.ok(authTokenService.getActiveContexts(currentUserId()));
-    }
-
-    @GetMapping("/sessions")
-    public ResponseEntity<List<SessionRes>> sessions() {
-        UUID userId = currentUserId();
-        List<SessionRes> sessions = authTokenService.getSessionsByUserId(userId).stream()
-                .sorted(Comparator.comparing(AuthToken::getCreatedAt).reversed())
-                .map(SessionRes::from)
-                .toList();
-        return ResponseEntity.ok(sessions);
-    }
-
-    @PostMapping("/switch-context")
-    public ResponseEntity<LoginRes> switchContext(@Valid @RequestBody LoginReq.SwitchContextReq req) {
-        UUID userId = currentUserId();
-        String sessionId = SecurityUtil.getCurrentSessionId()
-                .orElseThrow(() -> new AccessDeniedException("Missing session"));
-        AuthTokenService.ContextSwitchResult switchResult = authTokenService.switchContext(
-                userId,
-                sessionId,
-                UUID.fromString(req.getPersonId()),
-                req.getContextType()
-        );
-        LoginRes.UserContextRes context = switchResult.activeContext();
-        List<LoginRes.UserContextRes> contexts = switchResult.availableContexts();
-
-        User user = userService.getUserWithRolesById(userId);
-        LoginRes.UserLogin userLogin = toUserLogin(user);
-        LoginRes response = new LoginRes();
-        response.setAccessToken(securityUtil.createAccessToken(userId, sessionId, userLogin, context));
-        response.setUser(userLogin);
-        response.setActiveContext(context);
-        response.setAvailableContexts(contexts);
-        response.setRequiresContextSelection(false);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<LoginRes.MobileResponse> mobileLogin(
+            @Valid @RequestBody LoginReq.MobileLoginRequest request) {
+        LoginBundle bundle = authenticate(request, request.getPlatform().toUpperCase(Locale.ROOT));
+        return ResponseEntity.ok(toMobile(bundle.response(), bundle.refreshToken()));
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<LoginRes> refresh(@CookieValue(name = REFRESH_COOKIE, defaultValue = "") String refreshToken) {
-        if (refreshToken == null || refreshToken.isBlank()) {
-            return unauthorizedWithDeletedCookie();
-        }
-
-        AuthToken current = authTokenService.getByRefreshTokenHash(refreshToken);
-        if (current == null || !isRefreshable(current)) {
-            return unauthorizedWithDeletedCookie();
-        }
-
-        String newRawRefreshToken = RefreshTokenUtil.generateRawToken();
-        AuthToken rotated;
+    public ResponseEntity<LoginRes> refresh(
+            @CookieValue(name = REFRESH_COOKIE, defaultValue = "") String rawToken) {
         try {
-            rotated = authTokenService.rotateRefreshToken(refreshToken, newRawRefreshToken);
-        } catch (RuntimeException e) {
-            return unauthorizedWithDeletedCookie();
+            LoginBundle bundle = refreshBundle(rawToken);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, refreshCookie(bundle.refreshToken()).toString())
+                    .body(bundle.response());
+        } catch (RuntimeException exception) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .header(HttpHeaders.SET_COOKIE, deleteRefreshCookie().toString()).build();
         }
-
-        User user = userService.getUserWithRolesById(rotated.getUser().getUserId());
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            authTokenService.revokeBySessionId(rotated.getSessionId());
-            return unauthorizedWithDeletedCookie();
-        }
-
-        List<LoginRes.UserContextRes> contexts = authTokenService.getActiveContexts(user.getUserId());
-        LoginRes.UserContextRes activeContext = resolveActiveContext(rotated, contexts);
-        if (hasStoredContext(rotated) && activeContext == null) {
-            authTokenService.updateContext(rotated.getSessionId(), null);
-        }
-
-        LoginRes.UserLogin userLogin = toUserLogin(user);
-        LoginRes response = new LoginRes();
-        response.setAccessToken(securityUtil.createAccessToken(user.getUserId(), rotated.getSessionId(), userLogin, activeContext));
-        response.setUser(userLogin);
-        response.setActiveContext(activeContext);
-        response.setAvailableContexts(contexts);
-        response.setRequiresContextSelection(activeContext == null);
-
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, refreshCookie(newRawRefreshToken).toString())
-                .body(response);
     }
 
     @PostMapping("/mobile/refresh")
     public ResponseEntity<LoginRes.MobileResponse> mobileRefresh(
-            @Valid @RequestBody LoginReq.RefreshTokenRequest request
-    ) {
-        String refreshToken = request.getRefreshToken();
-        AuthToken current = authTokenService.getByRefreshTokenHash(refreshToken);
-        if (current == null || !isRefreshable(current)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        String newRawRefreshToken = RefreshTokenUtil.generateRawToken();
-        AuthToken rotated;
+            @Valid @RequestBody LoginReq.RefreshTokenRequest request) {
         try {
-            rotated = authTokenService.rotateRefreshToken(refreshToken, newRawRefreshToken);
-        } catch (RuntimeException e) {
+            LoginBundle bundle = refreshBundle(request.getRefreshToken());
+            return ResponseEntity.ok(toMobile(bundle.response(), bundle.refreshToken()));
+        } catch (RuntimeException exception) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+    }
 
-        User user = userService.getUserWithRolesById(rotated.getUser().getUserId());
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            authTokenService.revokeBySessionId(rotated.getSessionId());
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+    @GetMapping("/account")
+    public LoginRes account() {
+        UUID userId = currentUserId();
+        AuthorizationSnapshot snapshot = authorizationService.loadSnapshot(userId);
+        UUID sessionId = currentSessionId();
+        List<LoginRes.UserContextRes> contexts = sessionService.contexts(userId);
+        LoginRes.UserContextRes active = contextById(contexts,
+                SecurityUtil.getCurrentActiveUserPersonId().orElse(null));
+        return response(null, null, snapshot, active, contexts);
+    }
 
-        List<LoginRes.UserContextRes> contexts = authTokenService.getActiveContexts(user.getUserId());
-        LoginRes.UserContextRes activeContext = resolveActiveContext(rotated, contexts);
-        if (hasStoredContext(rotated) && activeContext == null) {
-            authTokenService.updateContext(rotated.getSessionId(), null);
-        }
+    @GetMapping("/contexts")
+    public List<LoginRes.UserContextRes> contexts() {
+        return sessionService.contexts(currentUserId());
+    }
 
-        LoginRes.UserLogin userLogin = toUserLogin(user);
-        String accessToken = securityUtil.createAccessToken(
-                user.getUserId(),
-                rotated.getSessionId(),
-                userLogin,
-                activeContext
-        );
+    @PostMapping("/switch-context")
+    public LoginRes switchContext(@Valid @RequestBody LoginReq.SwitchContextReq request) {
+        UUID userId = currentUserId();
+        UUID sessionId = currentSessionId();
+        AuthSessionService.ContextSwitchResult switched =
+                sessionService.switchContext(userId, sessionId, request.getUserPersonId());
+        AuthorizationSnapshot snapshot = authorizationService.loadSnapshot(userId);
+        return response(securityUtil.createAccessToken(sessionId, snapshot, request.getUserPersonId()),
+                null, snapshot, switched.activeContext(), switched.availableContexts());
+    }
 
-        return ResponseEntity.ok(new LoginRes.MobileResponse(
-                accessToken,
-                newRawRefreshToken,
-                userLogin,
-                activeContext,
-                contexts,
-                activeContext == null
-        ));
+    @GetMapping("/sessions")
+    public List<SessionRes> sessions() {
+        return sessionService.sessions(currentUserId()).stream()
+                .sorted(Comparator.comparing(AuthSession::getCreatedAt).reversed())
+                .map(SessionRes::from).toList();
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@CookieValue(name = REFRESH_COOKIE, defaultValue = "") String refreshToken) {
-        authTokenService.revokeByRawRefreshToken(refreshToken);
+    public ResponseEntity<Void> logout(
+            @CookieValue(name = REFRESH_COOKIE, defaultValue = "") String rawToken) {
+        sessionService.revokeByRawToken(rawToken);
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, deleteRefreshCookie().toString())
-                .build();
+                .header(HttpHeaders.SET_COOKIE, deleteRefreshCookie().toString()).build();
     }
 
     @PostMapping("/mobile/logout")
-    public ResponseEntity<Void> mobileLogout(
-            @Valid @RequestBody LoginReq.RefreshTokenRequest request
-    ) {
-        authTokenService.revokeByRawRefreshToken(request.getRefreshToken());
-        return ResponseEntity.ok().build();
+    public void mobileLogout(@Valid @RequestBody LoginReq.RefreshTokenRequest request) {
+        sessionService.revokeByRawToken(request.getRefreshToken());
     }
 
     @PostMapping("/logout-all")
     public ResponseEntity<Void> logoutAll() {
-        authTokenService.revokeAllByUserId(currentUserId());
+        sessionService.revokeAll(currentUserId());
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, deleteRefreshCookie().toString())
-                .build();
+                .header(HttpHeaders.SET_COOKIE, deleteRefreshCookie().toString()).build();
     }
 
     @PostMapping("/update-fcm")
-    public ResponseEntity<Void> updateFcmToken(@Valid @RequestBody LoginReq.UpdateFcmReq req) {
-        String sessionId = SecurityUtil.getCurrentSessionId()
-                .orElseThrow(() -> new AccessDeniedException("Missing session"));
-        authTokenService.updateFcmTokenForSession(sessionId, req.getFcmToken(), req.getPlatform());
-        return ResponseEntity.ok().build();
+    public void updateFcm(@Valid @RequestBody LoginReq.UpdateFcmReq request) {
+        sessionService.updateFcm(currentSessionId(), request.getFcmToken(), request.getPlatform());
     }
 
-    private LoginRes.UserLogin toUserLogin(AuthenticatedUserPrincipal principal) {
-        Set<String> roles = principal.getAuthorities().stream()
-                .map(authority -> authority.getAuthority())
-                .collect(Collectors.toSet());
-        return new LoginRes.UserLogin(principal.getUserId(), principal.getUsername(), principal.getStatus(), roles);
+    private LoginBundle authenticate(LoginReq.UserBase request, String platform) {
+        Authentication authenticated;
+        try {
+            authenticated = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
+                    PhoneNumberUtil.normalize(request.getPhoneNumber()), request.getPassword()));
+        } catch (BadCredentialsException | DisabledException | LockedException | IllegalArgumentException exception) {
+            throw new BadCredentialsException("Invalid phone number or password");
+        }
+        AuthenticatedUserPrincipal principal = (AuthenticatedUserPrincipal) authenticated.getPrincipal();
+        if (principal.getStatus() != UserStatus.ACTIVE) throw new DisabledException("User is not active");
+
+        UUID userId = principal.getUserId();
+        AuthorizationSnapshot snapshot = authorizationService.loadSnapshot(userId);
+        List<LoginRes.UserContextRes> contexts = sessionService.contexts(userId);
+        LoginRes.UserContextRes active = contexts.size() == 1 ? contexts.getFirst() : null;
+        String rawRefreshToken = RefreshTokenUtil.generateRawToken();
+        AuthSession session = sessionService.create(userId, rawRefreshToken, request.getIdDevice(),
+                platform, request.getFcmToken(), active == null ? null : active.userPersonId());
+        userService.updateLastLogin(userId);
+        String accessToken = securityUtil.createAccessToken(session.getAuthSessionId(), snapshot,
+                active == null ? null : active.userPersonId());
+        return new LoginBundle(response(accessToken, request.getIdDevice(), snapshot, active, contexts),
+                rawRefreshToken);
     }
 
-    private LoginRes.UserLogin toUserLogin(User user) {
-        Set<String> roles = user.getRoles().stream()
-                .map(role -> role.getCode())
-                .collect(Collectors.toSet());
-        return new LoginRes.UserLogin(user.getUserId(), user.getPhoneNumber(), user.getStatus(), roles);
+    private LoginBundle refreshBundle(String currentRawToken) {
+        if (currentRawToken == null || currentRawToken.isBlank()) {
+            throw new IllegalArgumentException("Missing refresh token");
+        }
+        String nextRawToken = RefreshTokenUtil.generateRawToken();
+        AuthSession session = sessionService.rotate(currentRawToken, nextRawToken);
+        UUID userId = session.getUser().getUserId();
+        AuthorizationSnapshot snapshot = authorizationService.loadSnapshot(userId);
+        if (snapshot.userStatus() != UserStatus.ACTIVE) {
+            sessionService.revoke(session.getAuthSessionId());
+            throw new IllegalArgumentException("User is not active");
+        }
+        List<LoginRes.UserContextRes> contexts = sessionService.contexts(userId);
+        UUID activeId = session.getActiveUserPerson() == null
+                ? null : session.getActiveUserPerson().getUserPersonId();
+        LoginRes.UserContextRes active = contextById(contexts, activeId);
+        if (activeId != null && active == null) {
+            sessionService.revoke(session.getAuthSessionId());
+            throw new IllegalArgumentException("Active context is no longer available");
+        }
+        String accessToken = securityUtil.createAccessToken(session.getAuthSessionId(), snapshot, activeId);
+        return new LoginBundle(response(accessToken, session.getDeviceInfo(), snapshot, active, contexts),
+                nextRawToken);
+    }
+
+    private LoginRes response(String token, String device, AuthorizationSnapshot snapshot,
+                              LoginRes.UserContextRes active, List<LoginRes.UserContextRes> contexts) {
+        LoginRes result = new LoginRes();
+        result.setAccessToken(token);
+        result.setIdDevice(device);
+        result.setUser(new LoginRes.UserLogin(snapshot.userId(), snapshot.phoneNumber(),
+                snapshot.userStatus(), snapshot.roleCodes(), snapshot.permissionCodes()));
+        result.setActiveContext(active);
+        result.setAvailableContexts(contexts);
+        result.setRequiresContextSelection(active == null);
+        return result;
+    }
+
+    private LoginRes.MobileResponse toMobile(LoginRes response, String refreshToken) {
+        return new LoginRes.MobileResponse(response.getAccessToken(), refreshToken, response.getUser(),
+                response.getActiveContext(), response.getAvailableContexts(),
+                response.isRequiresContextSelection());
+    }
+
+    private LoginRes.UserContextRes contextById(List<LoginRes.UserContextRes> contexts, UUID id) {
+        if (id == null) return null;
+        return contexts.stream().filter(value -> value.userPersonId().equals(id)).findFirst().orElse(null);
     }
 
     private UUID currentUserId() {
-        return SecurityUtil.getCurrentUserId()
-                .map(UUID::fromString)
-                .orElseThrow(() -> new AccessDeniedException("Missing user id"));
+        return SecurityUtil.getCurrentUserId().orElseThrow(() -> new AccessDeniedException("Missing user"));
     }
 
-    private LoginRes.UserContextRes resolveActiveContext(AuthToken session, List<LoginRes.UserContextRes> contexts) {
-        if (!hasStoredContext(session)) {
-            return null;
-        }
-
-        UUID activePersonId = session.getActivePerson().getPersonId();
-        String activeContextType = session.getActiveContextType();
-        return contexts.stream()
-                .filter(context -> context.getPersonId().equals(activePersonId)
-                        && context.getContextType().equalsIgnoreCase(activeContextType))
-                .findFirst()
-                .orElse(null);
+    private UUID currentSessionId() {
+        return SecurityUtil.getCurrentSessionId().orElseThrow(() -> new AccessDeniedException("Missing session"));
     }
 
-    private boolean hasStoredContext(AuthToken session) {
-        return session != null
-                && session.getActivePerson() != null
-                && session.getActiveContextType() != null;
-    }
-
-    private boolean isRefreshable(AuthToken token) {
-        return !token.isRevoked()
-                && token.getExpiresAt() != null
-                && token.getExpiresAt().isAfter(LocalDateTime.now());
-    }
-
-    private ResponseEntity<LoginRes> unauthorizedWithDeletedCookie() {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .header(HttpHeaders.SET_COOKIE, deleteRefreshCookie().toString())
-                .build();
-    }
-
-    private ResponseCookie refreshCookie(String rawRefreshToken) {
-        return ResponseCookie.from(REFRESH_COOKIE, rawRefreshToken)
-                .httpOnly(true)
-                .secure(refreshCookieSecure)
-                .path("/api/v1/auth")
-                .sameSite(refreshCookieSameSite)
-                .maxAge(refreshTokenExpiration)
-                .build();
+    private ResponseCookie refreshCookie(String value) {
+        return ResponseCookie.from(REFRESH_COOKIE, value).httpOnly(true).secure(refreshCookieSecure)
+                .path("/api/v1/auth").sameSite(refreshCookieSameSite)
+                .maxAge(refreshTokenExpiration).build();
     }
 
     private ResponseCookie deleteRefreshCookie() {
-        return ResponseCookie.from(REFRESH_COOKIE, "")
-                .httpOnly(true)
-                .secure(refreshCookieSecure)
-                .path("/api/v1/auth")
-                .sameSite(refreshCookieSameSite)
-                .maxAge(0)
-                .build();
+        return ResponseCookie.from(REFRESH_COOKIE, "").httpOnly(true).secure(refreshCookieSecure)
+                .path("/api/v1/auth").sameSite(refreshCookieSameSite).maxAge(0).build();
     }
 
-    public record SessionRes(String sessionId, String deviceInfo, String platform, boolean revoked,
-                             LocalDateTime createdAt, LocalDateTime lastUsedAt, LocalDateTime expiresAt,
-                             String activeContextType) {
-        static SessionRes from(AuthToken token) {
-            return new SessionRes(
-                    token.getSessionId(),
-                    token.getDeviceInfo(),
-                    token.getPlatform() == null ? "WEB" : token.getPlatform(),
-                    token.isRevoked(),
-                    token.getCreatedAt(),
-                    token.getLastUsedAt(),
-                    token.getExpiresAt(),
-                    token.getActiveContextType()
-            );
+    private record LoginBundle(LoginRes response, String refreshToken) {
+    }
+
+    public record SessionRes(UUID authSessionId, String deviceInfo, String platform, boolean revoked,
+                             LocalDateTime createdAt, LocalDateTime updatedAt, LocalDateTime expiresAt,
+                             UUID activeUserPersonId) {
+        static SessionRes from(AuthSession session) {
+            return new SessionRes(session.getAuthSessionId(), session.getDeviceInfo(), session.getPlatform(),
+                    session.isRevoked(), session.getCreatedAt(), session.getUpdatedAt(), session.getExpiresAt(),
+                    session.getActiveUserPerson() == null ? null
+                            : session.getActiveUserPerson().getUserPersonId());
         }
     }
 }

@@ -1,15 +1,8 @@
 package com.dat.ai_receptionist_web.domain.Skill;
 
-import com.dat.ai_receptionist_web.domain.Core.Coach;
-import com.dat.ai_receptionist_web.domain.Core.Student;
-import com.dat.ai_receptionist_web.enums.Skill.SkillLevel;
+import com.dat.ai_receptionist_web.domain.Core.Person;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import lombok.*;
-import lombok.experimental.FieldDefaults;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -23,64 +16,37 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@EntityListeners(AuditingEntityListener.class) // BẮT BUỘC để @CreatedDate hoạt động
-@Table(
-        name = "fitness_record",
-        schema = "skill",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "unique_fitness_record", // Tên của constraint trong database
-                        columnNames = {
-                                "person_id",
-                                "assessment_date",
-                                "skill_level",
-                                "duration",
-                                "amount"
-                        } // Danh sách tên CỘT (chữ thường có gạch dưới như trong db, không phải tên biến Java)
-                )
-        }
-)
-@FieldDefaults(level = AccessLevel.PRIVATE)
+@EntityListeners(AuditingEntityListener.class)
+@Table(name = "fitness_record", schema = "skill")
 public class FitnessRecord {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Long id;
+    @Column(name = "fitness_record_id")
+    private Long fitnessRecordId;
 
-    // Đổi tên cột để tránh đụng từ khóa SQL
-    @Column(name = "assessment_date", nullable = false)
-    LocalDate assessmentDate;
+    @Column(name = "record_date", nullable = false)
+    private LocalDate recordDate;
 
-    @NotNull(message = "Học viên không được để trống")
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "person_id", nullable = false)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    Student student;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "student_person_id", nullable = false)
+    private Person student;
 
-    @Positive(message = "Thời gian (duration) phải lớn hơn 0")
-    @NotNull(message = "Thời gian không được để trống")
     @Column(name = "duration", nullable = false)
-    Integer duration;
+    private int duration;
 
-    @Positive(message = "Số lượng (amount) phải lớn hơn 0")
-    @NotNull(message = "Số lượng không được để trống")
-    @Column(name = "amount", nullable = false)
-    Integer amount;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "fitness_id", nullable = false)
+    private Fitness fitness;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "skill_level", nullable = false)
-    SkillLevel skillLevel; // Cấp độ kỹ năng (BASIC, ADVANCED, EXPERT)
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recorded_by_coach_id", nullable = true)
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    Coach recordByCoach;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "recorded_by_coach_id", nullable = false)
+    private Person recordedByCoach;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
-    LocalDateTime createdAt;
+    private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(name = "updated_at")
-    LocalDateTime updatedAt;
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 }

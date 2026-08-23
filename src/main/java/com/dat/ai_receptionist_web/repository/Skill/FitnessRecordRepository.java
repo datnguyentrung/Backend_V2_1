@@ -1,7 +1,7 @@
 package com.dat.ai_receptionist_web.repository.Skill;
 
 import com.dat.ai_receptionist_web.domain.Skill.FitnessRecord;
-import com.dat.ai_receptionist_web.enums.Skill.SkillLevel;
+import com.dat.ai_receptionist_web.enums.Core.ScheduleLevel;
 import org.jspecify.annotations.NonNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,80 +29,84 @@ public interface FitnessRecordRepository extends JpaRepository<FitnessRecord, Lo
 
     @Query(
             value = """
-                    SELECT fr.id AS id,
+                    SELECT fr.fitnessRecordId AS id,
                            fr.createdAt AS createdAt,
-                           fr.assessmentDate AS assessmentDate,
+                           fr.recordDate AS recordDate,
                            fr.duration AS duration,
-                           fr.amount AS amount,
-                           fr.skillLevel AS skillLevel,
+                           fr.fitness.amount AS amount,
+                           fr.fitness.scheduleLevel AS scheduleLevel,
                            student.personId AS studentPersonId,
                            student.fullName AS studentFullName,
-                           student.studentCode AS studentCode,
+                           student.personCode AS personCode,
                            student.belt AS studentBelt
                     FROM FitnessRecord fr
                     JOIN fr.student student
                     WHERE (:search IS NULL OR :search = '' OR LOWER(student.fullName) LIKE LOWER(CONCAT('%', :search, '%')))
-                      AND (:skillLevel IS NULL OR fr.skillLevel = :skillLevel)
+                      AND (:scheduleLevel IS NULL OR fr.fitness.scheduleLevel = :scheduleLevel)
                     """,
             countQuery = """
-                    SELECT COUNT(fr.id)
+                    SELECT COUNT(fr.fitnessRecordId)
                     FROM FitnessRecord fr
                     JOIN fr.student student
                     WHERE (:search IS NULL OR :search = '' OR LOWER(student.fullName) LIKE LOWER(CONCAT('%', :search, '%')))
-                      AND (:skillLevel IS NULL OR fr.skillLevel = :skillLevel)
+                      AND (:scheduleLevel IS NULL OR fr.fitness.scheduleLevel = :scheduleLevel)
                     """
     )
     Page<FitnessRecordListRow> findListRows(
             @Param("search") String search,
-            @Param("skillLevel") SkillLevel skillLevel,
+            @Param("scheduleLevel") ScheduleLevel scheduleLevel,
             Pageable pageable
     );
 
     @EntityGraph(attributePaths = {"student"})
     @Query("""
                 SELECT fr FROM FitnessRecord fr
-                WHERE year(fr.assessmentDate) = :year
-                  AND quarter(fr.assessmentDate) = :quarter
-                  AND fr.skillLevel = :skillLevel
-                  AND fr.student.studentCode IN :studentCodes
-                ORDER BY fr.student.studentCode, fr.id
+                WHERE year(fr.recordDate) = :year
+                  AND quarter(fr.recordDate) = :quarter
+                  AND fr.fitness.scheduleLevel = :scheduleLevel
+                  AND fr.student.personCode IN :personCodes
+                ORDER BY fr.student.personCode, fr.fitnessRecordId
             """)
     List<FitnessRecord> findRecordsForQuarterAndStudents(
             @Param("year") int year,
             @Param("quarter") int quarter,
-            @Param("skillLevel") SkillLevel skillLevel,
-            @Param("studentCodes") Collection<String> studentCodes
+            @Param("scheduleLevel") ScheduleLevel scheduleLevel,
+            @Param("personCodes") Collection<String> personCodes
     );
 
     @EntityGraph(attributePaths = {"student"})
     @Query("""
                 SELECT fr FROM FitnessRecord fr
-                WHERE year(fr.assessmentDate) = :year
-                  AND quarter(fr.assessmentDate) = :quarter
-                  AND fr.skillLevel = :skillLevel
-                  AND fr.student.studentCode = :studentCode
-                ORDER BY fr.id
+                WHERE year(fr.recordDate) = :year
+                  AND quarter(fr.recordDate) = :quarter
+                  AND fr.fitness.scheduleLevel = :scheduleLevel
+                  AND fr.student.personCode = :personCode
+                ORDER BY fr.fitnessRecordId
             """)
-    List<FitnessRecord> findRecordsForSingleStudent(int year, int quarter, SkillLevel skillLevel, String studentCode);
+    List<FitnessRecord> findRecordsForSingleStudent(
+            @Param("year") int year,
+            @Param("quarter") int quarter,
+            @Param("scheduleLevel") ScheduleLevel scheduleLevel,
+            @Param("personCode") String personCode);
 
     interface FitnessRecordListRow {
         Long getId();
 
         LocalDateTime getCreatedAt();
 
-        LocalDate getAssessmentDate();
+        LocalDate getRecordDate();
 
         Integer getDuration();
 
         Integer getAmount();
 
-        SkillLevel getSkillLevel();
+        ScheduleLevel getScheduleLevel();
 
         UUID getStudentPersonId();
 
         String getStudentFullName();
 
-        String getStudentCode();
+        String getPersonCode();
 
         com.dat.ai_receptionist_web.enums.Core.Belt getStudentBelt();
     }

@@ -1,15 +1,9 @@
 package com.dat.ai_receptionist_web.domain.Core;
 
 import com.dat.ai_receptionist_web.enums.Core.Belt;
+import com.dat.ai_receptionist_web.enums.Core.PersonStatus;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Past;
-import jakarta.validation.constraints.Size;
 import lombok.*;
-import lombok.experimental.FieldDefaults;
-import lombok.experimental.SuperBuilder;
 import org.hibernate.annotations.Array;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UuidGenerator;
@@ -24,75 +18,65 @@ import java.util.UUID;
 
 @Getter
 @Setter
-@SuperBuilder
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
 @EntityListeners(AuditingEntityListener.class)
-@Inheritance(strategy = InheritanceType.JOINED)
-@Table(
-        name = "person",
-        schema = "core",
-        indexes = {
-                @Index(name = "idx_person_full_name", columnList = "full_name"),
-                @Index(name = "idx_person_national_code", columnList = "national_code")
-        },
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_person_national_code", columnNames = "national_code")
-        }
-)
-@FieldDefaults(level = AccessLevel.PRIVATE)
+@Table(name = "person", schema = "core", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_person_national_code", columnNames = "national_code"),
+        @UniqueConstraint(name = "uk_person_code", columnNames = "person_code")
+})
 public class Person {
-
-
     @Id
     @GeneratedValue
     @UuidGenerator
     @JdbcTypeCode(SqlTypes.UUID)
     @Column(name = "person_id", nullable = false, updatable = false)
-    UUID personId;
+    private UUID personId;
 
-    @NotBlank(message = "Full name must not be blank")
-    @Size(max = 100)
     @Column(name = "full_name", nullable = false, length = 100)
-    String fullName;
+    private String fullName;
 
     @Column(name = "gender")
-    Boolean gender;
+    private Boolean gender;
 
-    @Past(message = "Birth date must be in the past")
     @Column(name = "birth_date")
-    LocalDate birthDate;
+    private LocalDate birthDate;
 
-    @Email(message = "Email is invalid")
-    @Size(max = 100)
     @Column(name = "email", length = 100)
-    String email;
+    private String email;
 
-    @Size(max = 50)
-    @Column(name = "national_code", unique = true, length = 50)
-    String nationalCode;
-
-    @NotNull(message = "Belt must not be null")
-    @Enumerated(EnumType.STRING)
-    @Builder.Default
-    @Column(name = "belt", nullable = false, length = 20)
-    Belt belt = Belt.C10;
+    @Column(name = "national_code", length = 50)
+    private String nationalCode;
 
     @JdbcTypeCode(SqlTypes.VECTOR)
     @Array(length = 512)
     @Column(name = "face_embedding", columnDefinition = "vector(512)")
-    float[] faceEmbedding;
+    private float[] faceEmbedding;
 
-    @Size(max = 500)
     @Column(name = "face_image_path", length = 500)
-    String faceImagePath;
+    private String faceImagePath;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
-    LocalDateTime createdAt;
+    private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(name = "updated_at")
-    LocalDateTime updatedAt;
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @Column(name = "person_code", length = 50)
+    private String personCode;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "belt", nullable = false, length = 20)
+    private Belt belt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    private PersonStatus status;
+
+    @Column(name = "start_date")
+    private LocalDate startDate;
 }

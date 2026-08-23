@@ -1,7 +1,7 @@
 package com.dat.ai_receptionist_web.specification;
 
 import com.dat.ai_receptionist_web.domain.Skill.FitnessRecord;
-import com.dat.ai_receptionist_web.enums.Skill.SkillLevel;
+import com.dat.ai_receptionist_web.enums.Core.ScheduleLevel;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
 
@@ -17,8 +17,9 @@ public class FitnessRecordSpecification {
         };
     }
 
-    public static Specification<FitnessRecord> hasSkillLevel(SkillLevel skillLevel) {
+    public static Specification<FitnessRecord> hasScheduleLevel(ScheduleLevel scheduleLevel) {
         return (root, query, cb) ->
-                skillLevel == null ? null : cb.equal(root.get("skillLevel"), skillLevel);
+                scheduleLevel == null ? null
+                        : cb.equal(root.join("fitness").get("scheduleLevel"), scheduleLevel);
     }
 }

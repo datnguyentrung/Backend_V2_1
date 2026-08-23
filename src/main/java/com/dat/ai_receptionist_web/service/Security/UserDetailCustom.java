@@ -25,7 +25,7 @@ public class UserDetailCustom implements UserDetailsService {
             throw new UsernameNotFoundException("Invalid phone number");
         }
 
-        User user = userService.getUserWithRolesByPhoneNumber(normalizedPhone);
+        User user = userService.getUserByPhoneNumber(normalizedPhone);
         return new AuthenticatedUserPrincipal(user);
     }
 }

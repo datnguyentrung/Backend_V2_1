@@ -1,8 +1,8 @@
 spring:
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/version_4}
-    username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:31102005}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
     hikari:
@@ -31,16 +31,6 @@ spring:
       repositories:
         enabled: true
 
-  rabbitmq:
-    host: ${SPRING_RABBITMQ_HOST:localhost}
-    port: ${SPRING_RABBITMQ_PORT:5672}
-    username: ${SPRING_RABBITMQ_USERNAME:root}
-    password: ${SPRING_RABBITMQ_PASSWORD:31102005}
-    # Bổ sung 2 dòng dưới đây
-    virtual-host: ${SPRING_RABBITMQ_VIRTUAL_HOST:/}
-    ssl:
-      enabled: ${SSL_ENABLED:false}
-
   threads:
     virtual:
       enabled: true
@@ -50,7 +40,7 @@ spring:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
     database: PostgreSQL
     show-sql: true
-    open-in-view: true
+    open-in-view: false
     repositories:
       enabled: true
     defer-datasource-initialization: false
@@ -87,9 +77,8 @@ spring:
     time-zone: Asia/Ho_Chi_Minh
 
   flyway:
-    enabled: ${SPRING_FLYWAY_ENABLED:false}
-    baseline-on-migrate: true
-    baseline-version: 1
+    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    baseline-on-migrate: false
 
 logging:
   level:
@@ -124,18 +113,61 @@ jwt:
   access-token-validity-in-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_IN_SECONDS}
   refresh-token-validity-in-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_IN_SECONDS}
 
+rate-limit:
+  # Enable only when the edge proxy overwrites X-Forwarded-For from untrusted clients.
+  trust-forwarded-headers: ${RATE_LIMIT_TRUST_FORWARDED_HEADERS:false}
+  policies:
+    - name: login-web
+      path: /api/v1/auth/login
+      method: POST
+      limit: 5
+      window: 5m
+      subject: IP
+    - name: login-mobile
+      path: /api/v1/auth/mobile/login
+      method: POST
+      limit: 5
+      window: 5m
+      subject: IP
+    - name: refresh-web
+      path: /api/v1/auth/refresh
+      method: POST
+      limit: 10
+      window: 5m
+      subject: IP
+    - name: refresh-mobile
+      path: /api/v1/auth/mobile/refresh
+      method: POST
+      limit: 10
+      window: 5m
+      subject: IP
+    - name: wallet-top-up
+      path: /api/v1/wallets/top-up
+      method: POST
+      limit: 10
+      window: 1m
+      subject: AUTHENTICATED
+    - name: course-purchase
+      path: /api/v1/wallets/course-purchases
+      method: POST
+      limit: 5
+      window: 1m
+      subject: AUTHENTICATED
+    - name: wallet-refund
+      path: /api/v1/wallets/refunds
+      method: POST
+      limit: 5
+      window: 1m
+      subject: AUTHENTICATED
+    - name: authenticated-default
+      path: /api/**
+      limit: 300
+      window: 1m
+      subject: AUTO
+
 firebase:
+  enabled: ${FIREBASE_ENABLED:false}
   config-base64: ${FIREBASE_CONFIG_BASE64:}
-
-supabase:
-  url: ${SUPABASE_URL}
-  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY}
-  storage:
-    face-image-bucket: ${SUPABASE_FACE_IMAGE_BUCKET:face-images}
-    max-file-size: ${SUPABASE_FACE_IMAGE_MAX_SIZE:5242880}
-
-password:
-  time_password_change_days: ${TIME_PASSWORD_CHANGE_DAYS}
 
 cache:
   ttl:

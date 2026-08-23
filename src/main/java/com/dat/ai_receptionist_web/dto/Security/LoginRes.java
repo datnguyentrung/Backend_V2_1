@@ -1,17 +1,13 @@
 package com.dat.ai_receptionist_web.dto.Security;
 
+import com.dat.ai_receptionist_web.enums.Security.RelationshipType;
 import com.dat.ai_receptionist_web.enums.Security.UserStatus;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class LoginRes {
     private String accessToken;
     private String idDevice;
@@ -28,28 +24,15 @@ public class LoginRes {
         private String refreshToken;
         private UserLogin user;
         private UserContextRes activeContext;
-        private List<UserContextRes> availableContexts = List.of();
+        private List<UserContextRes> availableContexts;
         private boolean requiresContextSelection;
     }
 
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class UserLogin {
-        private UUID userId;
-        private String phoneNumber;
-        private UserStatus status;
-        private Set<String> roles;
+    public record UserLogin(UUID userId, String phoneNumber, UserStatus status,
+                            Set<String> roles, Set<String> permissions) {
     }
 
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class UserContextRes {
-        private UUID personId;
-        private String contextType;
-        private String relationshipType;
-        private String userCode;
-        private String displayName;
+    public record UserContextRes(UUID userPersonId, UUID personId, RelationshipType relationshipType,
+                                 String personCode, String displayName) {
     }
 }

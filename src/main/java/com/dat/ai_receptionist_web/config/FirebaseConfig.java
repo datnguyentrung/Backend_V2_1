@@ -15,7 +15,7 @@ import java.io.InputStream;
 import java.util.Base64;
 
 @Configuration
-@ConditionalOnProperty(name = "firebase.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "firebase.enabled", havingValue = "true")
 public class FirebaseConfig {
 
     @Value("${firebase.config-base64:}")

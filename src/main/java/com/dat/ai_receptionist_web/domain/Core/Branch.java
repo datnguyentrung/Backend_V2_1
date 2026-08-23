@@ -34,8 +34,8 @@ public class Branch {
 
     @NotBlank(message = "Tên chi nhánh không được để trống")
     @Size(max = 100, message = "Tên chi nhánh không quá 100 ký tự")
-    @Column(name = "branch_name", nullable = false, length = 100)
-    String branchName;
+    @Column(name = "name", nullable = false, length = 100)
+    String name;
 
     @NotBlank(message = "Địa chỉ không được để trống")
     @Size(max = 255)
@@ -64,6 +64,6 @@ public class Branch {
     LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(name = "updated_at")
+    @Column(name = "updated_at", nullable = false)
     LocalDateTime updatedAt;
 }

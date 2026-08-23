@@ -15,14 +15,13 @@ import java.util.stream.Collectors;
 @Getter
 @AllArgsConstructor
 public enum Weekday {
-
-    MONDAY(2, "Thứ Hai"),
-    TUESDAY(3, "Thứ Ba"),
-    WEDNESDAY(4, "Thứ Tư"),
-    THURSDAY(5, "Thứ Năm"),
-    FRIDAY(6, "Thứ Sáu"),
-    SATURDAY(7, "Thứ Bảy"),
-    SUNDAY(1, "Chủ Nhật");
+    SUNDAY(1, "Chủ Nhật"),    // Chủ nhật
+    MONDAY(2, "Thứ Hai"),     // Thứ hai
+    TUESDAY(3, "Thứ Ba"),     // Thứ ba
+    WEDNESDAY(4, "Thứ Tư"),   // Thứ tư
+    THURSDAY(5, "Thứ Năm"),   // Thứ năm
+    FRIDAY(6, "Thứ Sáu"),     // Thứ sáu
+    SATURDAY(7, "Thứ Bảy");   // Thứ bảy
 
     private final int code;
     private final String label;

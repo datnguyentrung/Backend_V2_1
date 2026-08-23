@@ -9,11 +9,13 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -21,16 +23,35 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 @Slf4j
 public class GlobalException {
+    @ExceptionHandler(FinancialException.class)
+    public ResponseEntity<?> handleFinancialException(FinancialException exception) {
+        return ResponseEntity.status(exception.getStatus())
+                .body(java.util.Map.of("error", exception.getCode(), "message", exception.getMessage()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<?> handleDataIntegrityConflict(DataIntegrityViolationException exception) {
+        log.warn("Database constraint rejected a request: {}", exception.getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(java.util.Map.of("error", "DATA_INTEGRITY_CONFLICT",
+                        "message", "The request conflicts with existing data"));
+    }
 
     @ExceptionHandler({
             UsernameNotFoundException.class,
-            BadCredentialsException.class,
             IdInvalidException.class,
             InvalidPasswordException.class
     })
     public ResponseEntity<ProblemDetail> handleAuthException(Exception ex) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
         return buildResponse(problemDetail, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ProblemDetail> handleBadCredentials(BadCredentialsException ex) {
+        ProblemDetail detail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNAUTHORIZED, "Invalid phone number or password");
+        return buildResponse(detail, HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -40,6 +61,14 @@ public class GlobalException {
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.toList());
         problemDetail.setProperty("errors", errors.size() > 1 ? errors : errors.get(0));
+        return buildResponse(problemDetail, HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ProblemDetail> handleUnreadableRequest(HttpMessageNotReadableException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Request body contains an invalid value");
+        problemDetail.setTitle("INVALID_REQUEST_BODY");
         return buildResponse(problemDetail, HttpStatus.BAD_REQUEST);
     }
 
@@ -101,8 +130,9 @@ public class GlobalException {
     public ResponseEntity<ProblemDetail> handleGeneric(Exception ex) {
         log.error("Lỗi gốc hệ thống: ", ex);
 
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
-        problemDetail.setTitle("Lỗi hệ thống hoặc lỗi chưa được định nghĩa");
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+                HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error");
+        problemDetail.setTitle("INTERNAL_SERVER_ERROR");
 
         // Nếu lỗi là do NoSuchElementException (như trường hợp điểm danh)
         if (ex instanceof java.util.NoSuchElementException) {

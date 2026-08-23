@@ -1,28 +1,14 @@
 package com.dat.ai_receptionist_web.repository.Security;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import org.springframework.stereotype.Repository;
+import com.dat.ai_receptionist_web.domain.Security.UserRole;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
 
-import java.util.UUID;
+import java.util.*;
 
-@Repository
-public class UserRoleRepository {
+public interface UserRoleRepository extends JpaRepository<UserRole, UserRole.Key> {
+    List<UserRole> findAllById_UserId(UUID userId);
 
-    @PersistenceContext
-    private EntityManager entityManager;
-
-    public long countByUserIdAndRoleCode(UUID userId, String roleCode) {
-        Number count = (Number) entityManager
-                .createNativeQuery("""
-                        SELECT COUNT(*)
-                        FROM security.user_role
-                        WHERE user_id = :userId
-                          AND role_code = :roleCode
-                        """)
-                .setParameter("userId", userId)
-                .setParameter("roleCode", roleCode)
-                .getSingleResult();
-        return count.longValue();
-    }
+    @Query("select ur.role.code from UserRole ur where ur.id.userId = :userId order by ur.role.code")
+    SortedSet<String> findRoleCodes(@Param("userId") UUID userId);
 }

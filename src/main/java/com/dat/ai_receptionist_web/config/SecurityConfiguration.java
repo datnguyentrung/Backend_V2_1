@@ -1,160 +1,114 @@
 package com.dat.ai_receptionist_web.config;
 
-import com.dat.ai_receptionist_web.util.ApiKeyAuthenticationFilter;
-import com.dat.ai_receptionist_web.util.SecurityUtil;
+import com.dat.ai_receptionist_web.util.*;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.util.Base64;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
+import org.springframework.context.annotation.*;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
-import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 @Configuration
-@EnableWebSecurity
-@EnableMethodSecurity(securedEnabled = true)
+@EnableMethodSecurity
 public class SecurityConfiguration {
     @Value("${jwt.base64-secret}")
     private String jwtKey;
 
-    @Autowired
-    private ApiKeyAuthenticationFilter apiKeyAuthenticationFilter;
-
     @Bean
-    public PasswordEncoder passwordEncoder() {
+    PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
     @Bean
-    public JwtEncoder jwtEncoder() {
-        return new NimbusJwtEncoder(new ImmutableSecret<>(getSecretKey()));
-    }
-
-    private SecretKey getSecretKey() {
-        byte[] keyBytes = Base64.from(jwtKey).decode();
-        return new SecretKeySpec(keyBytes, 0, keyBytes.length, SecurityUtil.JWT_ALGORITHM.getName());
+    AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
+        return configuration.getAuthenticationManager();
     }
 
     @Bean
-    public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        return new JwtAuthenticationConverter() {{
-            setJwtGrantedAuthoritiesConverter(jwt -> {
-                Object rolesClaim = jwt.getClaim("roles");
-                if (rolesClaim instanceof Collection<?> roles) {
-                    return roles.stream()
-                            .map(String::valueOf)
-                            .map(SimpleGrantedAuthority::new)
-                            .map(GrantedAuthority.class::cast)
-                            .toList();
-                }
-                String role = jwt.getClaim("role");
-                return role == null ? List.of() : List.<GrantedAuthority>of(new SimpleGrantedAuthority(role));
-            });
-        }};
+    JwtEncoder jwtEncoder() {
+        return new NimbusJwtEncoder(new ImmutableSecret<>(secretKey()));
     }
 
     @Bean
-    public JwtDecoder jwtDecoder() {
-        NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(
-                getSecretKey()).macAlgorithm(SecurityUtil.JWT_ALGORITHM).build();
-        return token -> {
-            try {
-                return jwtDecoder.decode(token);
-            } catch (Exception e) {
-                System.out.println(">>> JWT error: " + e.getMessage());
-                throw e;
-            }
-        };
-    }
-
-    @Bean("userSec") // Đặt tên bean là "userSec" để gọi trong @PreAuthorize
-    public UserSecurity userSecurity() {
-        return new UserSecurity();
-    }
-
-    // Class này chứa logic kiểm tra, sẽ được gọi mỗi khi request chạy vào hàm Controller
-    public static class UserSecurity {
-        public boolean isActive() {
-            return SecurityUtil.getCurrentUserStatus()
-                    .map("ACTIVE"::equals)
-                    .orElse(false);
-        }
+    JwtDecoder jwtDecoder() {
+        return NimbusJwtDecoder.withSecretKey(secretKey())
+                .macAlgorithm(SecurityUtil.JWT_ALGORITHM).build();
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(
+    JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(jwt -> {
+            List<String> permissions = jwt.getClaimAsStringList("permissions");
+            if (permissions == null) return List.of();
+            return permissions.stream().map(SimpleGrantedAuthority::new)
+                    .map(GrantedAuthority.class::cast).toList();
+        });
+        return converter;
+    }
+
+    @Bean
+    SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            CustomAuthenticationEntryPoint customAuthenticationEntryPoint,
-            UserStatusValidationFilter userStatusValidationFilter
-    ) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
+            CustomAuthenticationEntryPoint entryPoint,
+            AccessTokenStateValidationFilter accessStateFilter,
+            RateLimitFilter rateLimitFilter) throws Exception {
+        http.csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
-                .authorizeHttpRequests(
-                        auth -> auth
-                                .requestMatchers(
-                                        "/actuator/**",
-                                        "/ws/**",
-                                        "/api/v1/webhook/**"
-                                ).permitAll() // Thêm dòng này
-                                .requestMatchers(
-                                        "/api/v1/auth/login",
-                                        "/api/v1/auth/refresh",
-                                        "/api/v1/auth/logout",
-                                        "/api/v1/auth/mobile/login",
-                                        "/api/v1/auth/mobile/refresh",
-                                        "/api/v1/auth/mobile/logout",
-                                        "/api/v1/user"
-                                ).permitAll()
-                                .requestMatchers(
-                                        HttpMethod.GET,
-                                        "/api/v1/fitness",
-                                        "/api/v1/fitness-record**",
-                                        "/api/v1/leaderboards/**",
-                                        "/api/v1/students/**",
-                                        "/api/v1/student-attendances",
-                                        "/api/v1/student-enrollments"
-                                ).permitAll()
-                                // 👇 Chỉ GET là public
-                                .anyRequest().authenticated()
-//                                .anyRequest().permitAll()
-                )
-                .oauth2ResourceServer((oauth2) -> oauth2
-                        .jwt(jwt -> jwt
-                                .jwtAuthenticationConverter(jwtAuthenticationConverter())
-                        )
-                        .authenticationEntryPoint(customAuthenticationEntryPoint)
-                )
-                // Thêm UserStatusValidationFilter sau khi JWT đã được xác thực
-                .addFilterBefore(apiKeyAuthenticationFilter, BearerTokenAuthenticationFilter.class)
-                .addFilterAfter(userStatusValidationFilter, BearerTokenAuthenticationFilter.class)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/health", "/actuator/info", "/ws/**").permitAll()
+                        .requestMatchers("/api/v1/auth/login", "/api/v1/auth/refresh",
+                                "/api/v1/auth/logout", "/api/v1/auth/mobile/login",
+                                "/api/v1/auth/mobile/refresh", "/api/v1/auth/mobile/logout").permitAll()
+                        .anyRequest().authenticated())
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter()))
+                        .authenticationEntryPoint(entryPoint))
+                .addFilterAfter(rateLimitFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(accessStateFilter, RateLimitFilter.class)
                 .formLogin(AbstractHttpConfigurer::disable)
-                .sessionManagement(
-                        session ->
-                                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                );
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         return http.build();
+    }
+
+    @Bean
+    FilterRegistrationBean<AccessTokenStateValidationFilter> accessStateFilterRegistration(
+            AccessTokenStateValidationFilter filter) {
+        return disabledRegistration(filter);
+    }
+
+    @Bean
+    FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(RateLimitFilter filter) {
+        return disabledRegistration(filter);
+    }
+
+    private <T extends jakarta.servlet.Filter> FilterRegistrationBean<T> disabledRegistration(T filter) {
+        FilterRegistrationBean<T> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
+    }
+
+    private SecretKey secretKey() {
+        byte[] bytes = Base64.from(jwtKey).decode();
+        return new SecretKeySpec(bytes, SecurityUtil.JWT_ALGORITHM.getName());
     }
 }

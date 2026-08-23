@@ -29,6 +29,14 @@ public class UserRoleDTO {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    public static class ReplaceRequest {
+        @NotNull(message = "Role codes must not be null")
+        Set<@NotBlank String> roleCodes;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     @Builder
     @FieldDefaults(level = AccessLevel.PRIVATE)
     public static class Response {

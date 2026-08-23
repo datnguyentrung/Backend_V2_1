@@ -43,4 +43,3 @@ build/
 skills-lock.json
 
 src/main/resources/serviceAccountKey.json
-src/test/**

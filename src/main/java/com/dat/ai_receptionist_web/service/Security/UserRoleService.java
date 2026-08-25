@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -32,21 +33,65 @@ public class UserRoleService {
     }
 
     @Transactional
-    public UserRoleDTO.Response replaceRoles(UUID userId, Set<String> requestedCodes) {
+    public UserRoleDTO.Response replaceRoles(
+            UUID userId,
+            Set<String> requestedCodes
+    ) {
         User user = userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
-        SortedSet<String> desired = new TreeSet<>();
-        requestedCodes.forEach(code -> desired.add(code.trim().toUpperCase(Locale.ROOT)));
-        SortedSet<String> current = userRoleRepository.findRoleCodes(userId);
-        if (current.equals(desired)) return new UserRoleDTO.Response(userId, current);
+                .orElseThrow(() ->
+                        new IllegalArgumentException("User not found")
+                );
 
-        List<Role> roles = roleRepository.findAllById(desired);
-        if (roles.size() != desired.size()) throw new IllegalArgumentException("One or more roles do not exist");
-        userRoleRepository.deleteAll(userRoleRepository.findAllById_UserId(userId));
-        userRoleRepository.flush();
-        roles.forEach(role -> userRoleRepository.save(
-                new UserRole(new UserRole.Key(userId, role.getCode()), user, role)));
-        userRepository.incrementAuthorizationVersion(userId);
+        SortedSet<String> desired = requestedCodes.stream()
+                .map(code -> code.trim().toUpperCase(Locale.ROOT))
+                .collect(Collectors.toCollection(TreeSet::new));
+
+        SortedSet<String> current =
+                userRoleRepository.findRoleCodes(userId);
+
+        Set<String> toAdd = new HashSet<>(desired);
+        toAdd.removeAll(current);
+
+        Set<String> toRemove = new HashSet<>(current);
+        toRemove.removeAll(desired);
+
+        if (!toAdd.isEmpty() || !toRemove.isEmpty()) {
+
+            if (!toRemove.isEmpty()) {
+                userRoleRepository.deleteById_UserIdAndRole_CodeIn(
+                        userId,
+                        toRemove
+                );
+            }
+
+            if (!toAdd.isEmpty()) {
+                List<Role> roles = roleRepository.findAllById(toAdd);
+
+                if (roles.size() != toAdd.size()) {
+                    throw new IllegalArgumentException(
+                            "One or more roles do not exist"
+                    );
+                }
+
+                List<UserRole> userRoles = roles.stream()
+                        .map(role ->
+                                new UserRole(
+                                        new UserRole.Key(
+                                                userId,
+                                                role.getCode()
+                                        ),
+                                        user,
+                                        role
+                                )
+                        )
+                        .toList();
+
+                userRoleRepository.saveAll(userRoles);
+            }
+
+            userRepository.incrementAuthorizationVersion(userId);
+        }
+
         return new UserRoleDTO.Response(userId, desired);
     }
 }

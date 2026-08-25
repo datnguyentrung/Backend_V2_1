@@ -1,46 +1,20 @@
 package com.dat.ai_receptionist_web.dto.Security;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import lombok.*;
-import lombok.experimental.FieldDefaults;
-
-import java.util.Set;
-import java.util.UUID;
+import jakarta.validation.constraints.*;
+import java.util.*;
 
 public class UserRoleDTO {
-
-    private UserRoleDTO() {
+    public record CreateRequest(@NotNull UUID userId, @NotBlank String roleCode) {}
+    public record UpdateRequest(@NotNull UUID userId, @NotBlank String roleCode) {}
+    public record AssignRequest(@NotNull UUID userId, @NotBlank String roleCode) {
+        public UUID getUserId() { return userId; }
+        public String getRoleCode() { return roleCode; }
     }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class AssignRequest {
-        @NotNull(message = "User id must not be null")
-        UUID userId;
-
-        @NotBlank(message = "Role code must not be blank")
-        String roleCode;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
     public static class ReplaceRequest {
-        @NotNull(message = "Role codes must not be null")
-        Set<@NotBlank String> roleCodes;
+        @NotEmpty private Set<@NotBlank String> roleCodes;
+        public Set<String> getRoleCodes() { return roleCodes; }
+        public void setRoleCodes(Set<String> roleCodes) { this.roleCodes = roleCodes; }
     }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    @FieldDefaults(level = AccessLevel.PRIVATE)
-    public static class Response {
-        UUID userId;
-        Set<String> roleCodes;
-    }
+    public record Response(UUID userId, Set<String> roleCodes) {}
+    public record ItemResponse(UUID userId, String roleCode) {}
 }

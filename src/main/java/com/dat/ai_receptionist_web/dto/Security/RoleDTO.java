@@ -1,0 +1,17 @@
+package com.dat.ai_receptionist_web.dto.Security;
+
+import jakarta.validation.constraints.*;
+
+public final class RoleDTO {
+    private RoleDTO() {
+    }
+
+    public record CreateRequest(@NotNull String code, @NotNull String name, @NotNull String description, long permissionVersion) {
+    }
+
+    public record UpdateRequest(@NotNull String name, @NotNull String description, long permissionVersion) {
+    }
+
+    public record Response(String code, String name, String description, long permissionVersion) {
+    }
+}

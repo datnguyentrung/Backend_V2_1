@@ -22,5 +22,5 @@ public class Role {
     private String description;
 
     @Column(name = "permission_version", nullable = false)
-    private long permissionVersion;
+    private long permissionVersion = 1;
 }

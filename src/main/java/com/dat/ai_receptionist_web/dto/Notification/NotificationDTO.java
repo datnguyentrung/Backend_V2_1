@@ -1,13 +1,37 @@
 package com.dat.ai_receptionist_web.dto.Notification;
-import com.dat.ai_receptionist_web.enums.Operation.NotificationType;
+
 import jakarta.validation.constraints.*;
-import java.util.*;
+import java.time.LocalDateTime;
+import com.dat.ai_receptionist_web.enums.Operation.NotificationType;
+import java.util.Set;
+import java.util.UUID;
+
 public final class NotificationDTO {
-    private NotificationDTO() {}
-    public record CreateRequest(@NotBlank @Size(max=150) String title,
-            @NotBlank @Size(max=1000) String body, @NotNull NotificationType type,
-            @Size(max=100) String referenceType, @Size(max=100) String referenceId,
-            String payload, Set<UUID> recipientUserIds, Set<UUID> recipientPersonIds,
-            Set<@NotBlank String> recipientRoleCodes) {}
-    public record Response(UUID notificationId, int recipientCount) {}
+    private NotificationDTO() {
+    }
+
+    public record CreateRequest(@NotNull String title, @NotNull String body, @NotNull NotificationType notificationType,
+                                @NotNull String referenceType, @NotNull String referenceId, @NotNull String payload,
+                                Set<UUID> recipientUserIds, Set<UUID> recipientPersonIds,
+                                Set<@NotBlank String> recipientRoleCodes) {
+        public NotificationType type() {
+            return notificationType;
+        }
+    }
+
+    public record UpdateRequest(@NotNull String title, @NotNull String body, @NotNull NotificationType notificationType, @NotNull String referenceType, @NotNull String referenceId, @NotNull String payload) {
+    }
+
+    public record Response(UUID notificationId, String title, String body, NotificationType notificationType,
+                           String referenceType, String referenceId, String payload, LocalDateTime createdAt,
+                           Integer recipientCount) {
+        public Response(UUID notificationId, String title, String body, NotificationType notificationType,
+                        String referenceType, String referenceId, String payload, LocalDateTime createdAt) {
+            this(notificationId, title, body, notificationType, referenceType, referenceId, payload, createdAt, null);
+        }
+
+        public Response(UUID notificationId, int recipientCount) {
+            this(notificationId, null, null, null, null, null, null, null, recipientCount);
+        }
+    }
 }

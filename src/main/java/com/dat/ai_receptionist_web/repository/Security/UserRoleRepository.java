@@ -11,4 +11,9 @@ public interface UserRoleRepository extends JpaRepository<UserRole, UserRole.Key
 
     @Query("select ur.role.code from UserRole ur where ur.id.userId = :userId order by ur.role.code")
     SortedSet<String> findRoleCodes(@Param("userId") UUID userId);
+
+    void deleteById_UserIdAndRole_CodeIn(
+            UUID userId,
+            Set<String> roleCodes
+    );
 }

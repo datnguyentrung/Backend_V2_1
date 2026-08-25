@@ -11,4 +11,6 @@ public interface RolePermissionRepository extends JpaRepository<RolePermission, 
 
     @Query("select rp.permission.code from RolePermission rp where rp.id.roleId = :role order by rp.permission.code")
     SortedSet<String> findPermissionCodes(@Param("role") String roleCode);
+
+    void deleteByRoleCodeAndPermissionCodeIn(String roleCode, Set<String> toRemove);
 }

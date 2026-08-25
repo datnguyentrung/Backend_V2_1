@@ -19,30 +19,104 @@ public class RolePermissionService {
     private final RolePermissionRepository rolePermissionRepository;
 
     @Transactional
-    public RolePermissionDTO.Response replace(String roleCode, Set<String> requestedCodes) {
+    public RolePermissionDTO.Response replace(
+            String roleCode,
+            Set<String> requestedCodes
+    ) {
         Role role = roleRepository.findByIdForUpdate(roleCode)
-                .orElseThrow(() -> new IllegalArgumentException("Role not found"));
-        SortedSet<String> desired = requestedCodes.stream()
-                .map(code -> code.trim().toUpperCase(Locale.ROOT))
-                .collect(Collectors.toCollection(TreeSet::new));
-        Set<String> defined = Arrays.stream(PermissionDefinition.values())
-                .map(PermissionDefinition::getCode).collect(Collectors.toSet());
-        if (!defined.containsAll(desired)) {
-            throw new IllegalArgumentException("One or more permission codes are not defined by the backend");
-        }
-        SortedSet<String> current = rolePermissionRepository.findPermissionCodes(roleCode);
-        if (!current.equals(desired)) {
-            List<Permission> permissions = permissionRepository.findAllByCodeIn(desired);
-            if (permissions.size() != desired.size()) {
-                throw new IllegalArgumentException("One or more permissions do not exist");
+                .orElseThrow(() ->
+                        new IllegalArgumentException("Role not found")
+                );
+
+        SortedSet<String> desired =
+                normalizeAndValidate(requestedCodes);
+
+        SortedSet<String> current =
+                rolePermissionRepository.findPermissionCodes(roleCode);
+
+        Set<String> toAdd = new HashSet<>(desired);
+        toAdd.removeAll(current);
+
+        Set<String> toRemove = new HashSet<>(current);
+        toRemove.removeAll(desired);
+
+        if (!toAdd.isEmpty() || !toRemove.isEmpty()) {
+
+            // 1. Revoke những quyền thừa
+            if (!toRemove.isEmpty()) {
+                rolePermissionRepository
+                        .deleteByRoleCodeAndPermissionCodeIn(
+                                roleCode,
+                                toRemove
+                        );
             }
-            rolePermissionRepository.deleteAll(rolePermissionRepository.findAllById_RoleId(roleCode));
-            rolePermissionRepository.flush();
-            permissions.forEach(permission -> rolePermissionRepository.save(new RolePermission(
-                    new RolePermission.Key(roleCode, permission.getPermissionId()), role, permission)));
+
+            // 2. Grant những quyền thiếu
+            if (!toAdd.isEmpty()) {
+                List<Permission> permissions =
+                        permissionRepository.findAllByCodeIn(toAdd);
+
+                if (permissions.size() != toAdd.size()) {
+                    throw new IllegalArgumentException(
+                            "One or more permissions do not exist"
+                    );
+                }
+
+                List<RolePermission> rolePermissions =
+                        permissions.stream()
+                                .map(permission ->
+                                        new RolePermission(
+                                                new RolePermission.Key(
+                                                        roleCode,
+                                                        permission.getPermissionId()
+                                                ),
+                                                role,
+                                                permission
+                                        )
+                                )
+                                .toList();
+
+                rolePermissionRepository.saveAll(rolePermissions);
+            }
+
+            // 3. Tăng version đúng 1 lần cho cả lần thay đổi
             roleRepository.incrementPermissionVersion(roleCode);
-            role.setPermissionVersion(role.getPermissionVersion() + 1);
+
+            // Đồng bộ object đang giữ trong persistence context
+            role.setPermissionVersion(
+                    role.getPermissionVersion() + 1
+            );
         }
-        return new RolePermissionDTO.Response(roleCode, role.getPermissionVersion(), desired);
+
+        return new RolePermissionDTO.Response(
+                roleCode,
+                role.getPermissionVersion(),
+                desired
+        );
+    }
+
+    private SortedSet<String> normalizeAndValidate(Set<String> requestedCodes) {
+        if (requestedCodes == null) {
+            throw new IllegalArgumentException("Permission codes must not be null");
+        }
+
+        SortedSet<String> normalized = requestedCodes.stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .map(code -> code.toUpperCase(Locale.ROOT))
+                .filter(code -> !code.isBlank())
+                .collect(Collectors.toCollection(TreeSet::new));
+
+        Set<String> definedCodes = Arrays.stream(PermissionDefinition.values())
+                .map(PermissionDefinition::getCode)
+                .collect(Collectors.toSet());
+
+        if (!definedCodes.containsAll(normalized)) {
+            throw new IllegalArgumentException(
+                    "One or more permission codes are not defined by the backend"
+            );
+        }
+
+        return normalized;
     }
 }

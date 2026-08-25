@@ -77,7 +77,7 @@ spring:
     time-zone: Asia/Ho_Chi_Minh
 
   flyway:
-    enabled: ${SPRING_FLYWAY_ENABLED:true}
+    enabled: ${SPRING_FLYWAY_ENABLED:false}
     baseline-on-migrate: false
 
 logging:

@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class CoursePurchaseCrudService {
+public class CoursePurchaseService {
     private final CoursePurchaseRepository repository;
     private final CoursePurchaseMapper mapper;
     private final PersonRepository personRepository;

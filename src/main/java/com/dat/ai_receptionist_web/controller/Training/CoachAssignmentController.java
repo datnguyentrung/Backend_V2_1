@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Training;
 
 import com.dat.ai_receptionist_web.dto.Training.CoachAssignmentDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Training.CoachAssignmentCrudService;
+import com.dat.ai_receptionist_web.service.Training.CoachAssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/coach-assignments")
 @RequiredArgsConstructor
 public class CoachAssignmentController {
-    private final CoachAssignmentCrudService service;
+    private final CoachAssignmentService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).COACH_ASSIGNMENT_READ.getCode())")

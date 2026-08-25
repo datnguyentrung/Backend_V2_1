@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Security;
 
 import com.dat.ai_receptionist_web.dto.Security.PermissionDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Security.PermissionCrudService;
+import com.dat.ai_receptionist_web.service.Security.PermissionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/permissions")
 @RequiredArgsConstructor
 public class PermissionController {
-    private final PermissionCrudService service;
+    private final PermissionService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).PERMISSION_READ.getCode())")

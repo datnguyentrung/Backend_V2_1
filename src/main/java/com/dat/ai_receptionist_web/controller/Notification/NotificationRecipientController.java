@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Notification;
 
 import com.dat.ai_receptionist_web.dto.Notification.NotificationRecipientDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Notification.NotificationRecipientCrudService;
+import com.dat.ai_receptionist_web.service.Notification.NotificationRecipientService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/notification-recipients")
 @RequiredArgsConstructor
 public class NotificationRecipientController {
-    private final NotificationRecipientCrudService service;
+    private final NotificationRecipientService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).NOTIFICATION_RECIPIENT_READ.getCode())")

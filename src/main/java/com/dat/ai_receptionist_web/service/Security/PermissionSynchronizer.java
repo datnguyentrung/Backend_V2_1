@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +15,7 @@ import java.util.*;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Order(1)
 public class PermissionSynchronizer implements ApplicationRunner {
     private final PermissionRepository permissionRepository;
 

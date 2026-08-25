@@ -3,7 +3,10 @@ package com.dat.ai_receptionist_web.service.Core;
 import com.dat.ai_receptionist_web.domain.Core.Person;
 import com.dat.ai_receptionist_web.domain.Finance.Wallet;
 import com.dat.ai_receptionist_web.dto.Core.PersonDTO;
+import com.dat.ai_receptionist_web.dto.PageResponse;
+import com.dat.ai_receptionist_web.enums.Core.PersonStatus;
 import com.dat.ai_receptionist_web.enums.Finance.WalletStatus;
+import com.dat.ai_receptionist_web.mapper.Core.PersonMapper;
 import com.dat.ai_receptionist_web.repository.Core.PersonRepository;
 import com.dat.ai_receptionist_web.repository.Finance.WalletRepository;
 import com.dat.ai_receptionist_web.util.converter.NameConverter;
@@ -21,6 +24,11 @@ import java.util.UUID;
 public class PersonService {
     private final PersonRepository personRepository;
     private final WalletRepository walletRepository;
+    private final PersonMapper personMapper;
+
+    public PersonService(PersonRepository personRepository, WalletRepository walletRepository) {
+        this(personRepository, walletRepository, new PersonMapper());
+    }
 
     @Transactional
     public PersonDTO.Response create(PersonDTO.CreateRequest request) {
@@ -59,9 +67,32 @@ public class PersonService {
     }
 
     @Transactional(readOnly = true)
+    public PageResponse<PersonDTO.Response> list(Pageable pageable) {
+        return PageResponse.of(personRepository.findAll(pageable), personMapper::toResponse);
+    }
+
+    @Transactional(readOnly = true)
     public PersonDTO.Response get(UUID id) {
         return toResponse(personRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Person not found")));
+    }
+
+    @Transactional
+    public PersonDTO.Response update(UUID id, PersonDTO.UpdateRequest request) {
+        Person person = find(id);
+        personMapper.updateEntity(request, person);
+        return personMapper.toResponse(personRepository.save(person));
+    }
+
+    @Transactional
+    public void delete(UUID id) {
+        Person person = find(id);
+        person.setStatus(PersonStatus.INACTIVE);
+    }
+
+    private Person find(UUID id) {
+        return personRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Person not found"));
     }
 
     private PersonDTO.Response toResponse(Person value) {

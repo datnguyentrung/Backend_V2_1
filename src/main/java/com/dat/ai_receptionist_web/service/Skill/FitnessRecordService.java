@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class FitnessRecordCrudService {
+public class FitnessRecordService {
     private final FitnessRecordRepository repository;
     private final FitnessRecordMapper mapper;
     private final PersonRepository personRepository;

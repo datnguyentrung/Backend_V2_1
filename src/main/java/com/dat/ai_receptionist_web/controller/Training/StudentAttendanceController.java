@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Training;
 
 import com.dat.ai_receptionist_web.dto.Training.StudentAttendanceDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Training.StudentAttendanceCrudService;
+import com.dat.ai_receptionist_web.service.Training.StudentAttendanceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/student-attendances")
 @RequiredArgsConstructor
 public class StudentAttendanceController {
-    private final StudentAttendanceCrudService service;
+    private final StudentAttendanceService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).STUDENT_ATTENDANCE_READ.getCode())")

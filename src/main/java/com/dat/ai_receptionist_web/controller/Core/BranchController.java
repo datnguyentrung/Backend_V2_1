@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Core;
 
 import com.dat.ai_receptionist_web.dto.Core.BranchDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Core.BranchCrudService;
+import com.dat.ai_receptionist_web.service.Core.BranchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/branches")
 @RequiredArgsConstructor
 public class BranchController {
-    private final BranchCrudService service;
+    private final BranchService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).BRANCH_READ.getCode())")

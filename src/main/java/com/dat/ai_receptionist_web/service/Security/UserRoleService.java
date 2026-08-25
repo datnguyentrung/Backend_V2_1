@@ -1,9 +1,12 @@
 package com.dat.ai_receptionist_web.service.Security;
 
 import com.dat.ai_receptionist_web.domain.Security.*;
+import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.dto.Security.UserRoleDTO;
+import com.dat.ai_receptionist_web.mapper.Security.UserRoleMapper;
 import com.dat.ai_receptionist_web.repository.Security.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +19,29 @@ public class UserRoleService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
+    private final UserRoleMapper userRoleMapper;
+
+    @Transactional(readOnly = true)
+    public PageResponse<UserRoleDTO.ItemResponse> list(Pageable pageable) {
+        return PageResponse.of(userRoleRepository.findAll(pageable), userRoleMapper::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public UserRoleDTO.ItemResponse get(UUID userId, String roleCode) {
+        return userRoleMapper.toResponse(find(userId, roleCode));
+    }
+
+    @Transactional
+    public UserRoleDTO.ItemResponse create(UserRoleDTO.CreateRequest request) {
+        assignRole(new UserRoleDTO.AssignRequest(request.userId(), request.roleCode()));
+        return get(request.userId(), request.roleCode().trim().toUpperCase(Locale.ROOT));
+    }
+
+    @Transactional
+    public void delete(UUID userId, String roleCode) {
+        userRoleRepository.delete(find(userId, roleCode));
+        userRepository.incrementAuthorizationVersion(userId);
+    }
 
     @Transactional
     public UserRoleDTO.Response assignRole(UserRoleDTO.AssignRequest request) {
@@ -93,5 +119,10 @@ public class UserRoleService {
         }
 
         return new UserRoleDTO.Response(userId, desired);
+    }
+
+    private UserRole find(UUID userId, String roleCode) {
+        return userRoleRepository.findById(new UserRole.Key(userId, roleCode))
+                .orElseThrow(() -> new IllegalArgumentException("UserRole not found"));
     }
 }

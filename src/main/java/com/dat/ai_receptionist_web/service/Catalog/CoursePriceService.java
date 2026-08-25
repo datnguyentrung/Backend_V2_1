@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class CoursePriceCrudService {
+public class CoursePriceService {
     private final CoursePriceRepository repository;
     private final CoursePriceMapper mapper;
     private final CourseRepository courseRepository;

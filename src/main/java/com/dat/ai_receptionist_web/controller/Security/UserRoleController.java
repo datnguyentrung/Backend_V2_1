@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Security;
 
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.dto.Security.UserRoleDTO;
-import com.dat.ai_receptionist_web.service.Security.UserRoleCrudService;
+import com.dat.ai_receptionist_web.service.Security.UserRoleService;
 import com.dat.ai_receptionist_web.service.Security.UserRoleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,15 +17,15 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserRoleController {
     private final UserRoleService userRoleService;
-    private final UserRoleCrudService crudService;
+    private final UserRoleService Service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).USER_ROLE_READ.getCode())")
-    public PageResponse<UserRoleDTO.ItemResponse> list(Pageable pageable) { return crudService.list(pageable); }
+    public PageResponse<UserRoleDTO.ItemResponse> list(Pageable pageable) { return Service.list(pageable); }
 
     @GetMapping("/{userId}/{roleCode}")
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).USER_ROLE_READ.getCode())")
-    public UserRoleDTO.ItemResponse get(@PathVariable UUID userId, @PathVariable String roleCode) { return crudService.get(userId, roleCode); }
+    public UserRoleDTO.ItemResponse get(@PathVariable UUID userId, @PathVariable String roleCode) { return Service.get(userId, roleCode); }
 
     @PostMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).USER_ROLE_CREATE.getCode())")
@@ -42,5 +42,5 @@ public class UserRoleController {
     @DeleteMapping("/{userId}/{roleCode}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).USER_ROLE_DELETE.getCode())")
-    public void delete(@PathVariable UUID userId, @PathVariable String roleCode) { crudService.delete(userId, roleCode); }
+    public void delete(@PathVariable UUID userId, @PathVariable String roleCode) { Service.delete(userId, roleCode); }
 }

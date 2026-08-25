@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class ClassSessionCrudService {
+public class ClassSessionService {
     private final ClassSessionRepository repository;
     private final ClassSessionMapper mapper;
     private final CourseRepository courseRepository;

@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Finance;
 
 import com.dat.ai_receptionist_web.dto.Finance.CoursePurchaseDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Finance.CoursePurchaseCrudService;
+import com.dat.ai_receptionist_web.service.Finance.CoursePurchaseService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/course-purchases")
 @RequiredArgsConstructor
 public class CoursePurchaseController {
-    private final CoursePurchaseCrudService service;
+    private final CoursePurchaseService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).COURSE_PURCHASE_READ.getCode())")

@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class CoachAssignmentCrudService {
+public class CoachAssignmentService {
     private final CoachAssignmentRepository repository;
     private final CoachAssignmentMapper mapper;
     private final PersonRepository personRepository;

@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class WalletCrudService {
+public class WalletService {
     private final WalletRepository repository;
     private final WalletMapper mapper;
     private final PersonRepository personRepository;

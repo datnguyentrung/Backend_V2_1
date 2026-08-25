@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Security;
 
 import com.dat.ai_receptionist_web.dto.Security.RoleDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Security.RoleCrudService;
+import com.dat.ai_receptionist_web.service.Security.RoleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/roles")
 @RequiredArgsConstructor
 public class RoleController {
-    private final RoleCrudService service;
+    private final RoleService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).ROLE_READ.getCode())")

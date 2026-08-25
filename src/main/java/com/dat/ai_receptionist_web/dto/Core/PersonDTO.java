@@ -12,6 +12,11 @@ public final class PersonDTO {
     }
 
     public record CreateRequest(@NotNull String fullName, @NotNull Boolean gender, @NotNull LocalDate birthDate, @NotNull String email, @NotNull String nationalCode, @NotNull String faceImagePath, @NotNull String personCode, @NotNull Belt belt, @NotNull PersonStatus status, @NotNull LocalDate startDate) {
+        public CreateRequest(String fullName, Boolean gender, LocalDate birthDate, String email,
+                             String nationalCode, String personCode, Belt belt,
+                             PersonStatus status, LocalDate startDate) {
+            this(fullName, gender, birthDate, email, nationalCode, null, personCode, belt, status, startDate);
+        }
     }
 
     public record UpdateRequest(@NotNull String fullName, @NotNull Boolean gender, @NotNull LocalDate birthDate, @NotNull String email, @NotNull String nationalCode, @NotNull String faceImagePath, @NotNull String personCode, @NotNull Belt belt, @NotNull PersonStatus status, @NotNull LocalDate startDate) {

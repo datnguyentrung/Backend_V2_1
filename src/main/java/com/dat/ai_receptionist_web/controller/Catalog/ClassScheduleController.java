@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Catalog;
 
 import com.dat.ai_receptionist_web.dto.Catalog.ClassScheduleDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Catalog.ClassScheduleCrudService;
+import com.dat.ai_receptionist_web.service.Catalog.ClassScheduleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/class-schedules")
 @RequiredArgsConstructor
 public class ClassScheduleController {
-    private final ClassScheduleCrudService service;
+    private final ClassScheduleService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).CLASS_SCHEDULE_READ.getCode())")

@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Training;
 
 import com.dat.ai_receptionist_web.dto.Training.StudentEnrollmentDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Training.StudentEnrollmentCrudService;
+import com.dat.ai_receptionist_web.service.Training.StudentEnrollmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/student-enrollments")
 @RequiredArgsConstructor
 public class StudentEnrollmentController {
-    private final StudentEnrollmentCrudService service;
+    private final StudentEnrollmentService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).STUDENT_ENROLLMENT_READ.getCode())")

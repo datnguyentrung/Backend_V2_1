@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Skill;
 
 import com.dat.ai_receptionist_web.dto.Skill.FitnessDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Skill.FitnessCrudService;
+import com.dat.ai_receptionist_web.service.Skill.FitnessService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/fitness")
 @RequiredArgsConstructor
 public class FitnessController {
-    private final FitnessCrudService service;
+    private final FitnessService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).FITNESS_READ.getCode())")

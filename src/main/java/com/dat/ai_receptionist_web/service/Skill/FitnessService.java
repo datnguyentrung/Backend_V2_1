@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class FitnessCrudService {
+public class FitnessService {
     private final FitnessRepository repository;
     private final FitnessMapper mapper;
 

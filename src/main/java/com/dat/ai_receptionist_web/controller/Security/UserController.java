@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Security;
 
 import com.dat.ai_receptionist_web.dto.Security.UserDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Security.UserCrudService;
+import com.dat.ai_receptionist_web.service.Security.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 public class UserController {
-    private final UserCrudService service;
+    private final UserService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).USER_READ.getCode())")

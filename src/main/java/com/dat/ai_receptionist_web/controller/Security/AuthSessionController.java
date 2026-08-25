@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Security;
 
 import com.dat.ai_receptionist_web.dto.Security.AuthSessionDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Security.AuthSessionCrudService;
+import com.dat.ai_receptionist_web.service.Security.AuthSessionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/auth-sessions")
 @RequiredArgsConstructor
 public class AuthSessionController {
-    private final AuthSessionCrudService service;
+    private final AuthSessionService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).AUTH_SESSION_READ.getCode())")

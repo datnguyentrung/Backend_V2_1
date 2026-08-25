@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Catalog;
 
 import com.dat.ai_receptionist_web.dto.Catalog.CoursePriceDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Catalog.CoursePriceCrudService;
+import com.dat.ai_receptionist_web.service.Catalog.CoursePriceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/course-prices")
 @RequiredArgsConstructor
 public class CoursePriceController {
-    private final CoursePriceCrudService service;
+    private final CoursePriceService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).COURSE_PRICE_READ.getCode())")

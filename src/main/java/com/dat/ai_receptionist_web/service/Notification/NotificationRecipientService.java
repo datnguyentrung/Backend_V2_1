@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class NotificationRecipientCrudService {
+public class NotificationRecipientService {
     private final NotificationRecipientRepository repository;
     private final NotificationRecipientMapper mapper;
     private final NotificationRepository notificationRepository;

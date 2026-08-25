@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Finance;
 
 import com.dat.ai_receptionist_web.dto.Finance.WalletTransactionDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Finance.WalletTransactionCrudService;
+import com.dat.ai_receptionist_web.service.Finance.WalletTransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/wallet-transactions")
 @RequiredArgsConstructor
 public class WalletTransactionController {
-    private final WalletTransactionCrudService service;
+    private final WalletTransactionService service;
 
     @GetMapping
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).WALLET_TRANSACTION_READ.getCode())")

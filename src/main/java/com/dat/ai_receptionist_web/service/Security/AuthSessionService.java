@@ -2,12 +2,16 @@ package com.dat.ai_receptionist_web.service.Security;
 
 import com.dat.ai_receptionist_web.domain.Core.UserPerson;
 import com.dat.ai_receptionist_web.domain.Security.*;
+import com.dat.ai_receptionist_web.dto.PageResponse;
+import com.dat.ai_receptionist_web.dto.Security.AuthSessionDTO;
 import com.dat.ai_receptionist_web.dto.Security.LoginRes;
+import com.dat.ai_receptionist_web.mapper.Security.AuthSessionMapper;
 import com.dat.ai_receptionist_web.repository.Core.UserPersonRepository;
 import com.dat.ai_receptionist_web.repository.Security.*;
 import com.dat.ai_receptionist_web.util.RefreshTokenUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,9 +24,61 @@ public class AuthSessionService {
     private final AuthSessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final UserPersonRepository userPersonRepository;
+    private final AuthSessionMapper authSessionMapper;
+
+    public AuthSessionService(AuthSessionRepository sessionRepository, UserRepository userRepository,
+                              UserPersonRepository userPersonRepository) {
+        this(sessionRepository, userRepository, userPersonRepository, new AuthSessionMapper());
+    }
 
     @Value("${jwt.refresh-token-validity-in-seconds}")
     private long refreshTokenValidity;
+
+    @Transactional(readOnly = true)
+    public PageResponse<AuthSessionDTO.Response> list(Pageable pageable) {
+        return PageResponse.of(sessionRepository.findAll(pageable), authSessionMapper::toResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public AuthSessionDTO.Response get(UUID id) {
+        return authSessionMapper.toResponse(find(id));
+    }
+
+    @Transactional
+    public AuthSessionDTO.Response create(AuthSessionDTO.CreateRequest request) {
+        AuthSession session = new AuthSession();
+        session.setUser(userRepository.findById(request.userId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found")));
+        session.setActiveUserPerson(request.activeUserPersonId() == null ? null
+                : userPersonRepository.findById(request.activeUserPersonId())
+                .orElseThrow(() -> new IllegalArgumentException("UserPerson not found")));
+        session.setRefreshTokenHash(request.refreshTokenHash());
+        session.setDeviceInfo(request.deviceInfo());
+        session.setPlatform(request.platform());
+        session.setFcmToken(request.fcmToken());
+        session.setExpiresAt(request.expiresAt());
+        session.setRevoked(request.revoked());
+        session.setRevokedAt(request.revokedAt());
+        session.setVersion(request.version());
+        return authSessionMapper.toResponse(sessionRepository.save(session));
+    }
+
+    @Transactional
+    public AuthSessionDTO.Response update(UUID id, AuthSessionDTO.UpdateRequest request) {
+        AuthSession session = find(id);
+        session.setUser(userRepository.findById(request.userId())
+                .orElseThrow(() -> new IllegalArgumentException("User not found")));
+        session.setActiveUserPerson(request.activeUserPersonId() == null ? null
+                : userPersonRepository.findById(request.activeUserPersonId())
+                .orElseThrow(() -> new IllegalArgumentException("UserPerson not found")));
+        authSessionMapper.updateEntity(request, session);
+        return authSessionMapper.toResponse(sessionRepository.save(session));
+    }
+
+    @Transactional
+    public void delete(UUID id) {
+        revoke(find(id));
+    }
 
     @Transactional
     public AuthSession create(UUID userId, String rawRefreshToken, String deviceInfo,
@@ -119,6 +175,11 @@ public class AuthSessionService {
             session.setRevoked(true);
             session.setRevokedAt(LocalDateTime.now());
         }
+    }
+
+    private AuthSession find(UUID id) {
+        return sessionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("AuthSession not found"));
     }
 
     private LoginRes.UserContextRes toContext(UserPerson value) {

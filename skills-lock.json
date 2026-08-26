@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "skills": {
+    "code-review": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/code-review/SKILL.md",
+      "computedHash": "591a274f7be02c24da6628b464b66be44c351adfccd7e8c12f550715c695e3fe"
+    },
+    "codebase-design": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/codebase-design/SKILL.md",
+      "computedHash": "caea3cb8a8281ff829fd1a2b985044e77601b62f301adf43f689ccfc74c15f6f"
+    },
+    "firebase-basics": {
+      "source": "firebase/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/firebase-basics/SKILL.md",
+      "computedHash": "6c40f96765c945a406244f2f020133c7cf4e7857be055f7420e2f9465e5b1e7e"
+    },
+    "improve-codebase-architecture": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
+      "computedHash": "016f12709bff30a27419e8add978a9be70f5ca1fb6738b3be6793038e0aba631"
+    },
+    "redis-connections": {
+      "source": "redis/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/redis-connections/SKILL.md",
+      "computedHash": "650825cfc353cff566cf04523e79932a43a9ef4774e795473ee224377602e495"
+    },
+    "redis-core": {
+      "source": "redis/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/redis-core/SKILL.md",
+      "computedHash": "cb71ae830f0e6431fc4696c2a0578d40840b2f3de84daa40cbe6275f16591ee0"
+    },
+    "senior-architect": {
+      "source": "alirezarezvani/claude-skills",
+      "sourceType": "github",
+      "skillPath": "engineering-team/skills/senior-architect/SKILL.md",
+      "computedHash": "2b463626bf730b21872768447388c18a4387a7a307e00013b696c0f15e5659e3"
+    },
+    "senior-backend": {
+      "source": "alirezarezvani/claude-skills",
+      "sourceType": "github",
+      "skillPath": "engineering-team/skills/senior-backend/SKILL.md",
+      "computedHash": "86dbafb23f7c101f59d8d3233522683baf0614141b4a02ba6dbfc4174b4867f6"
+    },
+    "senior-prompt-engineer": {
+      "source": "alirezarezvani/claude-skills",
+      "sourceType": "github",
+      "skillPath": "engineering-team/skills/senior-prompt-engineer/SKILL.md",
+      "computedHash": "09c11f243d8e01bc3c7d7a94c6a46daff7a1a349351b7aad223a00eace1914be"
+    }
+  }
+}

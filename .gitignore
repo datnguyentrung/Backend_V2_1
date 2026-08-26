@@ -40,6 +40,5 @@ build/
 .claude**
 .codex**
 .codegraph**
-skills-lock.json
 
 src/main/resources/serviceAccountKey.json

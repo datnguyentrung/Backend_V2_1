@@ -12,12 +12,52 @@ public final class WalletTransactionDTO {
     private WalletTransactionDTO() {
     }
 
-    public record CreateRequest(@NotNull UUID walletId, @NotNull UUID createdByUserId, @NotNull UUID approvedByUserId, @NotNull WalletTransactionType type, @NotNull WalletTransactionDirection direction, @NotNull BigDecimal amount, @NotNull BigDecimal balanceBefore, @NotNull BigDecimal balanceAfter, @NotNull String externalReference, @NotNull LocalDateTime approvedAt, @NotNull String note, @NotNull WalletTransactionStatus status) {
+    public record CreateRequest(
+            @NotNull UUID walletId,                                 // ID của ví liên quan đến giao dịch
+            @NotNull UUID createdByUserId,                          // ID của người dùng tạo giao dịch
+            UUID approvedByUserId,                         // ID của người dùng phê duyệt giao dịch
+            @NotNull WalletTransactionType type,                    // Loại giao dịch (ví dụ: nạp tiền, rút tiền, mua khóa học)
+            @NotNull WalletTransactionDirection direction,          // Hướng giao dịch (ví dụ: vào ví, ra khỏi ví)
+            @NotNull BigDecimal amount,                             // Số tiền liên quan đến giao dịch
+            @NotNull BigDecimal balanceBefore,                      // Số dư trước khi giao dịch được thực hiện
+            @NotNull BigDecimal balanceAfter,                       // Số dư sau khi giao dịch được thực hiện
+            @NotNull String externalReference,                      // Tham chiếu bên ngoài liên quan đến giao dịch (ví dụ: mã giao dịch từ hệ thống thanh toán)
+            @NotNull LocalDateTime approvedAt,                      // Thời gian phê duyệt giao dịch
+            @NotNull String note                                    // Ghi chú hoặc mô tả liên quan đến giao dịch
+    ) {
     }
 
-    public record UpdateRequest(@NotNull UUID walletId, @NotNull UUID createdByUserId, @NotNull UUID approvedByUserId, @NotNull WalletTransactionType type, @NotNull WalletTransactionDirection direction, @NotNull BigDecimal amount, @NotNull BigDecimal balanceBefore, @NotNull BigDecimal balanceAfter, @NotNull String externalReference, @NotNull LocalDateTime approvedAt, @NotNull String note, @NotNull WalletTransactionStatus status) {
+    public record UpdateRequest(
+            @NotNull UUID walletId,                                 // ID của ví liên quan đến giao dịch
+            @NotNull UUID createdByUserId,                          // ID của người dùng tạo giao dịch
+            UUID approvedByUserId,                         // ID của người dùng phê duyệt giao dịch
+            @NotNull WalletTransactionType type,                    // Loại giao dịch (ví dụ: nạp tiền, rút tiền, mua khóa học)
+            @NotNull WalletTransactionDirection direction,          // Hướng giao dịch (ví dụ: vào ví, ra khỏi ví)
+            @NotNull BigDecimal amount,                             // Số tiền liên quan đến giao dịch
+            @NotNull BigDecimal balanceBefore,                      // Số dư trước khi giao dịch được thực hiện
+            @NotNull BigDecimal balanceAfter,                       // Số dư sau khi giao dịch được thực hiện
+            @NotNull String externalReference,                      // Tham chiếu bên ngoài liên quan đến giao dịch (ví dụ: mã giao dịch từ hệ thống thanh toán)
+            @NotNull LocalDateTime approvedAt,                      // Thời gian phê duyệt giao dịch
+            @NotNull String note,                                   // Ghi chú hoặc mô tả liên quan đến giao dịch
+            @NotNull WalletTransactionStatus status                 // Trạng thái của giao dịch (ví dụ: đang chờ, đã phê duyệt, đã từ chối)
+    ) {
     }
 
-    public record Response(UUID walletTransactionId, UUID walletId, UUID createdByUserId, UUID approvedByUserId, WalletTransactionType type, WalletTransactionDirection direction, BigDecimal amount, BigDecimal balanceBefore, BigDecimal balanceAfter, String externalReference, LocalDateTime approvedAt, String note, WalletTransactionStatus status, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public record Response(
+            UUID walletTransactionId,
+            UUID walletId,
+            UUID createdByUserId,
+            UUID approvedByUserId,
+            WalletTransactionType type,
+            WalletTransactionDirection direction,
+            BigDecimal amount,
+            BigDecimal balanceBefore,
+            BigDecimal balanceAfter,
+            String externalReference,
+            LocalDateTime approvedAt,
+            String note,
+            WalletTransactionStatus status,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt) {
     }
 }

@@ -9,12 +9,30 @@ public final class UserPersonDTO {
     private UserPersonDTO() {
     }
 
-    public record CreateRequest(@NotNull UUID userId, @NotNull UUID personId, @NotNull RelationshipType relationshipType, boolean active) {
+    public record CreateRequest(
+            @NotNull UUID userId,
+            @NotNull UUID personId,
+            @NotNull RelationshipType relationshipType,
+            boolean active
+    ) {
     }
 
-    public record UpdateRequest(@NotNull UUID userId, @NotNull UUID personId, @NotNull RelationshipType relationshipType, boolean active) {
+    public record UpdateRequest(
+            @NotNull UUID userId,
+            @NotNull UUID personId,
+            @NotNull RelationshipType relationshipType,
+            boolean active
+    ) {
     }
 
-    public record Response(UUID userPersonId, UUID userId, UUID personId, RelationshipType relationshipType, boolean active, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public record Response(
+            UUID userPersonId,
+            UUID userId,
+            UUID personId,
+            RelationshipType relationshipType,
+            boolean active,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt
+    ) {
     }
 }

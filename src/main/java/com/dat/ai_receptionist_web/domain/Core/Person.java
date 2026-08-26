@@ -3,6 +3,7 @@ package com.dat.ai_receptionist_web.domain.Core;
 import com.dat.ai_receptionist_web.enums.Core.Belt;
 import com.dat.ai_receptionist_web.enums.Core.PersonStatus;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
 import lombok.*;
 import org.hibernate.annotations.Array;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -45,6 +46,7 @@ public class Person {
     private LocalDate birthDate;
 
     @Column(name = "email", length = 100)
+    @Email
     private String email;
 
     @Column(name = "national_code", length = 50)

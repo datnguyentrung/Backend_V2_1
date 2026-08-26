@@ -1,14 +1,21 @@
 package com.dat.ai_receptionist_web.service.Security;
 
+import com.dat.ai_receptionist_web.domain.Core.Person;
 import com.dat.ai_receptionist_web.domain.Security.User;
+import com.dat.ai_receptionist_web.dto.Core.PersonDTO;
+import com.dat.ai_receptionist_web.dto.Core.UserPersonDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.dto.Security.ChangePasswordReq;
 import com.dat.ai_receptionist_web.dto.Security.UserDTO;
 import com.dat.ai_receptionist_web.enums.Security.UserStatus;
 import com.dat.ai_receptionist_web.error.ApiException;
+import com.dat.ai_receptionist_web.error.code.CoreErrorCode;
 import com.dat.ai_receptionist_web.error.code.SecurityErrorCode;
 import com.dat.ai_receptionist_web.mapper.Security.UserMapper;
+import com.dat.ai_receptionist_web.repository.Core.PersonRepository;
 import com.dat.ai_receptionist_web.repository.Security.UserRepository;
+import com.dat.ai_receptionist_web.service.Core.PersonService;
+import com.dat.ai_receptionist_web.service.Core.UserPersonService;
 import com.dat.ai_receptionist_web.util.PhoneNumberUtil;
 import com.dat.ai_receptionist_web.error.*;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +31,10 @@ import java.util.UUID;
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PersonRepository personRepository;
     private final UserMapper userMapper;
+    private final UserPersonService userPersonService;
+    private final PersonService personService;
 
     /**
      * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
@@ -53,13 +63,30 @@ public class UserService {
      */
     @Transactional
     public UserDTO.Response create(UserDTO.CreateRequest request) {
-        User user = new User();
-        user.setPhoneNumber(request.phoneNumber());
-        user.setPasswordHash(request.passwordHash());
-        user.setStatus(request.status());
-        user.setAuthorizationVersion(request.authorizationVersion());
-        user.setLastLoginAt(request.lastLoginAt());
-        return userMapper.toResponse(userRepository.save(user));
+        UUID personId;
+
+        if (request.personId() != null) {
+            personId = request.personId();
+
+            if (!personRepository.existsById(personId)) {
+                throw new ApiException(CoreErrorCode.PERSON_NOT_FOUND);
+            }
+        } else {
+            personId = personService.create(request.person()).personId();
+        }
+
+        User user = createLoginUser(request.phoneNumber(), request.passwordHash());
+
+        userPersonService.create(
+                new UserPersonDTO.CreateRequest(
+                        user.getUserId(),
+                        personId,
+                        request.relationshipType(),
+                        true
+                )
+        );
+
+        return userMapper.toResponse(user);
     }
 
     /**
@@ -134,7 +161,7 @@ public class UserService {
                 .phoneNumber(normalized)
                 .passwordHash(passwordEncoder.encode(rawPassword))
                 .status(UserStatus.ACTIVE)
-                .authorizationVersion(0)
+                .authorizationVersion(0L)
                 .build());
     }
 

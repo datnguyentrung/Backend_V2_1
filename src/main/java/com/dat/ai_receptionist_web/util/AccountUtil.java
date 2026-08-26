@@ -46,17 +46,4 @@ public class AccountUtil {
         // Kết quả: "VQ_" + "dat" + "nt" + "_" + "311005"
         return prefix + "_" + firstName + initials + "_" + birthDateStr;
     }
-
-    public static String getRoleKey(Role role) {
-        String roleCode = role.getCode();
-
-        // Cần Java 21 (hoặc Java 17-20 bật chế độ preview)
-        return switch (roleCode) {
-            case String s when s.contains("STUDENT") -> "S";
-            case String s when s.contains("COACH") -> "C";
-            case String s when s.contains("ASSISTANT") -> "A";
-            case String s when s.contains("ADMIN") -> "D";
-            case null, default -> "N"; // Xử lý null và trường hợp còn lại
-        };
-    }
 }

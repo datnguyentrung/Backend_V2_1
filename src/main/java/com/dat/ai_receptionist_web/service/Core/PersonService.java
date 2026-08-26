@@ -11,6 +11,7 @@ import com.dat.ai_receptionist_web.error.code.CoreErrorCode;
 import com.dat.ai_receptionist_web.mapper.Core.PersonMapper;
 import com.dat.ai_receptionist_web.repository.Core.PersonRepository;
 import com.dat.ai_receptionist_web.repository.Finance.WalletRepository;
+import com.dat.ai_receptionist_web.util.AccountUtil;
 import com.dat.ai_receptionist_web.util.converter.NameConverter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -38,7 +39,7 @@ public class PersonService {
             throw new ApiException(
                     CoreErrorCode.NATIONAL_CODE_ALREADY_EXISTS);
         }
-        if (personRepository.existsByPersonCode(request.personCode())) {
+        if (personRepository.existsByPersonCode(AccountUtil.getUserCode(request.fullName(), request.birthDate(), "VQ"))) {
             throw new ApiException(
                     CoreErrorCode.PERSON_CODE_ALREADY_EXISTS);
         }
@@ -48,7 +49,7 @@ public class PersonService {
                 .birthDate(request.birthDate())
                 .email(request.email())
                 .nationalCode(request.nationalCode())
-                .personCode(request.personCode().trim().toUpperCase())
+                .personCode(AccountUtil.getUserCode(request.fullName(), request.birthDate(), "VQ"))
                 .belt(request.belt())
                 .status(request.status())
                 .startDate(request.startDate())

@@ -55,7 +55,6 @@ public class WalletTransactionService {
         WalletTransaction entity = new WalletTransaction();
         entity.setWallet(walletRepository.findById(request.walletId()).orElseThrow(() -> new ApiException(FinanceErrorCode.WALLET_NOT_FOUND)));
         entity.setCreatedByUser(userRepository.findById(request.createdByUserId()).orElseThrow(() -> new ApiException(SecurityErrorCode.USER_NOT_FOUND)));
-        entity.setApprovedByUser(userRepository.findById(request.approvedByUserId()).orElseThrow(() -> new ApiException(SecurityErrorCode.USER_NOT_FOUND)));
         entity.setType(request.type());
         entity.setDirection(request.direction());
         entity.setAmount(request.amount());
@@ -64,7 +63,7 @@ public class WalletTransactionService {
         entity.setExternalReference(request.externalReference());
         entity.setApprovedAt(request.approvedAt());
         entity.setNote(request.note());
-        entity.setStatus(request.status());
+        entity.setStatus(WalletTransactionStatus.PENDING);
         return mapper.toResponse(repository.save(entity));
     }
 
@@ -78,7 +77,10 @@ public class WalletTransactionService {
         var entity = find(id);
         entity.setWallet(walletRepository.findById(request.walletId()).orElseThrow(() -> new ApiException(FinanceErrorCode.WALLET_NOT_FOUND)));
         entity.setCreatedByUser(userRepository.findById(request.createdByUserId()).orElseThrow(() -> new ApiException(SecurityErrorCode.USER_NOT_FOUND)));
-        entity.setApprovedByUser(userRepository.findById(request.approvedByUserId()).orElseThrow(() -> new ApiException(SecurityErrorCode.USER_NOT_FOUND)));
+
+        if (request.approvedByUserId() != null && (request.status() != null && request.status() != WalletTransactionStatus.PENDING)) {
+            entity.setApprovedByUser(userRepository.findById(request.approvedByUserId()).orElseThrow(() -> new ApiException(SecurityErrorCode.USER_NOT_FOUND)));
+        }
         mapper.updateEntity(request, entity);
         return mapper.toResponse(repository.save(entity));
     }

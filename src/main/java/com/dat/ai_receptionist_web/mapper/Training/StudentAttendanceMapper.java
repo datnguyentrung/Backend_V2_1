@@ -2,19 +2,25 @@ package com.dat.ai_receptionist_web.mapper.Training;
 
 import com.dat.ai_receptionist_web.domain.Training.StudentAttendance;
 import com.dat.ai_receptionist_web.dto.Training.StudentAttendanceDTO;
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
-@Component
-public class StudentAttendanceMapper {
-    public StudentAttendanceDTO.Response toResponse(StudentAttendance entity) {
-        if (entity == null) return null;
-        return new StudentAttendanceDTO.Response(entity.getStudentAttendanceId(), entity.getClassSession() == null ? null : entity.getClassSession().getClassSessionId(), entity.getStudentEnrollment() == null ? null : entity.getStudentEnrollment().getStudentEnrollmentId(), entity.getEvaluatedByCoach() == null ? null : entity.getEvaluatedByCoach().getPersonId(), entity.getCheckInTime(), entity.getAttendanceStatus(), entity.getEvaluationStatus(), entity.getNote(), entity.getCreatedAt(), entity.getUpdatedAt());
-    }
+@Mapper(componentModel = "spring")
+public interface StudentAttendanceMapper {
+    @Mapping(target = "classSessionId", source = "classSession.classSessionId")
+    @Mapping(target = "studentEnrollmentId", source = "studentEnrollment.studentEnrollmentId")
+    @Mapping(target = "evaluatedByCoachId", source = "evaluatedByCoach.personId")
+    StudentAttendanceDTO.Response toResponse(StudentAttendance entity);
 
-    public void updateEntity(StudentAttendanceDTO.UpdateRequest request, StudentAttendance entity) {
-        entity.setCheckInTime(request.checkInTime());
-        entity.setAttendanceStatus(request.attendanceStatus());
-        entity.setEvaluationStatus(request.evaluationStatus());
-        entity.setNote(request.note());
-    }
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "classSession", ignore = true)
+    @Mapping(target = "studentEnrollment", ignore = true)
+    @Mapping(target = "evaluatedByCoach", ignore = true)
+    @Mapping(target = "checkInTime", source = "checkInTime")
+    @Mapping(target = "attendanceStatus", source = "attendanceStatus")
+    @Mapping(target = "evaluationStatus", source = "evaluationStatus")
+    @Mapping(target = "note", source = "note")
+    void updateEntity(StudentAttendanceDTO.UpdateRequest request, @MappingTarget StudentAttendance entity);
 }

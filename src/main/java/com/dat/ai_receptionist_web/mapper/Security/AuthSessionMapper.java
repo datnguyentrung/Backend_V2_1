@@ -2,23 +2,27 @@ package com.dat.ai_receptionist_web.mapper.Security;
 
 import com.dat.ai_receptionist_web.domain.Security.AuthSession;
 import com.dat.ai_receptionist_web.dto.Security.AuthSessionDTO;
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
-@Component
-public class AuthSessionMapper {
-    public AuthSessionDTO.Response toResponse(AuthSession entity) {
-        if (entity == null) return null;
-        return new AuthSessionDTO.Response(entity.getAuthSessionId(), entity.getUser() == null ? null : entity.getUser().getUserId(), entity.getActiveUserPerson() == null ? null : entity.getActiveUserPerson().getUserPersonId(), entity.getRefreshTokenHash(), entity.getDeviceInfo(), entity.getPlatform(), entity.getFcmToken(), entity.getExpiresAt(), entity.isRevoked(), entity.getRevokedAt(), entity.getVersion(), entity.getCreatedAt(), entity.getUpdatedAt());
-    }
+@Mapper(componentModel = "spring")
+public interface AuthSessionMapper {
+    @Mapping(target = "userId", source = "user.userId")
+    @Mapping(target = "activeUserPersonId", source = "activeUserPerson.userPersonId")
+    AuthSessionDTO.Response toResponse(AuthSession entity);
 
-    public void updateEntity(AuthSessionDTO.UpdateRequest request, AuthSession entity) {
-        entity.setRefreshTokenHash(request.refreshTokenHash());
-        entity.setDeviceInfo(request.deviceInfo());
-        entity.setPlatform(request.platform());
-        entity.setFcmToken(request.fcmToken());
-        entity.setExpiresAt(request.expiresAt());
-        entity.setRevoked(request.revoked());
-        entity.setRevokedAt(request.revokedAt());
-        entity.setVersion(request.version());
-    }
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "user", ignore = true)
+    @Mapping(target = "activeUserPerson", ignore = true)
+    @Mapping(target = "refreshTokenHash", source = "refreshTokenHash")
+    @Mapping(target = "deviceInfo", source = "deviceInfo")
+    @Mapping(target = "platform", source = "platform")
+    @Mapping(target = "fcmToken", source = "fcmToken")
+    @Mapping(target = "expiresAt", source = "expiresAt")
+    @Mapping(target = "revoked", source = "revoked")
+    @Mapping(target = "revokedAt", source = "revokedAt")
+    @Mapping(target = "version", source = "version")
+    void updateEntity(AuthSessionDTO.UpdateRequest request, @MappingTarget AuthSession entity);
 }

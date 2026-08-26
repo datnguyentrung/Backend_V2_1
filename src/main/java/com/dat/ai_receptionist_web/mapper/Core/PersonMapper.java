@@ -2,25 +2,26 @@ package com.dat.ai_receptionist_web.mapper.Core;
 
 import com.dat.ai_receptionist_web.domain.Core.Person;
 import com.dat.ai_receptionist_web.dto.Core.PersonDTO;
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
-@Component
-public class PersonMapper {
-    public PersonDTO.Response toResponse(Person entity) {
-        if (entity == null) return null;
-        return new PersonDTO.Response(entity.getPersonId(), entity.getFullName(), entity.getGender(), entity.getBirthDate(), entity.getEmail(), entity.getNationalCode(), entity.getPersonCode(), entity.getBelt(), entity.getStatus(), entity.getStartDate(), entity.getFaceImagePath(), entity.getCreatedAt(), entity.getUpdatedAt());
-    }
+@Mapper(componentModel = "spring")
+public interface PersonMapper {
+    @Mapping(target = "personId", source = "personId")
+    PersonDTO.Response toResponse(Person entity);
 
-    public void updateEntity(PersonDTO.UpdateRequest request, Person entity) {
-        entity.setFullName(request.fullName());
-        entity.setGender(request.gender());
-        entity.setBirthDate(request.birthDate());
-        entity.setEmail(request.email());
-        entity.setNationalCode(request.nationalCode());
-        entity.setFaceImagePath(request.faceImagePath());
-        entity.setPersonCode(request.personCode());
-        entity.setBelt(request.belt());
-        entity.setStatus(request.status());
-        entity.setStartDate(request.startDate());
-    }
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "fullName", source = "fullName")
+    @Mapping(target = "gender", source = "gender")
+    @Mapping(target = "birthDate", source = "birthDate")
+    @Mapping(target = "email", source = "email")
+    @Mapping(target = "nationalCode", source = "nationalCode")
+    @Mapping(target = "faceImagePath", source = "faceImagePath")
+    @Mapping(target = "personCode", source = "personCode")
+    @Mapping(target = "belt", source = "belt")
+    @Mapping(target = "status", source = "status")
+    @Mapping(target = "startDate", source = "startDate")
+    void updateEntity(PersonDTO.UpdateRequest request, @MappingTarget Person entity);
 }

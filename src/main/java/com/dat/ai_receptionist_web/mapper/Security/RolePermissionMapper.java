@@ -2,12 +2,13 @@ package com.dat.ai_receptionist_web.mapper.Security;
 
 import com.dat.ai_receptionist_web.domain.Security.RolePermission;
 import com.dat.ai_receptionist_web.dto.Security.RolePermissionDTO;
-import org.springframework.stereotype.Component;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 
-@Component
-public class RolePermissionMapper {
-    public RolePermissionDTO.ItemResponse toResponse(RolePermission entity) {
-        if (entity == null) return null;
-        return new RolePermissionDTO.ItemResponse(entity.getRole().getCode(), entity.getPermission().getPermissionId(), entity.getPermission().getCode());
-    }
+@Mapper(componentModel = "spring")
+public interface RolePermissionMapper {
+    @Mapping(target = "roleCode", source = "role.code")
+    @Mapping(target = "permissionId", source = "permission.permissionId")
+    @Mapping(target = "permissionCode", source = "permission.code")
+    RolePermissionDTO.ItemResponse toResponse(RolePermission entity);
 }

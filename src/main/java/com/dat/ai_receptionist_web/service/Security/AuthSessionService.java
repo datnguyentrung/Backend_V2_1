@@ -10,6 +10,7 @@ import com.dat.ai_receptionist_web.repository.Core.UserPersonRepository;
 import com.dat.ai_receptionist_web.repository.Security.*;
 import com.dat.ai_receptionist_web.util.RefreshTokenUtil;
 import lombok.RequiredArgsConstructor;
+import org.mapstruct.factory.Mappers;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -25,11 +26,6 @@ public class AuthSessionService {
     private final UserRepository userRepository;
     private final UserPersonRepository userPersonRepository;
     private final AuthSessionMapper authSessionMapper;
-
-    public AuthSessionService(AuthSessionRepository sessionRepository, UserRepository userRepository,
-                              UserPersonRepository userPersonRepository) {
-        this(sessionRepository, userRepository, userPersonRepository, new AuthSessionMapper());
-    }
 
     @Value("${jwt.refresh-token-validity-in-seconds}")
     private long refreshTokenValidity;

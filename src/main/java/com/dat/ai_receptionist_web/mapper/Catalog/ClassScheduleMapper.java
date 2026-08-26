@@ -2,21 +2,23 @@ package com.dat.ai_receptionist_web.mapper.Catalog;
 
 import com.dat.ai_receptionist_web.domain.Catalog.ClassSchedule;
 import com.dat.ai_receptionist_web.dto.Catalog.ClassScheduleDTO;
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
-@Component
-public class ClassScheduleMapper {
-    public ClassScheduleDTO.Response toResponse(ClassSchedule entity) {
-        if (entity == null) return null;
-        return new ClassScheduleDTO.Response(entity.getScheduleId(), entity.getBranch() == null ? null : entity.getBranch().getBranchId(), entity.getWeekday(), entity.getLevel(), entity.getLocation(), entity.getStatus(), entity.getStartTime(), entity.getEndTime());
-    }
+@Mapper(componentModel = "spring")
+public interface ClassScheduleMapper {
+    @Mapping(target = "branchId", source = "branch.branchId")
+    ClassScheduleDTO.Response toResponse(ClassSchedule entity);
 
-    public void updateEntity(ClassScheduleDTO.UpdateRequest request, ClassSchedule entity) {
-        entity.setWeekday(request.weekday());
-        entity.setLevel(request.level());
-        entity.setLocation(request.location());
-        entity.setStatus(request.status());
-        entity.setStartTime(request.startTime());
-        entity.setEndTime(request.endTime());
-    }
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "branch", ignore = true)
+    @Mapping(target = "weekday", source = "weekday")
+    @Mapping(target = "level", source = "level")
+    @Mapping(target = "location", source = "location")
+    @Mapping(target = "status", source = "status")
+    @Mapping(target = "startTime", source = "startTime")
+    @Mapping(target = "endTime", source = "endTime")
+    void updateEntity(ClassScheduleDTO.UpdateRequest request, @MappingTarget ClassSchedule entity);
 }

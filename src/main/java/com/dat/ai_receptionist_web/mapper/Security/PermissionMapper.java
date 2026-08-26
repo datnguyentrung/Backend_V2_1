@@ -2,19 +2,20 @@ package com.dat.ai_receptionist_web.mapper.Security;
 
 import com.dat.ai_receptionist_web.domain.Security.Permission;
 import com.dat.ai_receptionist_web.dto.Security.PermissionDTO;
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
-@Component
-public class PermissionMapper {
-    public PermissionDTO.Response toResponse(Permission entity) {
-        if (entity == null) return null;
-        return new PermissionDTO.Response(entity.getPermissionId(), entity.getCode(), entity.getModel(), entity.getAction(), entity.getDescription());
-    }
+@Mapper(componentModel = "spring")
+public interface PermissionMapper {
+    @Mapping(target = "permissionId", source = "permissionId")
+    PermissionDTO.Response toResponse(Permission entity);
 
-    public void updateEntity(PermissionDTO.UpdateRequest request, Permission entity) {
-        entity.setCode(request.code());
-        entity.setModel(request.model());
-        entity.setAction(request.action());
-        entity.setDescription(request.description());
-    }
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "code", source = "code")
+    @Mapping(target = "model", source = "model")
+    @Mapping(target = "action", source = "action")
+    @Mapping(target = "description", source = "description")
+    void updateEntity(PermissionDTO.UpdateRequest request, @MappingTarget Permission entity);
 }

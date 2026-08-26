@@ -2,19 +2,23 @@ package com.dat.ai_receptionist_web.mapper.Training;
 
 import com.dat.ai_receptionist_web.domain.Training.CoachAssignment;
 import com.dat.ai_receptionist_web.dto.Training.CoachAssignmentDTO;
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
-@Component
-public class CoachAssignmentMapper {
-    public CoachAssignmentDTO.Response toResponse(CoachAssignment entity) {
-        if (entity == null) return null;
-        return new CoachAssignmentDTO.Response(entity.getCoachAssignmentId(), entity.getCoach() == null ? null : entity.getCoach().getPersonId(), entity.getCourse() == null ? null : entity.getCourse().getCourseId(), entity.getAssignedDate(), entity.getEndDate(), entity.getCoachAssignmentStatus(), entity.getNote(), entity.getCreatedAt(), entity.getUpdatedAt());
-    }
+@Mapper(componentModel = "spring")
+public interface CoachAssignmentMapper {
+    @Mapping(target = "coachId", source = "coach.personId")
+    @Mapping(target = "courseId", source = "course.courseId")
+    CoachAssignmentDTO.Response toResponse(CoachAssignment entity);
 
-    public void updateEntity(CoachAssignmentDTO.UpdateRequest request, CoachAssignment entity) {
-        entity.setAssignedDate(request.assignedDate());
-        entity.setEndDate(request.endDate());
-        entity.setCoachAssignmentStatus(request.coachAssignmentStatus());
-        entity.setNote(request.note());
-    }
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "coach", ignore = true)
+    @Mapping(target = "course", ignore = true)
+    @Mapping(target = "assignedDate", source = "assignedDate")
+    @Mapping(target = "endDate", source = "endDate")
+    @Mapping(target = "coachAssignmentStatus", source = "coachAssignmentStatus")
+    @Mapping(target = "note", source = "note")
+    void updateEntity(CoachAssignmentDTO.UpdateRequest request, @MappingTarget CoachAssignment entity);
 }

@@ -26,4 +26,13 @@ public interface PermissionRepository extends JpaRepository<Permission, Integer>
 
     @Query("select p.code from Permission p")
     Set<String> findAllCodes();
+
+    long deleteAllByCodeIn(List<String> obsoleteCodes);
+
+    @Modifying
+    @Query("""
+        DELETE FROM Permission p
+        WHERE p.code IN :codes
+    """)
+    int deleteByCodes(Set<String> obsoleteCodes);
 }

@@ -2,17 +2,19 @@ package com.dat.ai_receptionist_web.mapper.Finance;
 
 import com.dat.ai_receptionist_web.domain.Finance.Wallet;
 import com.dat.ai_receptionist_web.dto.Finance.WalletDTO;
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
-@Component
-public class WalletMapper {
-    public WalletDTO.Response toResponse(Wallet entity) {
-        if (entity == null) return null;
-        return new WalletDTO.Response(entity.getWalletId(), entity.getPerson() == null ? null : entity.getPerson().getPersonId(), entity.getBalance(), entity.getStatus(), entity.getCreatedAt(), entity.getUpdatedAt());
-    }
+@Mapper(componentModel = "spring")
+public interface WalletMapper {
+    @Mapping(target = "personId", source = "person.personId")
+    WalletDTO.Response toResponse(Wallet entity);
 
-    public void updateEntity(WalletDTO.UpdateRequest request, Wallet entity) {
-        entity.setBalance(request.balance());
-        entity.setStatus(request.status());
-    }
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "person", ignore = true)
+    @Mapping(target = "balance", source = "balance")
+    @Mapping(target = "status", source = "status")
+    void updateEntity(WalletDTO.UpdateRequest request, @MappingTarget Wallet entity);
 }

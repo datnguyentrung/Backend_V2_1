@@ -2,20 +2,22 @@ package com.dat.ai_receptionist_web.mapper.Catalog;
 
 import com.dat.ai_receptionist_web.domain.Catalog.CoursePrice;
 import com.dat.ai_receptionist_web.dto.Catalog.CoursePriceDTO;
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
-@Component
-public class CoursePriceMapper {
-    public CoursePriceDTO.Response toResponse(CoursePrice entity) {
-        if (entity == null) return null;
-        return new CoursePriceDTO.Response(entity.getCoursePriceId(), entity.getCourse() == null ? null : entity.getCourse().getCourseId(), entity.getDurationMonths(), entity.getSessionCount(), entity.getBasePrice(), entity.getFinalPrice(), entity.getStatus());
-    }
+@Mapper(componentModel = "spring")
+public interface CoursePriceMapper {
+    @Mapping(target = "courseId", source = "course.courseId")
+    CoursePriceDTO.Response toResponse(CoursePrice entity);
 
-    public void updateEntity(CoursePriceDTO.UpdateRequest request, CoursePrice entity) {
-        entity.setDurationMonths(request.durationMonths());
-        entity.setSessionCount(request.sessionCount());
-        entity.setBasePrice(request.basePrice());
-        entity.setFinalPrice(request.finalPrice());
-        entity.setStatus(request.status());
-    }
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "course", ignore = true)
+    @Mapping(target = "durationMonths", source = "durationMonths")
+    @Mapping(target = "sessionCount", source = "sessionCount")
+    @Mapping(target = "basePrice", source = "basePrice")
+    @Mapping(target = "finalPrice", source = "finalPrice")
+    @Mapping(target = "status", source = "status")
+    void updateEntity(CoursePriceDTO.UpdateRequest request, @MappingTarget CoursePrice entity);
 }

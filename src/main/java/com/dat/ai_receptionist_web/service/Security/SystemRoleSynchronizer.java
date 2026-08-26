@@ -12,6 +12,11 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -24,22 +29,63 @@ public class SystemRoleSynchronizer implements ApplicationRunner {
     @Transactional
     public void run(@NonNull ApplicationArguments args) {
 
-        for (SystemRoleDefinition definition
-                : SystemRoleDefinition.values()) {
+        Map<String, Role> existingRoles =
+                roleRepository.findAll().stream()
+                        .collect(Collectors.toMap(
+                                Role::getCode,
+                                Function.identity()
+                        ));
 
-            Role role = roleRepository
-                    .findById(definition.getCode())
-                    .orElseGet(() -> new Role(
-                            definition.getCode(),
-                            definition.getName(),
-                            definition.getDescription(),
-                            0L
-                    ));
+        int inserted = 0;
+        int updated = 0;
 
-            role.setName(definition.getName());
-            role.setDescription(definition.getDescription());
+        for (SystemRoleDefinition definition : SystemRoleDefinition.values()) {
 
-            roleRepository.save(role);
+            Role role = existingRoles.get(definition.getCode());
+
+            // Role chưa tồn tại -> tạo mới
+            if (role == null) {
+                roleRepository.save(
+                        new Role(
+                                definition.getCode(),
+                                definition.getName(),
+                                definition.getDescription(),
+                                0L
+                        )
+                );
+
+                inserted++;
+                continue;
+            }
+
+            // Role tồn tại -> chỉ sửa nếu metadata thay đổi
+            boolean changed = false;
+
+            if (!Objects.equals(role.getName(), definition.getName())) {
+                role.setName(definition.getName());
+                changed = true;
+            }
+
+            if (!Objects.equals(
+                    role.getDescription(),
+                    definition.getDescription()
+            )) {
+                role.setDescription(definition.getDescription());
+                changed = true;
+            }
+
+            if (changed) {
+                // Không cần save(role)
+                // Entity đang managed -> Hibernate dirty checking tự UPDATE
+                updated++;
+            }
         }
+
+        log.info(
+                "System role sync completed: total={}, inserted={}, updated={}",
+                SystemRoleDefinition.values().length,
+                inserted,
+                updated
+        );
     }
 }

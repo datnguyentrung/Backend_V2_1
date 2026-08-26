@@ -2,18 +2,22 @@ package com.dat.ai_receptionist_web.mapper.Training;
 
 import com.dat.ai_receptionist_web.domain.Training.CoachTimesheet;
 import com.dat.ai_receptionist_web.dto.Training.CoachTimesheetDTO;
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
-@Component
-public class CoachTimesheetMapper {
-    public CoachTimesheetDTO.Response toResponse(CoachTimesheet entity) {
-        if (entity == null) return null;
-        return new CoachTimesheetDTO.Response(entity.getCoachTimesheetId(), entity.getCoachAssignment() == null ? null : entity.getCoachAssignment().getCoachAssignmentId(), entity.getClassSession() == null ? null : entity.getClassSession().getClassSessionId(), entity.getCheckInTime(), entity.getCheckOutTime(), entity.getNote(), entity.getCreatedAt(), entity.getUpdatedAt());
-    }
+@Mapper(componentModel = "spring")
+public interface CoachTimesheetMapper {
+    @Mapping(target = "coachAssignmentId", source = "coachAssignment.coachAssignmentId")
+    @Mapping(target = "classSessionId", source = "classSession.classSessionId")
+    CoachTimesheetDTO.Response toResponse(CoachTimesheet entity);
 
-    public void updateEntity(CoachTimesheetDTO.UpdateRequest request, CoachTimesheet entity) {
-        entity.setCheckInTime(request.checkInTime());
-        entity.setCheckOutTime(request.checkOutTime());
-        entity.setNote(request.note());
-    }
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "coachAssignment", ignore = true)
+    @Mapping(target = "classSession", ignore = true)
+    @Mapping(target = "checkInTime", source = "checkInTime")
+    @Mapping(target = "checkOutTime", source = "checkOutTime")
+    @Mapping(target = "note", source = "note")
+    void updateEntity(CoachTimesheetDTO.UpdateRequest request, @MappingTarget CoachTimesheet entity);
 }

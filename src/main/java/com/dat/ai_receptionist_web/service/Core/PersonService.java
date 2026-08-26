@@ -26,10 +26,6 @@ public class PersonService {
     private final WalletRepository walletRepository;
     private final PersonMapper personMapper;
 
-    public PersonService(PersonRepository personRepository, WalletRepository walletRepository) {
-        this(personRepository, walletRepository, new PersonMapper());
-    }
-
     @Transactional
     public PersonDTO.Response create(PersonDTO.CreateRequest request) {
         if (request.nationalCode() != null && personRepository.existsByNationalCode(request.nationalCode())) {

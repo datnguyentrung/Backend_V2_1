@@ -2,33 +2,26 @@ package com.dat.ai_receptionist_web.mapper.Security;
 
 import com.dat.ai_receptionist_web.domain.Security.Role;
 import com.dat.ai_receptionist_web.dto.Security.RoleDTO;
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
-@Component
-public class RoleMapper {
-    public Role toEntity(RoleDTO.CreateRequest request) {
-        Role role = new Role();
-        role.setCode(request.code());
-        role.setName(request.name());
-        role.setDescription(request.description());
-        role.setPermissionVersion(request.permissionVersion());
-        return role;
-    }
+@Mapper(componentModel = "spring")
+public interface RoleMapper {
+    @Mapping(target = "code", source = "code")
+    Role toEntity(RoleDTO.CreateRequest request);
 
-    public Role toEntity(RoleDTO.UpdateRequest request) {
-        Role role = new Role();
-        updateEntity(request, role);
-        return role;
-    }
+    @Mapping(target = "code", ignore = true)
+    Role toEntity(RoleDTO.UpdateRequest request);
 
-    public RoleDTO.Response toResponse(Role entity) {
-        if (entity == null) return null;
-        return new RoleDTO.Response(entity.getCode(), entity.getName(), entity.getDescription(), entity.getPermissionVersion());
-    }
+    @Mapping(target = "code", source = "code")
+    RoleDTO.Response toResponse(Role entity);
 
-    public void updateEntity(RoleDTO.UpdateRequest request, Role entity) {
-        entity.setName(request.name());
-        entity.setDescription(request.description());
-        entity.setPermissionVersion(request.permissionVersion());
-    }
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "code", ignore = true)
+    @Mapping(target = "name", source = "name")
+    @Mapping(target = "description", source = "description")
+    @Mapping(target = "permissionVersion", source = "permissionVersion")
+    void updateEntity(RoleDTO.UpdateRequest request, @MappingTarget Role entity);
 }

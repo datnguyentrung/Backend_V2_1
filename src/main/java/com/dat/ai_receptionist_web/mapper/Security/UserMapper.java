@@ -2,20 +2,21 @@ package com.dat.ai_receptionist_web.mapper.Security;
 
 import com.dat.ai_receptionist_web.domain.Security.User;
 import com.dat.ai_receptionist_web.dto.Security.UserDTO;
-import org.springframework.stereotype.Component;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
 
-@Component
-public class UserMapper {
-    public UserDTO.Response toResponse(User entity) {
-        if (entity == null) return null;
-        return new UserDTO.Response(entity.getUserId(), entity.getPhoneNumber(), entity.getPasswordHash(), entity.getStatus(), entity.getAuthorizationVersion(), entity.getLastLoginAt(), entity.getCreatedAt(), entity.getUpdatedAt());
-    }
+@Mapper(componentModel = "spring")
+public interface UserMapper {
+    @Mapping(target = "userId", source = "userId")
+    UserDTO.Response toResponse(User entity);
 
-    public void updateEntity(UserDTO.UpdateRequest request, User entity) {
-        entity.setPhoneNumber(request.phoneNumber());
-        entity.setPasswordHash(request.passwordHash());
-        entity.setStatus(request.status());
-        entity.setAuthorizationVersion(request.authorizationVersion());
-        entity.setLastLoginAt(request.lastLoginAt());
-    }
+    @BeanMapping(ignoreByDefault = true)
+    @Mapping(target = "phoneNumber", source = "phoneNumber")
+    @Mapping(target = "passwordHash", source = "passwordHash")
+    @Mapping(target = "status", source = "status")
+    @Mapping(target = "authorizationVersion", source = "authorizationVersion")
+    @Mapping(target = "lastLoginAt", source = "lastLoginAt")
+    void updateEntity(UserDTO.UpdateRequest request, @MappingTarget User entity);
 }

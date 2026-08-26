@@ -21,9 +21,9 @@ public class FacebookService {
     // ==================================================================
 
     /**
-     * Parse toàn bộ response từ Facebook Graph API
-     * Input: VideosResponse (raw JSON đã deserialize)
-     * Output: List<VideoInsightsParsed> đã flatten
+     * Parse toÃ n bá»™ response tá»« Facebook Graph API
+     * Input: VideosResponse (raw JSON Ä‘Ã£ deserialize)
+     * Output: List<VideoInsightsParsed> Ä‘Ã£ flatten
      */
     public List<VideoInsightsParsed> parseVideosResponse(VideosResponse response) {
         if (response == null || response.getData() == null) {
@@ -37,7 +37,7 @@ public class FacebookService {
     }
 
     /**
-     * Parse một Video object thành VideoInsightsParsed đầy đủ
+     * Parse má»™t Video object thÃ nh VideoInsightsParsed Ä‘áº§y Ä‘á»§
      */
     public VideoInsightsParsed parseVideoWithInsights(Videos video) {
         if (video == null) {
@@ -51,7 +51,7 @@ public class FacebookService {
 
         VideoInsightsParsed parsed = parseInsights(items);
 
-        // Gán thêm thông tin cơ bản từ Video
+        // GÃ¡n thÃªm thÃ´ng tin cÆ¡ báº£n tá»« Video
         parsed.setVideoId(video.getId());
         parsed.setDescription(video.getDescription());
         parsed.setLengthSeconds(video.getLength());
@@ -63,8 +63,8 @@ public class FacebookService {
     // ==================== VIDEO CORE PARSE ====================
 
     /**
-     * Parse danh sách VideoInsightItem thành VideoInsightsParsed
-     * Mỗi item có name, values[0].value có thể là Long, Map<String,Long>, Map<String,Double>
+     * Parse danh sÃ¡ch VideoInsightItem thÃ nh VideoInsightsParsed
+     * Má»—i item cÃ³ name, values[0].value cÃ³ thá»ƒ lÃ  Long, Map<String,Long>, Map<String,Double>
      */
     public VideoInsightsParsed parseInsights(List<VideoInsightItem> items) {
         if (items == null || items.isEmpty()) {
@@ -114,8 +114,8 @@ public class FacebookService {
     // ==================== VIDEO VALUE EXTRACTORS ====================
 
     /**
-     * Lấy value đầu tiên từ values[] của một InsightItem
-     * Facebook luôn trả về values là array có 1 phần tử với period=lifetime
+     * Láº¥y value Ä‘áº§u tiÃªn tá»« values[] cá»§a má»™t InsightItem
+     * Facebook luÃ´n tráº£ vá» values lÃ  array cÃ³ 1 pháº§n tá»­ vá»›i period=lifetime
      */
     private Object extractRawValue(VideoInsightItem item) {
         if (item.getValues() == null || item.getValues().isEmpty()) {
@@ -127,8 +127,8 @@ public class FacebookService {
     }
 
     /**
-     * Parse Long từ Object
-     * Facebook trả về số có thể là Integer (Jackson default) hoặc Long
+     * Parse Long tá»« Object
+     * Facebook tráº£ vá» sá»‘ cÃ³ thá»ƒ lÃ  Integer (Jackson default) hoáº·c Long
      */
     private Long parseLong(Object value) {
         switch (value) {
@@ -165,13 +165,18 @@ public class FacebookService {
     /**
      * Parse Map<String, Long> cho reaction types
      * Input: {"REACTION_LIKE": 16, "REACTION_LOVE": 5, ...}
-     * Output: Map với key là reaction type, value là count
+     * Output: Map vá»›i key lÃ  reaction type, value lÃ  count
      */
     @SuppressWarnings("unchecked")
+    /**
+     * Tác dụng: Thực hiện logic parseReactionMap của lớp hiện tại.
+     * Input: Nhận Object value từ caller hoặc request.
+     * Output: Trả về Long> theo kết quả xử lý.
+     */
     private Map<String, Long> parseReactionMap(Object value) {
         if (value == null) return Collections.emptyMap();
 
-        // Empty object {} -> không có reaction nào
+        // Empty object {} -> khÃ´ng cÃ³ reaction nÃ o
         if (value instanceof Map<?, ?> rawMap) {
             if (rawMap.isEmpty()) return Collections.emptyMap();
 
@@ -200,7 +205,7 @@ public class FacebookService {
 
     /**
      * Parse social actions: {"SHARE": 1, "COMMENT": 9}
-     * Tách thành shares và comments riêng biệt
+     * TÃ¡ch thÃ nh shares vÃ  comments riÃªng biá»‡t
      */
     private void parseSocialActions(Object value,
                                     VideoInsightsParsed.VideoInsightsParsedBuilder builder) {
@@ -239,8 +244,8 @@ public class FacebookService {
 
     /**
      * Parse retention graph: {"0": 0.993, "1": 0.993, ..., "28": 0.098}
-     * Key là giây (String), value là tỉ lệ giữ chân (0.0 - 1.0)
-     * Số key phụ thuộc vào độ dài video nên không cố định
+     * Key lÃ  giÃ¢y (String), value lÃ  tá»‰ lá»‡ giá»¯ chÃ¢n (0.0 - 1.0)
+     * Sá»‘ key phá»¥ thuá»™c vÃ o Ä‘á»™ dÃ i video nÃªn khÃ´ng cá»‘ Ä‘á»‹nh
      */
     private Map<String, Double> parseRetentionGraph(Object value) {
         if (value == null) return Collections.emptyMap();
@@ -248,7 +253,7 @@ public class FacebookService {
         if (value instanceof Map<?, ?> rawMap) {
             if (rawMap.isEmpty()) return Collections.emptyMap();
 
-            // Sort theo key numeric để dễ đọc
+            // Sort theo key numeric Ä‘á»ƒ dá»… Ä‘á»c
             Map<String, Double> result = new TreeMap<>(
                     Comparator.comparingInt(k -> {
                         try {
@@ -288,7 +293,7 @@ public class FacebookService {
     // ==================== VIDEO COMPUTED METRICS ====================
 
     /**
-     * Tính tổng reactions từ likesByReactionType
+     * TÃ­nh tá»•ng reactions tá»« likesByReactionType
      */
     public long computeTotalReactions(VideoInsightsParsed parsed) {
         if (parsed.getLikesByReactionType() == null) return 0L;
@@ -298,8 +303,8 @@ public class FacebookService {
     }
 
     /**
-     * Tính engagement rate = (reactions + comments + shares) / totalPlays * 100
-     * Trả về 0.0 nếu totalPlays = 0
+     * TÃ­nh engagement rate = (reactions + comments + shares) / totalPlays * 100
+     * Tráº£ vá» 0.0 náº¿u totalPlays = 0
      */
     public double computeEngagementRate(VideoInsightsParsed parsed) {
         long totalPlays = Optional.ofNullable(parsed.getTotalPlays()).orElse(0L);
@@ -313,7 +318,7 @@ public class FacebookService {
     }
 
     /**
-     * Tính average watch time (giây) từ avgTimeWatchedMs
+     * TÃ­nh average watch time (giÃ¢y) tá»« avgTimeWatchedMs
      */
     public double computeAvgWatchTimeSeconds(VideoInsightsParsed parsed) {
         Long ms = parsed.getAvgTimeWatchedMs();
@@ -321,8 +326,8 @@ public class FacebookService {
     }
 
     /**
-     * Tính watch-through rate = avgWatchTime / videoLength * 100
-     * Cho biết người xem trung bình xem được bao nhiêu % video
+     * TÃ­nh watch-through rate = avgWatchTime / videoLength * 100
+     * Cho biáº¿t ngÆ°á»i xem trung bÃ¬nh xem Ä‘Æ°á»£c bao nhiÃªu % video
      */
     public double computeWatchThroughRate(VideoInsightsParsed parsed) {
         Double lengthSeconds = parsed.getLengthSeconds();
@@ -333,8 +338,8 @@ public class FacebookService {
     }
 
     /**
-     * Lấy điểm giữ chân tại giây thứ N (nearest key)
-     * Trả về null nếu không có data
+     * Láº¥y Ä‘iá»ƒm giá»¯ chÃ¢n táº¡i giÃ¢y thá»© N (nearest key)
+     * Tráº£ vá» null náº¿u khÃ´ng cÃ³ data
      */
     public Double getRetentionAtSecond(VideoInsightsParsed parsed, int second) {
         Map<String, Double> graph = parsed.getRetentionGraph();
@@ -343,8 +348,8 @@ public class FacebookService {
     }
 
     /**
-     * Tìm điểm drop-off lớn nhất trong retention graph
-     * Trả về second nơi người xem bỏ video nhiều nhất
+     * TÃ¬m Ä‘iá»ƒm drop-off lá»›n nháº¥t trong retention graph
+     * Tráº£ vá» second nÆ¡i ngÆ°á»i xem bá» video nhiá»u nháº¥t
      */
     public int findBiggestDropOffSecond(VideoInsightsParsed parsed) {
         Map<String, Double> graph = parsed.getRetentionGraph();
@@ -369,7 +374,7 @@ public class FacebookService {
     }
 
     /**
-     * Tóm tắt VideoInsightsParsed thành VideoSummary dễ dùng cho report/UI
+     * TÃ³m táº¯t VideoInsightsParsed thÃ nh VideoSummary dá»… dÃ¹ng cho report/UI
      */
     public VideoSummary buildSummary(VideoInsightsParsed parsed) {
         return VideoSummary.builder()
@@ -393,7 +398,7 @@ public class FacebookService {
     // ==================== VIDEO AGGREGATION ====================
 
     /**
-     * Tổng hợp metrics của nhiều video (dùng cho dashboard overview)
+     * Tá»•ng há»£p metrics cá»§a nhiá»u video (dÃ¹ng cho dashboard overview)
      */
     public AggregatedInsights aggregate(List<VideoInsightsParsed> parsedList) {
         if (parsedList == null || parsedList.isEmpty()) {
@@ -440,9 +445,9 @@ public class FacebookService {
     // ==================================================================
 
     /**
-     * Parse toàn bộ response Posts từ Facebook Graph API
-     * Input: PostsResponse (raw JSON đã deserialize)
-     * Output: List<PostInsightsParsed> đã flatten
+     * Parse toÃ n bá»™ response Posts tá»« Facebook Graph API
+     * Input: PostsResponse (raw JSON Ä‘Ã£ deserialize)
+     * Output: List<PostInsightsParsed> Ä‘Ã£ flatten
      */
     public List<PostInsightsParsed> parsePostsResponse(PostsResponse response) {
         if (response == null || response.getData() == null) {
@@ -456,7 +461,7 @@ public class FacebookService {
     }
 
     /**
-     * Parse một Post object thành PostInsightsParsed đầy đủ
+     * Parse má»™t Post object thÃ nh PostInsightsParsed Ä‘áº§y Ä‘á»§
      */
     public PostInsightsParsed parsePostWithInsights(Posts post) {
         if (post == null) {
@@ -474,7 +479,7 @@ public class FacebookService {
 
         PostInsightsParsed parsed = parsePostInsights(items);
 
-        // Gán thêm thông tin cơ bản từ Post
+        // GÃ¡n thÃªm thÃ´ng tin cÆ¡ báº£n tá»« Post
         parsed.setPostId(post.getId());
         parsed.setMessage(post.getMessage());
 
@@ -504,9 +509,9 @@ public class FacebookService {
     // ==================== POST CORE PARSE ====================
 
     /**
-     * Parse danh sách PostInsightItem thành PostInsightsParsed (chỉ phần insights,
-     * chưa có postId/message/shareCount/commentCount/mediaTypes)
-     * Mỗi item có name, values[0].value là Map<String, Long>
+     * Parse danh sÃ¡ch PostInsightItem thÃ nh PostInsightsParsed (chá»‰ pháº§n insights,
+     * chÆ°a cÃ³ postId/message/shareCount/commentCount/mediaTypes)
+     * Má»—i item cÃ³ name, values[0].value lÃ  Map<String, Long>
      */
     public PostInsightsParsed parsePostInsights(List<PostInsightItem> items) {
         PostInsightsParsed.PostInsightsParsedBuilder builder = PostInsightsParsed.builder()
@@ -543,7 +548,7 @@ public class FacebookService {
     // ==================== POST VALUE EXTRACTORS ====================
 
     /**
-     * Lấy value đầu tiên từ values[] của một PostInsightItem
+     * Láº¥y value Ä‘áº§u tiÃªn tá»« values[] cá»§a má»™t PostInsightItem
      */
     private Object extractRawPostValue(PostInsightItem item) {
         if (item.getValues() == null || item.getValues().isEmpty()) {
@@ -555,9 +560,9 @@ public class FacebookService {
     }
 
     /**
-     * Parse Map<String, Long> tổng quát, dùng chung cho reactionsByType và clicksByType
-     * Input: {"like": 16, "love": 5} hoặc {"other clicks": 22, "photo view": 195}
-     * Input cũng có thể là {} (empty object) khi post không có reaction/click nào
+     * Parse Map<String, Long> tá»•ng quÃ¡t, dÃ¹ng chung cho reactionsByType vÃ  clicksByType
+     * Input: {"like": 16, "love": 5} hoáº·c {"other clicks": 22, "photo view": 195}
+     * Input cÅ©ng cÃ³ thá»ƒ lÃ  {} (empty object) khi post khÃ´ng cÃ³ reaction/click nÃ o
      */
     private Map<String, Long> parseStringLongMap(Object value) {
         if (value == null) return Collections.emptyMap();
@@ -591,7 +596,7 @@ public class FacebookService {
     // ==================== POST COMPUTED METRICS ====================
 
     /**
-     * Tính tổng reactions từ reactionsByType
+     * TÃ­nh tá»•ng reactions tá»« reactionsByType
      */
     public long computeTotalPostReactions(PostInsightsParsed parsed) {
         if (parsed.getReactionsByType() == null) return 0L;
@@ -601,7 +606,7 @@ public class FacebookService {
     }
 
     /**
-     * Tính tổng clicks từ clicksByType
+     * TÃ­nh tá»•ng clicks tá»« clicksByType
      */
     public long computeTotalPostClicks(PostInsightsParsed parsed) {
         if (parsed.getClicksByType() == null) return 0L;
@@ -611,7 +616,7 @@ public class FacebookService {
     }
 
     /**
-     * Tính tổng tương tác = reactions + comments + shares
+     * TÃ­nh tá»•ng tÆ°Æ¡ng tÃ¡c = reactions + comments + shares
      */
     public long computeTotalEngagement(PostInsightsParsed parsed) {
         long reactions = computeTotalPostReactions(parsed);
@@ -621,7 +626,7 @@ public class FacebookService {
     }
 
     /**
-     * Tóm tắt PostInsightsParsed thành PostSummary dễ dùng cho report/UI
+     * TÃ³m táº¯t PostInsightsParsed thÃ nh PostSummary dá»… dÃ¹ng cho report/UI
      */
     public PostSummary buildPostSummary(PostInsightsParsed parsed) {
         String primaryMediaType = Optional.ofNullable(parsed.getMediaTypes())
@@ -646,7 +651,7 @@ public class FacebookService {
     // ==================== POST AGGREGATION ====================
 
     /**
-     * Tổng hợp metrics của nhiều post (dùng cho dashboard overview)
+     * Tá»•ng há»£p metrics cá»§a nhiá»u post (dÃ¹ng cho dashboard overview)
      */
     public AggregatedPostInsights aggregatePosts(List<PostInsightsParsed> parsedList) {
         if (parsedList == null || parsedList.isEmpty()) {
@@ -684,6 +689,11 @@ public class FacebookService {
 
     // ==================== HELPERS ====================
 
+    /**
+     * Tác dụng: Thực hiện logic parseSecond của lớp hiện tại.
+     * Input: Nhận String key từ caller hoặc request.
+     * Output: Trả về giá trị int biểu thị kết quả tính toán hoặc số lượng.
+     */
     private int parseSecond(String key) {
         try {
             return Integer.parseInt(key);
@@ -692,15 +702,30 @@ public class FacebookService {
         }
     }
 
+    /**
+     * Tác dụng: Thực hiện logic roundTo2 của lớp hiện tại.
+     * Input: Nhận double value từ caller hoặc request.
+     * Output: Trả về giá trị double biểu thị kết quả tính toán hoặc số lượng.
+     */
     private double roundTo2(double value) {
         return Math.round(value * 100.0) / 100.0;
     }
 
+    /**
+     * Tác dụng: Thực hiện logic truncate của lớp hiện tại.
+     * Input: Nhận String text từ caller hoặc request.
+     * Output: Trả về String theo kết quả xử lý.
+     */
     private String truncate(String text) {
         if (text == null) return null;
         return text.length() <= 100 ? text : text.substring(0, 100) + "...";
     }
 
+    /**
+     * Tác dụng: Thực hiện logic sumLong của lớp hiện tại.
+     * Input: Nhận List<VideoInsightsParsed> list, java.util.function.Function<VideoInsightsParsed, Long> getter từ caller hoặc request.
+     * Output: Trả về giá trị long biểu thị kết quả tính toán hoặc số lượng.
+     */
     private long sumLong(List<VideoInsightsParsed> list,
                          java.util.function.Function<VideoInsightsParsed, Long> getter) {
         return list.stream()
@@ -708,6 +733,11 @@ public class FacebookService {
                 .sum();
     }
 
+    /**
+     * Tác dụng: Thực hiện logic sumLongPost của lớp hiện tại.
+     * Input: Nhận List<PostInsightsParsed> list, java.util.function.Function<PostInsightsParsed, Long> getter từ caller hoặc request.
+     * Output: Trả về giá trị long biểu thị kết quả tính toán hoặc số lượng.
+     */
     private long sumLongPost(List<PostInsightsParsed> list,
                              java.util.function.Function<PostInsightsParsed, Long> getter) {
         return list.stream()
@@ -715,3 +745,5 @@ public class FacebookService {
                 .sum();
     }
 }
+
+

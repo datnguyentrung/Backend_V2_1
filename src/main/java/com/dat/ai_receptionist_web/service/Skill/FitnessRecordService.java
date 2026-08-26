@@ -23,16 +23,31 @@ public class FitnessRecordService {
     private final FitnessRepository fitnessRepository;
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
+     * Input: Nhận Pageable pageable từ caller hoặc request.
+     * Output: Trả về PageResponse<FitnessRecordDTO.Response> theo kết quả xử lý.
+     */
     public PageResponse<FitnessRecordDTO.Response> list(Pageable pageable) {
         return PageResponse.of(repository.findAll(pageable), mapper::toResponse);
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Lấy chi tiết một bản ghi theo khóa định danh.
+     * Input: Nhận Long id từ caller hoặc request.
+     * Output: Trả về FitnessRecordDTO.Response theo kết quả xử lý.
+     */
     public FitnessRecordDTO.Response get(Long id) {
         return mapper.toResponse(find(id));
     }
 
     @Transactional
+    /**
+     * Tác dụng: Tạo mới bản ghi và trả về dữ liệu sau khi tạo.
+     * Input: Nhận FitnessRecordDTO.CreateRequest request từ caller hoặc request.
+     * Output: Trả về FitnessRecordDTO.Response theo kết quả xử lý.
+     */
     public FitnessRecordDTO.Response create(FitnessRecordDTO.CreateRequest request) {
         FitnessRecord entity = new FitnessRecord();
         entity.setStudent(personRepository.findById(request.studentId()).orElseThrow(() -> new IllegalArgumentException("Person not found")));
@@ -44,6 +59,11 @@ public class FitnessRecordService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Cập nhật bản ghi hiện có và trả về dữ liệu sau khi cập nhật.
+     * Input: Nhận Long id, FitnessRecordDTO.UpdateRequest request từ caller hoặc request.
+     * Output: Trả về FitnessRecordDTO.Response theo kết quả xử lý.
+     */
     public FitnessRecordDTO.Response update(Long id, FitnessRecordDTO.UpdateRequest request) {
         var entity = find(id);
         entity.setStudent(personRepository.findById(request.studentId()).orElseThrow(() -> new IllegalArgumentException("Person not found")));
@@ -54,12 +74,24 @@ public class FitnessRecordService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Xóa hoặc vô hiệu hóa bản ghi theo định danh đầu vào.
+     * Input: Nhận Long id từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void delete(Long id) {
         var entity = find(id);
         repository.delete(entity);
     }
 
+    /**
+     * Tác dụng: Tìm và trả về dữ liệu nội bộ theo điều kiện đầu vào.
+     * Input: Nhận Long id từ caller hoặc request.
+     * Output: Trả về FitnessRecord theo kết quả xử lý.
+     */
     private FitnessRecord find(Long id) {
         return repository.findById(id).orElseThrow(() -> new IllegalArgumentException("FitnessRecord not found"));
     }
 }
+
+

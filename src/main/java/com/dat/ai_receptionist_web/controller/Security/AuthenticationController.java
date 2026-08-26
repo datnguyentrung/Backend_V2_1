@@ -37,6 +37,11 @@ public class AuthenticationController {
     private String refreshCookieSameSite;
 
     @PostMapping("/login")
+    /**
+     * Tác dụng: Thực hiện logic login của lớp hiện tại.
+     * Input: Nhận LoginReq.UserBase request từ caller hoặc request.
+     * Output: Trả về ResponseEntity<LoginRes> theo kết quả xử lý.
+     */
     public ResponseEntity<LoginRes> login(@Valid @RequestBody LoginReq.UserBase request) {
         LoginBundle bundle = authenticate(request, "WEB");
         return ResponseEntity.ok()
@@ -45,6 +50,11 @@ public class AuthenticationController {
     }
 
     @PostMapping("/mobile/login")
+    /**
+     * Tác dụng: Thực hiện logic mobileLogin của lớp hiện tại.
+     * Input: Nhận LoginReq.MobileLoginRequest request từ caller hoặc request.
+     * Output: Trả về ResponseEntity<LoginRes.MobileResponse> theo kết quả xử lý.
+     */
     public ResponseEntity<LoginRes.MobileResponse> mobileLogin(
             @Valid @RequestBody LoginReq.MobileLoginRequest request) {
         LoginBundle bundle = authenticate(request, request.getPlatform().toUpperCase(Locale.ROOT));
@@ -52,6 +62,11 @@ public class AuthenticationController {
     }
 
     @PostMapping("/refresh")
+    /**
+     * Tác dụng: Thực hiện logic refresh của lớp hiện tại.
+     * Input: Nhận String rawToken từ caller hoặc request.
+     * Output: Trả về ResponseEntity<LoginRes> theo kết quả xử lý.
+     */
     public ResponseEntity<LoginRes> refresh(
             @CookieValue(name = REFRESH_COOKIE, defaultValue = "") String rawToken) {
         try {
@@ -66,6 +81,11 @@ public class AuthenticationController {
     }
 
     @PostMapping("/mobile/refresh")
+    /**
+     * Tác dụng: Thực hiện logic mobileRefresh của lớp hiện tại.
+     * Input: Nhận LoginReq.RefreshTokenRequest request từ caller hoặc request.
+     * Output: Trả về ResponseEntity<LoginRes.MobileResponse> theo kết quả xử lý.
+     */
     public ResponseEntity<LoginRes.MobileResponse> mobileRefresh(
             @Valid @RequestBody LoginReq.RefreshTokenRequest request) {
         try {
@@ -77,6 +97,11 @@ public class AuthenticationController {
     }
 
     @GetMapping("/account")
+    /**
+     * Tác dụng: Thực hiện logic account của lớp hiện tại.
+     * Input: Không có tham số đầu vào.
+     * Output: Trả về LoginRes theo kết quả xử lý.
+     */
     public LoginRes account() {
         UUID userId = currentUserId();
         AuthorizationSnapshot snapshot = authorizationService.loadSnapshot(userId);
@@ -88,11 +113,21 @@ public class AuthenticationController {
     }
 
     @GetMapping("/contexts")
+    /**
+     * Tác dụng: Thực hiện logic contexts của lớp hiện tại.
+     * Input: Không có tham số đầu vào.
+     * Output: Trả về List<LoginRes.UserContextRes> theo kết quả xử lý.
+     */
     public List<LoginRes.UserContextRes> contexts() {
         return sessionService.contexts(currentUserId());
     }
 
     @PostMapping("/switch-context")
+    /**
+     * Tác dụng: Chuyển ngữ cảnh hoạt động của người dùng sau khi kiểm tra quyền sở hữu.
+     * Input: Nhận LoginReq.SwitchContextReq request từ caller hoặc request.
+     * Output: Trả về LoginRes theo kết quả xử lý.
+     */
     public LoginRes switchContext(@Valid @RequestBody LoginReq.SwitchContextReq request) {
         UUID userId = currentUserId();
         UUID sessionId = currentSessionId();
@@ -104,6 +139,11 @@ public class AuthenticationController {
     }
 
     @GetMapping("/sessions")
+    /**
+     * Tác dụng: Thực hiện logic sessions của lớp hiện tại.
+     * Input: Không có tham số đầu vào.
+     * Output: Trả về List<SessionRes> theo kết quả xử lý.
+     */
     public List<SessionRes> sessions() {
         return sessionService.sessions(currentUserId()).stream()
                 .sorted(Comparator.comparing(AuthSession::getCreatedAt).reversed())
@@ -111,6 +151,11 @@ public class AuthenticationController {
     }
 
     @PostMapping("/logout")
+    /**
+     * Tác dụng: Thực hiện logic logout của lớp hiện tại.
+     * Input: Nhận String rawToken từ caller hoặc request.
+     * Output: Trả về ResponseEntity<Void> theo kết quả xử lý.
+     */
     public ResponseEntity<Void> logout(
             @CookieValue(name = REFRESH_COOKIE, defaultValue = "") String rawToken) {
         sessionService.revokeByRawToken(rawToken);
@@ -119,11 +164,21 @@ public class AuthenticationController {
     }
 
     @PostMapping("/mobile/logout")
+    /**
+     * Tác dụng: Thực hiện logic mobileLogout của lớp hiện tại.
+     * Input: Nhận LoginReq.RefreshTokenRequest request từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void mobileLogout(@Valid @RequestBody LoginReq.RefreshTokenRequest request) {
         sessionService.revokeByRawToken(request.getRefreshToken());
     }
 
     @PostMapping("/logout-all")
+    /**
+     * Tác dụng: Thực hiện logic logoutAll của lớp hiện tại.
+     * Input: Không có tham số đầu vào.
+     * Output: Trả về ResponseEntity<Void> theo kết quả xử lý.
+     */
     public ResponseEntity<Void> logoutAll() {
         sessionService.revokeAll(currentUserId());
         return ResponseEntity.ok()
@@ -131,10 +186,20 @@ public class AuthenticationController {
     }
 
     @PostMapping("/update-fcm")
+    /**
+     * Tác dụng: Thực hiện logic updateFcm của lớp hiện tại.
+     * Input: Nhận LoginReq.UpdateFcmReq request từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void updateFcm(@Valid @RequestBody LoginReq.UpdateFcmReq request) {
         sessionService.updateFcm(currentSessionId(), request.getFcmToken(), request.getPlatform());
     }
 
+    /**
+     * Tác dụng: Thực hiện logic authenticate của lớp hiện tại.
+     * Input: Nhận LoginReq.UserBase request, String platform từ caller hoặc request.
+     * Output: Trả về LoginBundle theo kết quả xử lý.
+     */
     private LoginBundle authenticate(LoginReq.UserBase request, String platform) {
         Authentication authenticated;
         try {
@@ -160,6 +225,11 @@ public class AuthenticationController {
                 rawRefreshToken);
     }
 
+    /**
+     * Tác dụng: Thực hiện logic refreshBundle của lớp hiện tại.
+     * Input: Nhận String currentRawToken từ caller hoặc request.
+     * Output: Trả về LoginBundle theo kết quả xử lý.
+     */
     private LoginBundle refreshBundle(String currentRawToken) {
         if (currentRawToken == null || currentRawToken.isBlank()) {
             throw new IllegalArgumentException("Missing refresh token");
@@ -185,6 +255,11 @@ public class AuthenticationController {
                 nextRawToken);
     }
 
+    /**
+     * Tác dụng: Thực hiện logic response của lớp hiện tại.
+     * Input: Nhận String token, String device, AuthorizationSnapshot snapshot, LoginRes.UserContextRes active, List<LoginRes.UserContextRes> contexts từ caller hoặc request.
+     * Output: Trả về LoginRes theo kết quả xử lý.
+     */
     private LoginRes response(String token, String device, AuthorizationSnapshot snapshot,
                               LoginRes.UserContextRes active, List<LoginRes.UserContextRes> contexts) {
         LoginRes result = new LoginRes();
@@ -198,31 +273,61 @@ public class AuthenticationController {
         return result;
     }
 
+    /**
+     * Tác dụng: Chuyển đổi dữ liệu sang kiểu kết quả phù hợp cho lớp đang xử lý.
+     * Input: Nhận LoginRes response, String refreshToken từ caller hoặc request.
+     * Output: Trả về LoginRes.MobileResponse theo kết quả xử lý.
+     */
     private LoginRes.MobileResponse toMobile(LoginRes response, String refreshToken) {
         return new LoginRes.MobileResponse(response.getAccessToken(), refreshToken, response.getUser(),
                 response.getActiveContext(), response.getAvailableContexts(),
                 response.isRequiresContextSelection());
     }
 
+    /**
+     * Tác dụng: Thực hiện logic contextById của lớp hiện tại.
+     * Input: Nhận List<LoginRes.UserContextRes> contexts, UUID id từ caller hoặc request.
+     * Output: Trả về LoginRes.UserContextRes theo kết quả xử lý.
+     */
     private LoginRes.UserContextRes contextById(List<LoginRes.UserContextRes> contexts, UUID id) {
         if (id == null) return null;
         return contexts.stream().filter(value -> value.userPersonId().equals(id)).findFirst().orElse(null);
     }
 
+    /**
+     * Tác dụng: Lấy thông tin hiện tại từ ngữ cảnh bảo mật của request đang xử lý.
+     * Input: Không có tham số đầu vào.
+     * Output: Trả về UUID theo kết quả xử lý.
+     */
     private UUID currentUserId() {
         return SecurityUtil.getCurrentUserId().orElseThrow(() -> new AccessDeniedException("Missing user"));
     }
 
+    /**
+     * Tác dụng: Lấy thông tin hiện tại từ ngữ cảnh bảo mật của request đang xử lý.
+     * Input: Không có tham số đầu vào.
+     * Output: Trả về UUID theo kết quả xử lý.
+     */
     private UUID currentSessionId() {
         return SecurityUtil.getCurrentSessionId().orElseThrow(() -> new AccessDeniedException("Missing session"));
     }
 
+    /**
+     * Tác dụng: Thực hiện logic refreshCookie của lớp hiện tại.
+     * Input: Nhận String value từ caller hoặc request.
+     * Output: Trả về ResponseCookie theo kết quả xử lý.
+     */
     private ResponseCookie refreshCookie(String value) {
         return ResponseCookie.from(REFRESH_COOKIE, value).httpOnly(true).secure(refreshCookieSecure)
                 .path("/api/v1/auth").sameSite(refreshCookieSameSite)
                 .maxAge(refreshTokenExpiration).build();
     }
 
+    /**
+     * Tác dụng: Thực hiện logic deleteRefreshCookie của lớp hiện tại.
+     * Input: Không có tham số đầu vào.
+     * Output: Trả về ResponseCookie theo kết quả xử lý.
+     */
     private ResponseCookie deleteRefreshCookie() {
         return ResponseCookie.from(REFRESH_COOKIE, "").httpOnly(true).secure(refreshCookieSecure)
                 .path("/api/v1/auth").sameSite(refreshCookieSameSite).maxAge(0).build();
@@ -242,3 +347,5 @@ public class AuthenticationController {
         }
     }
 }
+
+

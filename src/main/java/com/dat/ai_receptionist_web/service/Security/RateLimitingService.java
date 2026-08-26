@@ -22,10 +22,20 @@ public class RateLimitingService {
     private final ConcurrentMap<String, LocalCounter> local = new ConcurrentHashMap<>();
     private final java.util.concurrent.atomic.AtomicLong nextRedisWarningAt = new java.util.concurrent.atomic.AtomicLong();
 
+    /**
+     * Tác dụng: Thực hiện logic RateLimitingService của lớp hiện tại.
+     * Input: Nhận StringRedisTemplate redis từ caller hoặc request.
+     * Output: Khởi tạo instance của lớp với các phụ thuộc đầu vào.
+     */
     public RateLimitingService(StringRedisTemplate redis) {
         this.redis = redis;
     }
 
+    /**
+     * Tác dụng: Kiểm tra yêu cầu có được phép tiếp tục theo giới hạn hiện tại hay không.
+     * Input: Nhận String policy, String subject, int limit, Duration window từ caller hoặc request.
+     * Output: Trả về true/false thể hiện kết quả kiểm tra hoặc xử lý.
+     */
     public boolean allow(String policy, String subject, int limit, Duration window) {
         long windowMillis = window.toMillis();
         long bucket = System.currentTimeMillis() / windowMillis;
@@ -39,6 +49,11 @@ public class RateLimitingService {
         }
     }
 
+    /**
+     * Tác dụng: Thực hiện logic warnRedisFallback của lớp hiện tại.
+     * Input: Nhận RuntimeException failure từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     private void warnRedisFallback(RuntimeException failure) {
         long now = System.currentTimeMillis();
         long next = nextRedisWarningAt.get();
@@ -48,6 +63,11 @@ public class RateLimitingService {
         }
     }
 
+    /**
+     * Tác dụng: Thực hiện logic localAllow của lớp hiện tại.
+     * Input: Nhận String key, int limit, long bucket từ caller hoặc request.
+     * Output: Trả về true/false thể hiện kết quả kiểm tra hoặc xử lý.
+     */
     private boolean localAllow(String key, int limit, long bucket) {
         if (local.size() > 10_000) {
             local.entrySet().removeIf(entry -> entry.getValue().bucket() < bucket - 1);
@@ -62,3 +82,5 @@ public class RateLimitingService {
     private record LocalCounter(long bucket, AtomicInteger count) {
     }
 }
+
+

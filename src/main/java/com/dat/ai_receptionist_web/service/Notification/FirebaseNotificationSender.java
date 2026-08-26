@@ -8,9 +8,19 @@ import java.util.*;
 @Service
 public class FirebaseNotificationSender {
     private final FirebaseMessaging firebaseMessaging;
+    /**
+     * Tác dụng: Thực hiện logic FirebaseNotificationSender của lớp hiện tại.
+     * Input: Nhận ObjectProvider<FirebaseMessaging> provider từ caller hoặc request.
+     * Output: Khởi tạo instance của lớp với các phụ thuộc đầu vào.
+     */
     public FirebaseNotificationSender(ObjectProvider<FirebaseMessaging> provider) {
         this.firebaseMessaging = provider.getIfAvailable();
     }
+    /**
+     * Tác dụng: Thực hiện logic send của lớp hiện tại.
+     * Input: Nhận Set<String> tokens, String title, String body, String payload từ caller hoặc request.
+     * Output: Trả về true/false thể hiện kết quả kiểm tra hoặc xử lý.
+     */
     public boolean send(Set<String> tokens, String title, String body, String payload) {
         if (tokens.isEmpty() || firebaseMessaging == null) return false;
         try {
@@ -24,3 +34,5 @@ public class FirebaseNotificationSender {
         }
     }
 }
+
+

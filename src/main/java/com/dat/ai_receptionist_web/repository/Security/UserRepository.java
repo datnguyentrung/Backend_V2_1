@@ -7,6 +7,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
@@ -15,6 +16,12 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByIdForUpdate(@Param("userId") UUID userId);
 
     Optional<User> findByPhoneNumber(String phoneNumber);
+
+    List<User> findAllByPhoneNumberIn(Set<String> phoneNumbers);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.userId in :userIds")
+    List<User> findAllByUserIdInForUpdate(@Param("userIds") Set<UUID> userIds);
 
     @Modifying(clearAutomatically = true)
     @Query("update User u set u.lastLoginAt = current_timestamp where u.userId = :userId")

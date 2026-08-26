@@ -21,16 +21,31 @@ public class CoursePriceService {
     private final CourseRepository courseRepository;
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
+     * Input: Nhận Pageable pageable từ caller hoặc request.
+     * Output: Trả về PageResponse<CoursePriceDTO.Response> theo kết quả xử lý.
+     */
     public PageResponse<CoursePriceDTO.Response> list(Pageable pageable) {
         return PageResponse.of(repository.findAll(pageable), mapper::toResponse);
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Lấy chi tiết một bản ghi theo khóa định danh.
+     * Input: Nhận UUID id từ caller hoặc request.
+     * Output: Trả về CoursePriceDTO.Response theo kết quả xử lý.
+     */
     public CoursePriceDTO.Response get(UUID id) {
         return mapper.toResponse(find(id));
     }
 
     @Transactional
+    /**
+     * Tác dụng: Tạo mới bản ghi và trả về dữ liệu sau khi tạo.
+     * Input: Nhận CoursePriceDTO.CreateRequest request từ caller hoặc request.
+     * Output: Trả về CoursePriceDTO.Response theo kết quả xử lý.
+     */
     public CoursePriceDTO.Response create(CoursePriceDTO.CreateRequest request) {
         CoursePrice entity = new CoursePrice();
         entity.setCourse(courseRepository.findById(request.courseId()).orElseThrow(() -> new IllegalArgumentException("Course not found")));
@@ -43,6 +58,11 @@ public class CoursePriceService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Cập nhật bản ghi hiện có và trả về dữ liệu sau khi cập nhật.
+     * Input: Nhận UUID id, CoursePriceDTO.UpdateRequest request từ caller hoặc request.
+     * Output: Trả về CoursePriceDTO.Response theo kết quả xử lý.
+     */
     public CoursePriceDTO.Response update(UUID id, CoursePriceDTO.UpdateRequest request) {
         var entity = find(id);
         entity.setCourse(courseRepository.findById(request.courseId()).orElseThrow(() -> new IllegalArgumentException("Course not found")));
@@ -51,12 +71,24 @@ public class CoursePriceService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Xóa hoặc vô hiệu hóa bản ghi theo định danh đầu vào.
+     * Input: Nhận UUID id từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void delete(UUID id) {
         var entity = find(id);
         entity.setStatus(CoursePriceStatus.INACTIVE);
     }
 
+    /**
+     * Tác dụng: Tìm và trả về dữ liệu nội bộ theo điều kiện đầu vào.
+     * Input: Nhận UUID id từ caller hoặc request.
+     * Output: Trả về CoursePrice theo kết quả xử lý.
+     */
     private CoursePrice find(UUID id) {
         return repository.findById(id).orElseThrow(() -> new IllegalArgumentException("CoursePrice not found"));
     }
 }
+
+

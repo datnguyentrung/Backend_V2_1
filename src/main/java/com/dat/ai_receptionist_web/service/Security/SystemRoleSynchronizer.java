@@ -27,6 +27,11 @@ public class SystemRoleSynchronizer implements ApplicationRunner {
 
     @Override
     @Transactional
+    /**
+     * Tác dụng: Chạy tác vụ khởi động hoặc đồng bộ dữ liệu theo ngữ cảnh của lớp.
+     * Input: Nhận ApplicationArguments args từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void run(@NonNull ApplicationArguments args) {
 
         Map<String, Role> existingRoles =
@@ -43,7 +48,7 @@ public class SystemRoleSynchronizer implements ApplicationRunner {
 
             Role role = existingRoles.get(definition.getCode());
 
-            // Role chưa tồn tại -> tạo mới
+            // Role chÆ°a tá»“n táº¡i -> táº¡o má»›i
             if (role == null) {
                 roleRepository.save(
                         new Role(
@@ -58,7 +63,7 @@ public class SystemRoleSynchronizer implements ApplicationRunner {
                 continue;
             }
 
-            // Role tồn tại -> chỉ sửa nếu metadata thay đổi
+            // Role tá»“n táº¡i -> chá»‰ sá»­a náº¿u metadata thay Ä‘á»•i
             boolean changed = false;
 
             if (!Objects.equals(role.getName(), definition.getName())) {
@@ -75,8 +80,8 @@ public class SystemRoleSynchronizer implements ApplicationRunner {
             }
 
             if (changed) {
-                // Không cần save(role)
-                // Entity đang managed -> Hibernate dirty checking tự UPDATE
+                // KhÃ´ng cáº§n save(role)
+                // Entity Ä‘ang managed -> Hibernate dirty checking tá»± UPDATE
                 updated++;
             }
         }
@@ -89,3 +94,5 @@ public class SystemRoleSynchronizer implements ApplicationRunner {
         );
     }
 }
+
+

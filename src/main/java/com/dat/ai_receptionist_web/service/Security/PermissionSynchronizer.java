@@ -3,6 +3,8 @@ package com.dat.ai_receptionist_web.service.Security;
 import com.dat.ai_receptionist_web.domain.Security.Permission;
 import com.dat.ai_receptionist_web.enums.Security.PermissionDefinition;
 import com.dat.ai_receptionist_web.repository.Security.PermissionRepository;
+import com.dat.ai_receptionist_web.repository.Security.RolePermissionRepository;
+import com.dat.ai_receptionist_web.repository.Security.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -22,9 +24,16 @@ import java.util.stream.Collectors;
 public class PermissionSynchronizer implements ApplicationRunner {
 
     private final PermissionRepository permissionRepository;
+    private final RolePermissionRepository rolePermissionRepository;
+    private final RoleRepository roleRepository;
 
     @Override
     @Transactional
+    /**
+     * Tác dụng: Chạy tác vụ khởi động hoặc đồng bộ dữ liệu theo ngữ cảnh của lớp.
+     * Input: Nhận ApplicationArguments args từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void run(ApplicationArguments args) {
 
         Map<String, Permission> dbPermissions =
@@ -84,7 +93,7 @@ public class PermissionSynchronizer implements ApplicationRunner {
             permissionRepository.saveAll(toSave);
         }
 
-        // DELETE permission không còn trong enum
+        // DELETE permission khÃ´ng cÃ²n trong enum
         Set<String> obsoleteCodes = dbPermissions.keySet().stream()
                 .filter(code -> !definitions.containsKey(code))
                 .collect(Collectors.toSet());
@@ -92,6 +101,10 @@ public class PermissionSynchronizer implements ApplicationRunner {
         int deleted = 0;
 
         if (!obsoleteCodes.isEmpty()) {
+            Set<String> affectedRoleCodes =
+                    rolePermissionRepository.findRoleCodesByPermissionCodeIn(obsoleteCodes);
+            rolePermissionRepository.deleteByPermissionCodeIn(obsoleteCodes);
+            affectedRoleCodes.forEach(roleRepository::incrementPermissionVersion);
             deleted = permissionRepository.deleteByCodes(obsoleteCodes);
         }
 
@@ -104,3 +117,5 @@ public class PermissionSynchronizer implements ApplicationRunner {
         );
     }
 }
+
+

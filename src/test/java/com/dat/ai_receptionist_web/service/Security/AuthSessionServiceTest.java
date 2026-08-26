@@ -2,6 +2,7 @@ package com.dat.ai_receptionist_web.service.Security;
 
 import com.dat.ai_receptionist_web.domain.Security.AuthSession;
 import com.dat.ai_receptionist_web.domain.Security.User;
+import com.dat.ai_receptionist_web.mapper.Security.AuthSessionMapper;
 import com.dat.ai_receptionist_web.repository.Core.UserPersonRepository;
 import com.dat.ai_receptionist_web.repository.Security.AuthSessionRepository;
 import com.dat.ai_receptionist_web.repository.Security.UserRepository;
@@ -26,7 +27,7 @@ class AuthSessionServiceTest {
     void setUp() {
         sessions = mock(AuthSessionRepository.class);
         userPersons = mock(UserPersonRepository.class);
-        service = new AuthSessionService(sessions, mock(UserRepository.class), userPersons);
+        service = new AuthSessionService(sessions, mock(UserRepository.class), userPersons, mock(AuthSessionMapper.class));
         ReflectionTestUtils.setField(service, "refreshTokenValidity", 3600L);
     }
 

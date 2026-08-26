@@ -26,6 +26,11 @@ public class ProjectionOutboxWorker {
     private final String instanceId = ManagementFactory.getRuntimeMXBean().getName();
 
     @Scheduled(fixedDelayString = "${projection.worker.poll-delay-ms:1000}")
+    /**
+     * Tác dụng: Thực hiện logic poll của lớp hiện tại.
+     * Input: Không có tham số đầu vào.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void poll() {
         List<ProjectionJob> jobs = outboxService.claimReadyJobs(batchSize, instanceId);
         for (ProjectionJob job : jobs) {
@@ -33,6 +38,11 @@ public class ProjectionOutboxWorker {
         }
     }
 
+    /**
+     * Tác dụng: Xử lý một đơn vị công việc theo logic nghiệp vụ của lớp.
+     * Input: Nhận ProjectionJob job từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     private void processOne(ProjectionJob job) {
         long startedAt = System.nanoTime();
         try {
@@ -66,7 +76,14 @@ public class ProjectionOutboxWorker {
         }
     }
 
+    /**
+     * Tác dụng: Thực hiện logic elapsedMillis của lớp hiện tại.
+     * Input: Nhận long startedAt từ caller hoặc request.
+     * Output: Trả về giá trị long biểu thị kết quả tính toán hoặc số lượng.
+     */
     private long elapsedMillis(long startedAt) {
         return (System.nanoTime() - startedAt) / 1_000_000L;
     }
 }
+
+

@@ -68,6 +68,11 @@ public class ProjectionOutboxService {
     private final JdbcTemplate jdbcTemplate;
 
     @Transactional(propagation = Propagation.MANDATORY)
+    /**
+     * Tác dụng: Đánh dấu trạng thái xử lý để các tiến trình liên quan nhận biết thay đổi.
+     * Input: Nhận String studentCode, int year, int quarter từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void markConductDirty(String studentCode, int year, int quarter) {
         markDirty(ProjectionType.LEADERBOARD_CONDUCT,
                 "leaderboard:conduct:%d:Q%d:student:%s".formatted(year, quarter, studentCode),
@@ -75,6 +80,11 @@ public class ProjectionOutboxService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
+    /**
+     * Tác dụng: Đánh dấu trạng thái xử lý để các tiến trình liên quan nhận biết thay đổi.
+     * Input: Nhận String studentCode, int year, int quarter, ScheduleLevel scheduleLevel từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void markFitnessDirty(String studentCode, int year, int quarter, ScheduleLevel scheduleLevel) {
         markDirty(ProjectionType.LEADERBOARD_FITNESS,
                 "leaderboard:fitness:%d:Q%d:%s:student:%s".formatted(year, quarter, scheduleLevel, studentCode),
@@ -82,6 +92,11 @@ public class ProjectionOutboxService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
+    /**
+     * Tác dụng: Đánh dấu trạng thái xử lý để các tiến trình liên quan nhận biết thay đổi.
+     * Input: Nhận String studentCode, boolean membershipChanged từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void markMemberDirty(String studentCode, boolean membershipChanged) {
         markDirty(ProjectionType.LEADERBOARD_MEMBER,
                 "leaderboard:member:student:" + studentCode,
@@ -90,12 +105,22 @@ public class ProjectionOutboxService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
+    /**
+     * Tác dụng: Đánh dấu trạng thái xử lý để các tiến trình liên quan nhận biết thay đổi.
+     * Input: Không có tham số đầu vào.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void markFitnessRecordsCacheDirty() {
         markDirty(ProjectionType.FITNESS_RECORDS_CACHE,
                 "cache:fitness-records", "CACHE", "fitnessRecords",
                 null, null, null, "{}");
     }
 
+    /**
+     * Tác dụng: Đánh dấu trạng thái xử lý để các tiến trình liên quan nhận biết thay đổi.
+     * Input: Nhận ProjectionType type, String projectionKey, String aggregateType, String aggregateKey, Integer year, Integer quarter, ScheduleLevel scheduleLevel, String payload từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     private void markDirty(ProjectionType type, String projectionKey, String aggregateType, String aggregateKey,
                            Integer year, Integer quarter, ScheduleLevel scheduleLevel, String payload) {
         jdbcTemplate.update(UPSERT_SQL,
@@ -104,6 +129,11 @@ public class ProjectionOutboxService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    /**
+     * Tác dụng: Thực hiện logic claimReadyJobs của lớp hiện tại.
+     * Input: Nhận int batchSize, String instanceId từ caller hoặc request.
+     * Output: Trả về List<ProjectionJob> theo kết quả xử lý.
+     */
     public List<ProjectionJob> claimReadyJobs(int batchSize, String instanceId) {
         List<ProjectionJob> jobs = jdbcTemplate.query("""
                 SELECT id, projection_type, projection_key, aggregate_key,
@@ -158,6 +188,11 @@ public class ProjectionOutboxService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    /**
+     * Tác dụng: Xác nhận một công việc đã được xử lý thành công.
+     * Input: Nhận long id, long claimedRevision, String instanceId từ caller hoặc request.
+     * Output: Trả về true/false thể hiện kết quả kiểm tra hoặc xử lý.
+     */
     public boolean ack(long id, long claimedRevision, String instanceId) {
         return jdbcTemplate.update("""
                 UPDATE infrastructure.projection_outbox
@@ -169,6 +204,11 @@ public class ProjectionOutboxService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    /**
+     * Tác dụng: Giải phóng công việc không còn cần xử lý để hệ thống tiếp tục an toàn.
+     * Input: Nhận long id, long claimedRevision, String instanceId từ caller hoặc request.
+     * Output: Trả về true/false thể hiện kết quả kiểm tra hoặc xử lý.
+     */
     public boolean releaseSuperseded(long id, long claimedRevision, String instanceId) {
         return jdbcTemplate.update("""
                 UPDATE infrastructure.projection_outbox
@@ -179,6 +219,11 @@ public class ProjectionOutboxService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    /**
+     * Tác dụng: Đánh dấu công việc thất bại vĩnh viễn sau khi vượt quá ngưỡng xử lý.
+     * Input: Nhận ProjectionJob job, Throwable error, String instanceId từ caller hoặc request.
+     * Output: Trả về true/false thể hiện kết quả kiểm tra hoặc xử lý.
+     */
     public boolean dead(ProjectionJob job, Throwable error, String instanceId) {
         String message = errorMessage(error);
         return jdbcTemplate.update("""
@@ -190,6 +235,11 @@ public class ProjectionOutboxService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    /**
+     * Tác dụng: Lên lịch thử lại công việc thất bại theo chính sách hiện tại.
+     * Input: Nhận ProjectionJob job, Duration delay, Throwable error, String instanceId từ caller hoặc request.
+     * Output: Trả về true/false thể hiện kết quả kiểm tra hoặc xử lý.
+     */
     public boolean retry(ProjectionJob job, Duration delay, Throwable error, String instanceId) {
         OffsetDateTime nextAttempt = OffsetDateTime.now().plus(delay);
         String message = errorMessage(error);
@@ -202,6 +252,11 @@ public class ProjectionOutboxService {
                 """, nextAttempt, message, job.id(), job.revision(), instanceId) == 1;
     }
 
+    /**
+     * Tác dụng: Đếm số lượng bản ghi hoặc công việc theo điều kiện đầu vào.
+     * Input: Nhận LeaderboardScope scope từ caller hoặc request.
+     * Output: Trả về giá trị long biểu thị kết quả tính toán hoặc số lượng.
+     */
     public long countProcessingForScope(LeaderboardScope scope) {
         Long count;
         if (scope.type() == LeaderboardScope.Type.QUARTER) {
@@ -224,6 +279,11 @@ public class ProjectionOutboxService {
         return count == null ? 0L : count;
     }
 
+    /**
+     * Tác dụng: Đếm số lượng bản ghi hoặc công việc theo điều kiện đầu vào.
+     * Input: Không có tham số đầu vào.
+     * Output: Trả về giá trị long biểu thị kết quả tính toán hoặc số lượng.
+     */
     public long countOutstanding() {
         Long count = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM infrastructure.projection_outbox
@@ -232,6 +292,11 @@ public class ProjectionOutboxService {
         return count == null ? 0L : count;
     }
 
+    /**
+     * Tác dụng: Thực hiện logic oldestOutstandingAgeSeconds của lớp hiện tại.
+     * Input: Không có tham số đầu vào.
+     * Output: Trả về giá trị double biểu thị kết quả tính toán hoặc số lượng.
+     */
     public double oldestOutstandingAgeSeconds() {
         Double seconds = jdbcTemplate.queryForObject("""
                 SELECT COALESCE(EXTRACT(EPOCH FROM (NOW() - MIN(dirty_since))), 0)::double precision
@@ -241,14 +306,26 @@ public class ProjectionOutboxService {
         return seconds == null ? 0.0 : seconds;
     }
 
+    /**
+     * Tác dụng: Đếm số lượng bản ghi hoặc công việc theo điều kiện đầu vào.
+     * Input: Không có tham số đầu vào.
+     * Output: Trả về giá trị long biểu thị kết quả tính toán hoặc số lượng.
+     */
     public long countDead() {
         Long count = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM infrastructure.projection_outbox WHERE status = 'DEAD'", Long.class);
         return count == null ? 0L : count;
     }
 
+    /**
+     * Tác dụng: Thực hiện logic errorMessage của lớp hiện tại.
+     * Input: Nhận Throwable error từ caller hoặc request.
+     * Output: Trả về String theo kết quả xử lý.
+     */
     private String errorMessage(Throwable error) {
         String message = error.getClass().getSimpleName() + ": " + String.valueOf(error.getMessage());
         return message.length() > 4000 ? message.substring(0, 4000) : message;
     }
 }
+
+

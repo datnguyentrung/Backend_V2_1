@@ -6,7 +6,9 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import com.dat.ai_receptionist_web.enums.Security.RelationshipType;
 
 public interface UserPersonRepository extends JpaRepository<UserPerson, UUID> {
     @EntityGraph(attributePaths = "person")
@@ -14,6 +16,25 @@ public interface UserPersonRepository extends JpaRepository<UserPerson, UUID> {
 
     @EntityGraph(attributePaths = "person")
     Optional<UserPerson> findByUserPersonIdAndUser_UserIdAndActiveTrue(UUID userPersonId, UUID userId);
+
+    Optional<UserPerson> findByUser_UserIdAndPerson_PersonIdAndRelationshipType(
+            UUID userId,
+            UUID personId,
+            RelationshipType relationshipType
+    );
+
+    @Query("""
+            select up
+            from UserPerson up
+            where up.user.userId in :userIds
+              and up.person.personId in :personIds
+              and up.relationshipType = :relationshipType
+            """)
+    List<UserPerson> findAllByUserIdInAndPersonIdInAndRelationshipType(
+            @Param("userIds") Set<UUID> userIds,
+            @Param("personIds") Set<UUID> personIds,
+            @Param("relationshipType") RelationshipType relationshipType
+    );
 
     @Query("select distinct up.user.userId from UserPerson up where up.person.personId = :personId and up.active = true")
     List<UUID> findActiveUserIdsByPersonId(@Param("personId") UUID personId);

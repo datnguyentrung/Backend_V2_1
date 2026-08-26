@@ -19,6 +19,11 @@ public class WalletCommandController {
 
     @PostMapping("/top-up")
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).WALLET_TOP_UP_CREATE.getCode())")
+    /**
+     * Tác dụng: Chuyển đổi dữ liệu sang kiểu kết quả phù hợp cho lớp đang xử lý.
+     * Input: Nhận WalletCommandDTO.TopUpRequest request từ caller hoặc request.
+     * Output: Trả về WalletCommandDTO.TransactionResponse theo kết quả xử lý.
+     */
     public WalletCommandDTO.TransactionResponse topUp(
             @Valid @RequestBody WalletCommandDTO.TopUpRequest request) {
         return commandService.topUp(request, currentUserId());
@@ -26,6 +31,11 @@ public class WalletCommandController {
 
     @PostMapping("/course-purchases")
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).COURSE_PURCHASE_CREATE.getCode())")
+    /**
+     * Tác dụng: Thực hiện logic purchase của lớp hiện tại.
+     * Input: Nhận WalletCommandDTO.CoursePurchaseRequest request từ caller hoặc request.
+     * Output: Trả về WalletCommandDTO.TransactionResponse theo kết quả xử lý.
+     */
     public WalletCommandDTO.TransactionResponse purchase(
             @Valid @RequestBody WalletCommandDTO.CoursePurchaseRequest request) {
         return commandService.purchaseCourse(request, currentUserId());
@@ -33,13 +43,25 @@ public class WalletCommandController {
 
     @PostMapping("/refunds")
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).WALLET_REFUND_CREATE.getCode())")
+    /**
+     * Tác dụng: Thực hiện logic refund của lớp hiện tại.
+     * Input: Nhận WalletCommandDTO.RefundRequest request từ caller hoặc request.
+     * Output: Trả về WalletCommandDTO.TransactionResponse theo kết quả xử lý.
+     */
     public WalletCommandDTO.TransactionResponse refund(
             @Valid @RequestBody WalletCommandDTO.RefundRequest request) {
         return commandService.refund(request, currentUserId());
     }
 
+    /**
+     * Tác dụng: Lấy thông tin hiện tại từ ngữ cảnh bảo mật của request đang xử lý.
+     * Input: Không có tham số đầu vào.
+     * Output: Trả về UUID theo kết quả xử lý.
+     */
     private UUID currentUserId() {
         return SecurityUtil.getCurrentUserId()
                 .orElseThrow(() -> new AccessDeniedException("Missing authenticated user"));
     }
 }
+
+

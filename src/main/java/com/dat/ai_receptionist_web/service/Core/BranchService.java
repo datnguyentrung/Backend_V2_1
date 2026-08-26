@@ -24,22 +24,42 @@ public class BranchService{
     private final BranchMapper branchMapper;
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
+     * Input: Nhận Pageable pageable từ caller hoặc request.
+     * Output: Trả về PageResponse<BranchDTO.Response> theo kết quả xử lý.
+     */
     public PageResponse<BranchDTO.Response> list(Pageable pageable) {
         return PageResponse.of(branchRepository.findAll(pageable), branchMapper::toResponse);
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Lấy chi tiết một bản ghi theo khóa định danh.
+     * Input: Nhận Long id từ caller hoặc request.
+     * Output: Trả về BranchDTO.Response theo kết quả xử lý.
+     */
     public BranchDTO.Response get(Long id) {
         return branchMapper.toResponse(find(id));
     }
 
     @Transactional
+    /**
+     * Tác dụng: Tạo mới bản ghi và trả về dữ liệu sau khi tạo.
+     * Input: Nhận BranchDTO.CreateRequest request từ caller hoặc request.
+     * Output: Trả về BranchDTO.Response theo kết quả xử lý.
+     */
     public BranchDTO.Response create(BranchDTO.CreateRequest request) {
         Branch branch = branchMapper.toEntity(request);
         return branchMapper.toResponse(branchRepository.save(branch));
     }
 
     @Transactional
+    /**
+     * Tác dụng: Cập nhật bản ghi hiện có và trả về dữ liệu sau khi cập nhật.
+     * Input: Nhận Long id, BranchDTO.UpdateRequest request từ caller hoặc request.
+     * Output: Trả về BranchDTO.Response theo kết quả xử lý.
+     */
     public BranchDTO.Response update(Long id, BranchDTO.UpdateRequest request) {
         Branch branch = find(id);
         branchMapper.updateEntity(request, branch);
@@ -47,16 +67,31 @@ public class BranchService{
     }
 
     @Transactional
+    /**
+     * Tác dụng: Xóa hoặc vô hiệu hóa bản ghi theo định danh đầu vào.
+     * Input: Nhận Long id từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void delete(Long id) {
         Branch branch = find(id);
         branch.setStatus(BranchStatus.CLOSED);
     }
 
+    /**
+     * Tác dụng: Thực hiện logic getAllBranches của lớp hiện tại.
+     * Input: Không có tham số đầu vào.
+     * Output: Trả về List<BranchDTO.Response> theo kết quả xử lý.
+     */
     public List<BranchDTO.Response> getAllBranches() {
         List<Branch> branches = branchRepository.findAll();
         return branchMapper.toResponseList(branches);
     }
 
+    /**
+     * Tác dụng: Thực hiện logic getBranchById của lớp hiện tại.
+     * Input: Nhận Long idBranch từ caller hoặc request.
+     * Output: Trả về BranchDTO.Response theo kết quả xử lý.
+     */
     public BranchDTO.Response getBranchById(Long idBranch) {
         Branch branch = branchRepository.findById(idBranch)
                 .orElseThrow(() ->
@@ -68,6 +103,11 @@ public class BranchService{
     }
 
     @Transactional
+    /**
+     * Tác dụng: Thực hiện logic createBranch của lớp hiện tại.
+     * Input: Nhận BranchDTO.CreateRequest request từ caller hoặc request.
+     * Output: Trả về BranchDTO.Response theo kết quả xử lý.
+     */
     public BranchDTO.Response createBranch(BranchDTO.CreateRequest request) {
         Branch branch = branchMapper.toEntity(request);
         Branch savedBranch = branchRepository.save(branch);
@@ -75,6 +115,11 @@ public class BranchService{
     }
 
     @Transactional
+    /**
+     * Tác dụng: Thực hiện logic updateBranch của lớp hiện tại.
+     * Input: Nhận Long idBranch, BranchDTO.CreateRequest request từ caller hoặc request.
+     * Output: Trả về BranchDTO.Response theo kết quả xử lý.
+     */
     public BranchDTO.Response updateBranch(Long idBranch, BranchDTO.CreateRequest request) {
         Optional<Branch> optionalBranch = branchRepository.findById(idBranch);
         if (optionalBranch.isEmpty()) {
@@ -93,11 +138,23 @@ public class BranchService{
     }
 
     @Transactional
+    /**
+     * Tác dụng: Thực hiện logic deleteBranch của lớp hiện tại.
+     * Input: Nhận Long idBranch từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void deleteBranch(Long idBranch) {
         delete(idBranch);
     }
 
+    /**
+     * Tác dụng: Tìm và trả về dữ liệu nội bộ theo điều kiện đầu vào.
+     * Input: Nhận Long id từ caller hoặc request.
+     * Output: Trả về Branch theo kết quả xử lý.
+     */
     private Branch find(Long id) {
         return branchRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Branch not found"));
     }
 }
+
+

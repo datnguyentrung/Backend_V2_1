@@ -34,6 +34,11 @@ public class WalletCommandService {
     private final UserRepository userRepository;
 
     @Transactional
+    /**
+     * Tác dụng: Chuyển đổi dữ liệu sang kiểu kết quả phù hợp cho lớp đang xử lý.
+     * Input: Nhận WalletCommandDTO.TopUpRequest request, UUID actorUserId từ caller hoặc request.
+     * Output: Trả về WalletCommandDTO.TransactionResponse theo kết quả xử lý.
+     */
     public WalletCommandDTO.TransactionResponse topUp(
             WalletCommandDTO.TopUpRequest request, UUID actorUserId) {
         BigDecimal amount = money(request.amount());
@@ -58,6 +63,11 @@ public class WalletCommandService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Thực hiện logic purchaseCourse của lớp hiện tại.
+     * Input: Nhận WalletCommandDTO.CoursePurchaseRequest request, UUID actorUserId từ caller hoặc request.
+     * Output: Trả về WalletCommandDTO.TransactionResponse theo kết quả xử lý.
+     */
     public WalletCommandDTO.TransactionResponse purchaseCourse(
             WalletCommandDTO.CoursePurchaseRequest request, UUID actorUserId) {
         Wallet wallet = lockWalletByPerson(request.studentPersonId());
@@ -111,6 +121,11 @@ public class WalletCommandService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Thực hiện logic refund của lớp hiện tại.
+     * Input: Nhận WalletCommandDTO.RefundRequest request, UUID actorUserId từ caller hoặc request.
+     * Output: Trả về WalletCommandDTO.TransactionResponse theo kết quả xử lý.
+     */
     public WalletCommandDTO.TransactionResponse refund(
             WalletCommandDTO.RefundRequest request, UUID actorUserId) {
         WalletTransaction original = transactionRepository
@@ -144,6 +159,11 @@ public class WalletCommandService {
         return response(refund, null, null);
     }
 
+    /**
+     * Tác dụng: Thực hiện logic existingCoursePurchase của lớp hiện tại.
+     * Input: Nhận WalletTransaction existing, Wallet wallet, WalletCommandDTO.CoursePurchaseRequest request từ caller hoặc request.
+     * Output: Trả về WalletCommandDTO.TransactionResponse theo kết quả xử lý.
+     */
     private WalletCommandDTO.TransactionResponse existingCoursePurchase(
             WalletTransaction existing, Wallet wallet, WalletCommandDTO.CoursePurchaseRequest request) {
         CoursePurchase purchase = purchaseRepository
@@ -163,6 +183,11 @@ public class WalletCommandService {
         return response(existing, purchase, enrollment);
     }
 
+    /**
+     * Tác dụng: Thu hồi phiên hoặc quyền truy cập theo điều kiện đầu vào.
+     * Input: Nhận WalletTransaction original từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     private void revokeCourseEntitlement(WalletTransaction original) {
         if (original.getType() != WalletTransactionType.COURSE_PURCHASE) {
             return;
@@ -182,6 +207,11 @@ public class WalletCommandService {
         }
     }
 
+    /**
+     * Tác dụng: Thực hiện logic approvedTransaction của lớp hiện tại.
+     * Input: Nhận Wallet wallet, WalletTransactionType type, WalletTransactionDirection direction, BigDecimal amount, BigDecimal before, BigDecimal after, String reference, User actor, String note từ caller hoặc request.
+     * Output: Trả về WalletTransaction theo kết quả xử lý.
+     */
     private WalletTransaction approvedTransaction(Wallet wallet, WalletTransactionType type,
                                                    WalletTransactionDirection direction,
                                                    BigDecimal amount, BigDecimal before, BigDecimal after,
@@ -193,22 +223,42 @@ public class WalletCommandService {
                 .approvedAt(now).note(note).status(WalletTransactionStatus.APPROVED).build();
     }
 
+    /**
+     * Tác dụng: Thực hiện logic lockWalletByPerson của lớp hiện tại.
+     * Input: Nhận UUID personId từ caller hoặc request.
+     * Output: Trả về Wallet theo kết quả xử lý.
+     */
     private Wallet lockWalletByPerson(UUID personId) {
         return walletRepository.findByPersonIdForUpdate(personId)
                 .orElseThrow(() -> failure("WALLET_NOT_FOUND", HttpStatus.NOT_FOUND, "Wallet not found"));
     }
 
+    /**
+     * Tác dụng: Thực hiện logic requireActive của lớp hiện tại.
+     * Input: Nhận Wallet wallet từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     private void requireActive(Wallet wallet) {
         if (wallet.getStatus() != WalletStatus.ACTIVE) {
             throw failure("WALLET_NOT_ACTIVE", HttpStatus.CONFLICT, "Wallet is not active");
         }
     }
 
+    /**
+     * Tác dụng: Thực hiện logic user của lớp hiện tại.
+     * Input: Nhận UUID id từ caller hoặc request.
+     * Output: Trả về User theo kết quả xử lý.
+     */
     private User user(UUID id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> failure("USER_NOT_FOUND", HttpStatus.NOT_FOUND, "User not found"));
     }
 
+    /**
+     * Tác dụng: Thực hiện logic money của lớp hiện tại.
+     * Input: Nhận BigDecimal amount từ caller hoặc request.
+     * Output: Trả về BigDecimal theo kết quả xử lý.
+     */
     private BigDecimal money(BigDecimal amount) {
         if (amount == null || amount.signum() <= 0 || amount.stripTrailingZeros().scale() > 0) {
             throw failure("INVALID_AMOUNT", HttpStatus.BAD_REQUEST,
@@ -217,6 +267,11 @@ public class WalletCommandService {
         return amount.setScale(0);
     }
 
+    /**
+     * Tác dụng: Thực hiện logic assertSameOperation của lớp hiện tại.
+     * Input: Nhận WalletTransaction existing, Wallet wallet, BigDecimal amount từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     private void assertSameOperation(WalletTransaction existing, Wallet wallet, BigDecimal amount) {
         if (!existing.getWallet().getWalletId().equals(wallet.getWalletId())
                 || existing.getAmount().compareTo(amount) != 0) {
@@ -225,6 +280,11 @@ public class WalletCommandService {
         }
     }
 
+    /**
+     * Tác dụng: Thực hiện logic response của lớp hiện tại.
+     * Input: Nhận WalletTransaction tx, CoursePurchase purchase, StudentEnrollment enrollment từ caller hoặc request.
+     * Output: Trả về WalletCommandDTO.TransactionResponse theo kết quả xử lý.
+     */
     private WalletCommandDTO.TransactionResponse response(WalletTransaction tx,
                                                            CoursePurchase purchase,
                                                            StudentEnrollment enrollment) {
@@ -235,7 +295,14 @@ public class WalletCommandService {
                 enrollment == null ? null : enrollment.getStudentEnrollmentId(), tx.getApprovedAt());
     }
 
+    /**
+     * Tác dụng: Thực hiện logic failure của lớp hiện tại.
+     * Input: Nhận String code, HttpStatus status, String message từ caller hoặc request.
+     * Output: Trả về FinancialException theo kết quả xử lý.
+     */
     private FinancialException failure(String code, HttpStatus status, String message) {
         return new FinancialException(code, status, message);
     }
 }
+
+

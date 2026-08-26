@@ -25,16 +25,31 @@ public class NotificationService {
     private final NotificationMapper notificationMapper;
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
+     * Input: Nhận Pageable pageable từ caller hoặc request.
+     * Output: Trả về PageResponse<NotificationDTO.Response> theo kết quả xử lý.
+     */
     public PageResponse<NotificationDTO.Response> list(Pageable pageable) {
         return PageResponse.of(notificationRepository.findAll(pageable), notificationMapper::toResponse);
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Lấy chi tiết một bản ghi theo khóa định danh.
+     * Input: Nhận UUID id từ caller hoặc request.
+     * Output: Trả về NotificationDTO.Response theo kết quả xử lý.
+     */
     public NotificationDTO.Response get(UUID id) {
         return notificationMapper.toResponse(find(id));
     }
 
     @Transactional
+    /**
+     * Tác dụng: Tạo mới bản ghi và trả về dữ liệu sau khi tạo.
+     * Input: Nhận NotificationDTO.CreateRequest request từ caller hoặc request.
+     * Output: Trả về NotificationDTO.Response theo kết quả xử lý.
+     */
     public NotificationDTO.Response create(NotificationDTO.CreateRequest request) {
         Set<UUID> recipientIds = resolveRecipients(request);
         if (recipientIds.isEmpty()) {
@@ -59,6 +74,11 @@ public class NotificationService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Cập nhật bản ghi hiện có và trả về dữ liệu sau khi cập nhật.
+     * Input: Nhận UUID id, NotificationDTO.UpdateRequest request từ caller hoặc request.
+     * Output: Trả về NotificationDTO.Response theo kết quả xử lý.
+     */
     public NotificationDTO.Response update(UUID id, NotificationDTO.UpdateRequest request) {
         Notification notification = find(id);
         notificationMapper.updateEntity(request, notification);
@@ -66,10 +86,20 @@ public class NotificationService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Xóa hoặc vô hiệu hóa bản ghi theo định danh đầu vào.
+     * Input: Nhận UUID id từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void delete(UUID id) {
         notificationRepository.delete(find(id));
     }
 
+    /**
+     * Tác dụng: Thực hiện logic resolveRecipients của lớp hiện tại.
+     * Input: Nhận NotificationDTO.CreateRequest request từ caller hoặc request.
+     * Output: Trả về Set<UUID> theo kết quả xử lý.
+     */
     private Set<UUID> resolveRecipients(NotificationDTO.CreateRequest request) {
         Set<UUID> recipients = new HashSet<>(safe(request.recipientUserIds()));
         safe(request.recipientPersonIds()).forEach(personId ->
@@ -80,12 +110,24 @@ public class NotificationService {
         return recipients;
     }
 
+    /**
+     * Tác dụng: Thực hiện logic safe của lớp hiện tại.
+     * Input: Nhận Set<T> values từ caller hoặc request.
+     * Output: Trả về Set<T> theo kết quả xử lý.
+     */
     private <T> Set<T> safe(Set<T> values) {
         return values == null ? Set.of() : values;
     }
 
+    /**
+     * Tác dụng: Tìm và trả về dữ liệu nội bộ theo điều kiện đầu vào.
+     * Input: Nhận UUID id từ caller hoặc request.
+     * Output: Trả về Notification theo kết quả xử lý.
+     */
     private Notification find(UUID id) {
         return notificationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
     }
 }
+
+

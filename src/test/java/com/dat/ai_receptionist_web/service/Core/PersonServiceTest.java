@@ -5,6 +5,7 @@ import com.dat.ai_receptionist_web.domain.Finance.Wallet;
 import com.dat.ai_receptionist_web.dto.Core.PersonDTO;
 import com.dat.ai_receptionist_web.enums.Core.*;
 import com.dat.ai_receptionist_web.enums.Finance.WalletStatus;
+import com.dat.ai_receptionist_web.mapper.Core.PersonMapper;
 import com.dat.ai_receptionist_web.repository.Core.PersonRepository;
 import com.dat.ai_receptionist_web.repository.Finance.WalletRepository;
 import org.junit.jupiter.api.Test;
@@ -22,7 +23,7 @@ class PersonServiceTest {
         PersonRepository people = mock(PersonRepository.class);
         WalletRepository wallets = mock(WalletRepository.class);
         when(people.save(any(Person.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        PersonService service = new PersonService(people, wallets);
+        PersonService service = new PersonService(people, wallets, mock(PersonMapper.class));
 
         service.create(new PersonDTO.CreateRequest("Nguyen Van A", true, LocalDate.of(2000, 1, 1),
                 "a@example.com", "N1", "P001", Belt.C10, PersonStatus.ACTIVE, LocalDate.now()));

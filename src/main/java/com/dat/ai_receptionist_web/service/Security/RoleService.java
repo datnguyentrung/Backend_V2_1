@@ -22,16 +22,31 @@ public class RoleService {
     private final RolePermissionService rolePermissionService;
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
+     * Input: Nhận Pageable pageable từ caller hoặc request.
+     * Output: Trả về PageResponse<RoleDTO.Response> theo kết quả xử lý.
+     */
     public PageResponse<RoleDTO.Response> list(Pageable pageable) {
         return PageResponse.of(roleRepository.findAll(pageable), roleMapper::toResponse);
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Lấy chi tiết một bản ghi theo khóa định danh.
+     * Input: Nhận String id từ caller hoặc request.
+     * Output: Trả về RoleDTO.Response theo kết quả xử lý.
+     */
     public RoleDTO.Response get(String id) {
         return roleMapper.toResponse(getRole(id));
     }
 
     @Transactional
+    /**
+     * Tác dụng: Tạo mới bản ghi và trả về dữ liệu sau khi tạo.
+     * Input: Nhận RoleDTO.CreateRequest request từ caller hoặc request.
+     * Output: Trả về RoleDTO.Response theo kết quả xử lý.
+     */
     public RoleDTO.Response create(RoleDTO.CreateRequest request) {
         Role role = new Role();
         role.setCode(request.code());
@@ -42,6 +57,11 @@ public class RoleService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Cập nhật bản ghi hiện có và trả về dữ liệu sau khi cập nhật.
+     * Input: Nhận String id, RoleDTO.UpdateRequest request từ caller hoặc request.
+     * Output: Trả về RoleDTO.Response theo kết quả xử lý.
+     */
     public RoleDTO.Response update(String id, RoleDTO.UpdateRequest request) {
         Role role = getRole(id);
         roleMapper.updateEntity(request, role);
@@ -49,20 +69,40 @@ public class RoleService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Xóa hoặc vô hiệu hóa bản ghi theo định danh đầu vào.
+     * Input: Nhận String id từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void delete(String id) {
         roleRepository.delete(getRole(id));
     }
 
+    /**
+     * Tác dụng: Thực hiện logic getRole của lớp hiện tại.
+     * Input: Nhận String code từ caller hoặc request.
+     * Output: Trả về Role theo kết quả xử lý.
+     */
     public Role getRole(String code) {
         return roleRepository.findById(code)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found: " + code));
     }
 
+    /**
+     * Tác dụng: Kiểm tra sự tồn tại của dữ liệu theo khóa đầu vào.
+     * Input: Nhận String code từ caller hoặc request.
+     * Output: Trả về true/false thể hiện kết quả kiểm tra hoặc xử lý.
+     */
     public boolean exists(String code) {
         return roleRepository.existsById(code);
     }
 
     @Transactional
+    /**
+     * Tác dụng: Thực hiện logic createRole của lớp hiện tại.
+     * Input: Nhận RoleDTO.CreateRequest request từ caller hoặc request.
+     * Output: Trả về Role theo kết quả xử lý.
+     */
     public Role createRole(RoleDTO.CreateRequest request) {
         String code = request.code();
         String name = request.name();
@@ -78,6 +118,11 @@ public class RoleService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Thực hiện logic updateRole của lớp hiện tại.
+     * Input: Nhận String code, RoleDTO.UpdateRequest request từ caller hoặc request.
+     * Output: Trả về Role theo kết quả xử lý.
+     */
     public Role updateRole(String code, RoleDTO.UpdateRequest request) {
         Role role = getRole(code);
         roleMapper.updateEntity(request, role);
@@ -85,8 +130,15 @@ public class RoleService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Thực hiện logic deleteRole của lớp hiện tại.
+     * Input: Nhận String code từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void deleteRole(String code) {
         Role role = getRole(code);
         roleRepository.delete(role);
     }
 }
+
+

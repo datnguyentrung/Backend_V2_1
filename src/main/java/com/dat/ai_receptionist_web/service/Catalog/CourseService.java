@@ -21,16 +21,31 @@ public class CourseService {
     private final ClassScheduleRepository classScheduleRepository;
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
+     * Input: Nhận Pageable pageable từ caller hoặc request.
+     * Output: Trả về PageResponse<CourseDTO.Response> theo kết quả xử lý.
+     */
     public PageResponse<CourseDTO.Response> list(Pageable pageable) {
         return PageResponse.of(repository.findAll(pageable), mapper::toResponse);
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Lấy chi tiết một bản ghi theo khóa định danh.
+     * Input: Nhận UUID id từ caller hoặc request.
+     * Output: Trả về CourseDTO.Response theo kết quả xử lý.
+     */
     public CourseDTO.Response get(UUID id) {
         return mapper.toResponse(find(id));
     }
 
     @Transactional
+    /**
+     * Tác dụng: Tạo mới bản ghi và trả về dữ liệu sau khi tạo.
+     * Input: Nhận CourseDTO.CreateRequest request từ caller hoặc request.
+     * Output: Trả về CourseDTO.Response theo kết quả xử lý.
+     */
     public CourseDTO.Response create(CourseDTO.CreateRequest request) {
         Course entity = new Course();
         entity.setClassSchedule(classScheduleRepository.findById(request.classScheduleId()).orElseThrow(() -> new IllegalArgumentException("ClassSchedule not found")));
@@ -40,6 +55,11 @@ public class CourseService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Cập nhật bản ghi hiện có và trả về dữ liệu sau khi cập nhật.
+     * Input: Nhận UUID id, CourseDTO.UpdateRequest request từ caller hoặc request.
+     * Output: Trả về CourseDTO.Response theo kết quả xử lý.
+     */
     public CourseDTO.Response update(UUID id, CourseDTO.UpdateRequest request) {
         var entity = find(id);
         entity.setClassSchedule(classScheduleRepository.findById(request.classScheduleId()).orElseThrow(() -> new IllegalArgumentException("ClassSchedule not found")));
@@ -48,12 +68,24 @@ public class CourseService {
     }
 
     @Transactional
+    /**
+     * Tác dụng: Xóa hoặc vô hiệu hóa bản ghi theo định danh đầu vào.
+     * Input: Nhận UUID id từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void delete(UUID id) {
         var entity = find(id);
         entity.setStatus(CourseStatus.CANCELLED);
     }
 
+    /**
+     * Tác dụng: Tìm và trả về dữ liệu nội bộ theo điều kiện đầu vào.
+     * Input: Nhận UUID id từ caller hoặc request.
+     * Output: Trả về Course theo kết quả xử lý.
+     */
     private Course find(UUID id) {
         return repository.findById(id).orElseThrow(() -> new IllegalArgumentException("Course not found"));
     }
 }
+
+

@@ -25,3 +25,5 @@ public class ProjectionOutboxMetrics {
                 .register(meterRegistry);
     }
 }
+
+

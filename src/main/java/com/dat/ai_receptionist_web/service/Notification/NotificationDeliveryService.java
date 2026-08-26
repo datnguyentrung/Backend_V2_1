@@ -16,6 +16,11 @@ public class NotificationDeliveryService {
     private final AuthSessionService authSessionService;
     private final FirebaseNotificationSender sender;
     private final PlatformTransactionManager transactionManager;
+    /**
+     * Tác dụng: Thực hiện logic deliver của lớp hiện tại.
+     * Input: Nhận UUID notificationId từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void deliver(UUID notificationId) {
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         List<Delivery> deliveries = transaction.execute(status ->
@@ -37,3 +42,5 @@ public class NotificationDeliveryService {
     }
     private record Delivery(UUID recipientId, UUID userId, String title, String body, String payload) {}
 }
+
+

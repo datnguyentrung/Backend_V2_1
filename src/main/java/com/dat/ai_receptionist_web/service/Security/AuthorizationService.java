@@ -24,6 +24,11 @@ public class AuthorizationService {
     private final AuthSessionRepository authSessionRepository;
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Nạp dữ liệu cần thiết từ nguồn lưu trữ để phục vụ xử lý nghiệp vụ.
+     * Input: Nhận UUID userId từ caller hoặc request.
+     * Output: Trả về AuthorizationSnapshot theo kết quả xử lý.
+     */
     public AuthorizationSnapshot loadSnapshot(UUID userId) {
         List<UserRepository.AuthorizationRow> rows = userRepository.findAuthorizationRows(userId);
         if (rows.isEmpty()) {
@@ -55,6 +60,11 @@ public class AuthorizationService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Tác dụng: Kiểm tra tính hợp lệ của dữ liệu đầu vào trước khi xử lý tiếp.
+     * Input: Nhận Jwt jwt từ caller hoặc request.
+     * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
+     */
     public void validateAccessToken(Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getSubject());
         UUID sessionId = UUID.fromString(jwt.getClaimAsString("authSessionId"));
@@ -96,6 +106,11 @@ public class AuthorizationService {
         }
     }
 
+    /**
+     * Tác dụng: Thực hiện logic numberClaim của lớp hiện tại.
+     * Input: Nhận Jwt jwt, String name từ caller hoặc request.
+     * Output: Trả về giá trị long biểu thị kết quả tính toán hoặc số lượng.
+     */
     private long numberClaim(Jwt jwt, String name) {
         Number value = jwt.getClaim(name);
         if (value == null) {
@@ -104,6 +119,11 @@ public class AuthorizationService {
         return value.longValue();
     }
 
+    /**
+     * Tác dụng: Thực hiện logic versionClaim của lớp hiện tại.
+     * Input: Nhận Jwt jwt từ caller hoặc request.
+     * Output: Trả về Long> theo kết quả xử lý.
+     */
     private Map<String, Long> versionClaim(Jwt jwt) {
         Map<String, Object> raw = jwt.getClaim("rolePermissionVersions");
         if (raw == null) {
@@ -114,13 +134,25 @@ public class AuthorizationService {
         return result;
     }
 
+    /**
+     * Tác dụng: Thực hiện logic optionalUuid của lớp hiện tại.
+     * Input: Nhận String value từ caller hoặc request.
+     * Output: Trả về UUID theo kết quả xử lý.
+     */
     private UUID optionalUuid(String value) {
         return value == null ? null : UUID.fromString(value);
     }
 
     public static class StaleAccessTokenException extends RuntimeException {
+        /**
+         * Tác dụng: Thực hiện logic StaleAccessTokenException của lớp hiện tại.
+         * Input: Nhận String message từ caller hoặc request.
+         * Output: Khởi tạo instance của lớp với các phụ thuộc đầu vào.
+         */
         public StaleAccessTokenException(String message) {
             super(message);
         }
     }
 }
+
+

@@ -16,3 +16,5 @@ public record AuthorizationSnapshot(
         Set<String> permissionCodes
 ) {
 }
+
+

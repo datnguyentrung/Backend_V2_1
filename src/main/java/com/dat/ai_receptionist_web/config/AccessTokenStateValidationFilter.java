@@ -1,10 +1,11 @@
 package com.dat.ai_receptionist_web.config;
 
 import com.dat.ai_receptionist_web.service.Security.AuthorizationService;
+import com.dat.ai_receptionist_web.error.ApiErrorResponseFactory;
+import com.dat.ai_receptionist_web.error.code.SecurityErrorCode;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class AccessTokenStateValidationFilter extends OncePerRequestFilter {
     private final AuthorizationService authorizationService;
+    private final ApiErrorResponseFactory errorResponseFactory;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -27,9 +29,7 @@ public class AccessTokenStateValidationFilter extends OncePerRequestFilter {
                 authorizationService.validateAccessToken(jwt);
             } catch (RuntimeException exception) {
                 SecurityContextHolder.clearContext();
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-                response.getWriter().write("{\"error\":\"TOKEN_STALE\",\"message\":\"Access token is stale\"}");
+                errorResponseFactory.write(response, SecurityErrorCode.TOKEN_STALE, request);
                 return;
             }
         }

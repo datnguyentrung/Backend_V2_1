@@ -3,6 +3,8 @@ package com.dat.ai_receptionist_web.service.Security;
 import com.dat.ai_receptionist_web.domain.Security.Role;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.dto.Security.RoleDTO;
+import com.dat.ai_receptionist_web.error.ApiException;
+import com.dat.ai_receptionist_web.error.code.SecurityErrorCode;
 import com.dat.ai_receptionist_web.mapper.Security.RoleMapper;
 import com.dat.ai_receptionist_web.repository.Security.RoleRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,32 +23,32 @@ public class RoleService {
 
     private final RolePermissionService rolePermissionService;
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
      * Input: Nhận Pageable pageable từ caller hoặc request.
      * Output: Trả về PageResponse<RoleDTO.Response> theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public PageResponse<RoleDTO.Response> list(Pageable pageable) {
         return PageResponse.of(roleRepository.findAll(pageable), roleMapper::toResponse);
     }
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Lấy chi tiết một bản ghi theo khóa định danh.
      * Input: Nhận String id từ caller hoặc request.
      * Output: Trả về RoleDTO.Response theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public RoleDTO.Response get(String id) {
         return roleMapper.toResponse(getRole(id));
     }
 
-    @Transactional
     /**
      * Tác dụng: Tạo mới bản ghi và trả về dữ liệu sau khi tạo.
      * Input: Nhận RoleDTO.CreateRequest request từ caller hoặc request.
      * Output: Trả về RoleDTO.Response theo kết quả xử lý.
      */
+    @Transactional
     public RoleDTO.Response create(RoleDTO.CreateRequest request) {
         Role role = new Role();
         role.setCode(request.code());
@@ -56,24 +58,24 @@ public class RoleService {
         return roleMapper.toResponse(roleRepository.save(role));
     }
 
-    @Transactional
     /**
      * Tác dụng: Cập nhật bản ghi hiện có và trả về dữ liệu sau khi cập nhật.
      * Input: Nhận String id, RoleDTO.UpdateRequest request từ caller hoặc request.
      * Output: Trả về RoleDTO.Response theo kết quả xử lý.
      */
+    @Transactional
     public RoleDTO.Response update(String id, RoleDTO.UpdateRequest request) {
         Role role = getRole(id);
         roleMapper.updateEntity(request, role);
         return roleMapper.toResponse(roleRepository.save(role));
     }
 
-    @Transactional
     /**
      * Tác dụng: Xóa hoặc vô hiệu hóa bản ghi theo định danh đầu vào.
      * Input: Nhận String id từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional
     public void delete(String id) {
         roleRepository.delete(getRole(id));
     }
@@ -85,7 +87,9 @@ public class RoleService {
      */
     public Role getRole(String code) {
         return roleRepository.findById(code)
-                .orElseThrow(() -> new IllegalArgumentException("Role not found: " + code));
+                .orElseThrow(() -> new ApiException(
+                        SecurityErrorCode.ROLE_NOT_FOUND,
+                        "Role not found: " + code));
     }
 
     /**
@@ -97,18 +101,20 @@ public class RoleService {
         return roleRepository.existsById(code);
     }
 
-    @Transactional
     /**
      * Tác dụng: Thực hiện logic createRole của lớp hiện tại.
      * Input: Nhận RoleDTO.CreateRequest request từ caller hoặc request.
      * Output: Trả về Role theo kết quả xử lý.
      */
+    @Transactional
     public Role createRole(RoleDTO.CreateRequest request) {
         String code = request.code();
         String name = request.name();
         String description = request.description();
         if (exists(code)) {
-            throw new IllegalArgumentException("Role already exists: " + code);
+            throw new ApiException(
+                    SecurityErrorCode.ROLE_ALREADY_EXISTS,
+                    "Role already exists: " + code);
         }
         Role role = roleRepository.save(roleMapper.toEntity(request));
 
@@ -117,24 +123,24 @@ public class RoleService {
         return roleRepository.save(role);
     }
 
-    @Transactional
     /**
      * Tác dụng: Thực hiện logic updateRole của lớp hiện tại.
      * Input: Nhận String code, RoleDTO.UpdateRequest request từ caller hoặc request.
      * Output: Trả về Role theo kết quả xử lý.
      */
+    @Transactional
     public Role updateRole(String code, RoleDTO.UpdateRequest request) {
         Role role = getRole(code);
         roleMapper.updateEntity(request, role);
         return roleRepository.save(role);
     }
 
-    @Transactional
     /**
      * Tác dụng: Thực hiện logic deleteRole của lớp hiện tại.
      * Input: Nhận String code từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional
     public void deleteRole(String code) {
         Role role = getRole(code);
         roleRepository.delete(role);

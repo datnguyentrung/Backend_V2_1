@@ -7,6 +7,8 @@ import com.dat.ai_receptionist_web.repository.Core.UserPersonRepository;
 import com.dat.ai_receptionist_web.repository.Security.AuthSessionRepository;
 import com.dat.ai_receptionist_web.repository.Security.UserRepository;
 import com.dat.ai_receptionist_web.util.RefreshTokenUtil;
+import com.dat.ai_receptionist_web.error.ApiException;
+import com.dat.ai_receptionist_web.error.code.SecurityErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -71,8 +73,8 @@ class AuthSessionServiceTest {
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.switchContext(userId, sessionId, targetId))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("not owned");
+                .isInstanceOfSatisfying(ApiException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(SecurityErrorCode.PERSON_CONTEXT_NOT_OWNED));
 
         assertThat(session.getActiveUserPerson()).isNull();
     }

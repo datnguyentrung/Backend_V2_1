@@ -33,12 +33,12 @@ public class FacebookController {
     /**
      * 1. API XÃ¡c minh (GET): Facebook sáº½ gá»i API nÃ y ÄÃšNG 1 Láº¦N khi báº¡n báº¥m nÃºt "XÃ¡c minh vÃ  lÆ°u"
      */
-    @GetMapping("/webhook")
     /**
      * Tác dụng: Thực hiện logic verifyWebhook của lớp hiện tại.
      * Input: Nhận String mode, String token, String challenge từ caller hoặc request.
      * Output: Trả về ResponseEntity<String> theo kết quả xử lý.
      */
+    @GetMapping("/webhook")
     public ResponseEntity<String> verifyWebhook(
             @RequestParam(name = "hub.mode", required = false) String mode,
             @RequestParam(name = "hub.verify_token", required = false) String token,
@@ -54,12 +54,12 @@ public class FacebookController {
         }
     }
 
-    @GetMapping("/video-insights")
     /**
      * Tác dụng: Thực hiện logic getVideoInsights của lớp hiện tại.
      * Input: Không có tham số đầu vào.
      * Output: Trả về ResponseEntity<List<FacebookDTO.VideoInsightsParsed>> theo kết quả xử lý.
      */
+    @GetMapping("/video-insights")
     public ResponseEntity<List<FacebookDTO.VideoInsightsParsed>> getVideoInsights() {
         String apiVideoUrl = "https://graph.facebook.com/v25.0/" + pageId
                 + "/videos?fields=description,length,views,video_insights&access_token="
@@ -80,12 +80,12 @@ public class FacebookController {
         }
     }
 
-    @GetMapping("/post-insights")
     /**
      * Tác dụng: Thực hiện logic getPostInsights của lớp hiện tại.
      * Input: Không có tham số đầu vào.
      * Output: Trả về ResponseEntity<List<FacebookDTO.PostInsightsParsed>> theo kết quả xử lý.
      */
+    @GetMapping("/post-insights")
     public ResponseEntity<List<FacebookDTO.PostInsightsParsed>> getPostInsights() {
         // 1. Khai bÃ¡o URL dáº¡ng Template (Ä‘áº·t cÃ¡c biáº¿n vÃ o trong {})
         String apiPostsUrl = "https://graph.facebook.com/v25.0/{pageId}/posts?fields={fields}&access_token={accessToken}";
@@ -117,12 +117,12 @@ public class FacebookController {
     /**
      * 2. API Nháº­n dá»¯ liá»‡u (POST): Facebook sáº½ gá»i API nÃ y LIÃŠN Tá»¤C má»—i khi cÃ³ ai Like/Comment trÃªn Fanpage
      */
-    @PostMapping("/webhook")
     /**
      * Tác dụng: Thực hiện logic receiveWebhook của lớp hiện tại.
      * Input: Nhận String payload từ caller hoặc request.
      * Output: Trả về ResponseEntity<String> theo kết quả xử lý.
      */
+    @PostMapping("/webhook")
     public ResponseEntity<String> receiveWebhook(@RequestBody String payload) {
         log.info("ðŸ”¥ Facebook Webhook Event Nháº­n ÄÆ°á»£c:\n{}", payload);
 

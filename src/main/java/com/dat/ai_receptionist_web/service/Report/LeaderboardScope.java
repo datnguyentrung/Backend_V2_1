@@ -1,13 +1,16 @@
 package com.dat.ai_receptionist_web.service.Report;
 
 import com.dat.ai_receptionist_web.enums.Core.ScheduleLevel;
+import com.dat.ai_receptionist_web.error.ApiException;
+import com.dat.ai_receptionist_web.error.code.GeneralErrorCode;
+
 import java.util.Objects;
 
 public record LeaderboardScope(Type type, int year, int quarter, ScheduleLevel scheduleLevel) {
     public enum Type { QUARTER, FITNESS }
 
     public LeaderboardScope {
-        if (quarter < 1 || quarter > 4) throw new IllegalArgumentException("Quarter must be between 1 and 4");
+        if (quarter < 1 || quarter > 4) throw new ApiException(GeneralErrorCode.INVALID_REQUEST_PARAMETER);
         if (type == Type.FITNESS) Objects.requireNonNull(scheduleLevel);
     }
 

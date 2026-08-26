@@ -22,22 +22,22 @@ public class FitnessRecordsCacheProjectionHandler implements ProjectionHandler {
         this.cacheManager = cacheManager;
     }
 
-    @Override
     /**
      * Tác dụng: Thực hiện logic supports của lớp hiện tại.
      * Input: Không có tham số đầu vào.
      * Output: Trả về ProjectionType theo kết quả xử lý.
      */
+    @Override
     public ProjectionType supports() {
         return ProjectionType.FITNESS_RECORDS_CACHE;
     }
 
-    @Override
     /**
      * Tác dụng: Xử lý một đơn vị công việc theo logic nghiệp vụ của lớp.
      * Input: Nhận ProjectionJob job từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Override
     public void process(ProjectionJob job) {
         Cache cache = cacheManager.getCache("fitnessRecords");
         if (cache == null) {

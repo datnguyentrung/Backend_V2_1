@@ -167,12 +167,12 @@ public class FacebookService {
      * Input: {"REACTION_LIKE": 16, "REACTION_LOVE": 5, ...}
      * Output: Map vá»›i key lÃ  reaction type, value lÃ  count
      */
-    @SuppressWarnings("unchecked")
     /**
      * Tác dụng: Thực hiện logic parseReactionMap của lớp hiện tại.
      * Input: Nhận Object value từ caller hoặc request.
      * Output: Trả về Long> theo kết quả xử lý.
      */
+    @SuppressWarnings("unchecked")
     private Map<String, Long> parseReactionMap(Object value) {
         if (value == null) return Collections.emptyMap();
 

@@ -25,12 +25,12 @@ public class ProjectionOutboxWorker {
 
     private final String instanceId = ManagementFactory.getRuntimeMXBean().getName();
 
-    @Scheduled(fixedDelayString = "${projection.worker.poll-delay-ms:1000}")
     /**
      * Tác dụng: Thực hiện logic poll của lớp hiện tại.
      * Input: Không có tham số đầu vào.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Scheduled(fixedDelayString = "${projection.worker.poll-delay-ms:1000}")
     public void poll() {
         List<ProjectionJob> jobs = outboxService.claimReadyJobs(batchSize, instanceId);
         for (ProjectionJob job : jobs) {

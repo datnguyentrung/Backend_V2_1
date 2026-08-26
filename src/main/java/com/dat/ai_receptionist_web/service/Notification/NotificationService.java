@@ -4,6 +4,8 @@ import com.dat.ai_receptionist_web.domain.Security.User;
 import com.dat.ai_receptionist_web.dto.Notification.NotificationDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.enums.Operation.NotificationRecipientStatus;
+import com.dat.ai_receptionist_web.error.ApiException;
+import com.dat.ai_receptionist_web.error.code.NotificationErrorCode;
 import com.dat.ai_receptionist_web.mapper.Notification.NotificationMapper;
 import com.dat.ai_receptionist_web.repository.Notification.*;
 import com.dat.ai_receptionist_web.repository.Core.UserPersonRepository;
@@ -24,40 +26,40 @@ public class NotificationService {
     private final NotificationDeliveryService deliveryService;
     private final NotificationMapper notificationMapper;
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
      * Input: Nhận Pageable pageable từ caller hoặc request.
      * Output: Trả về PageResponse<NotificationDTO.Response> theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public PageResponse<NotificationDTO.Response> list(Pageable pageable) {
         return PageResponse.of(notificationRepository.findAll(pageable), notificationMapper::toResponse);
     }
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Lấy chi tiết một bản ghi theo khóa định danh.
      * Input: Nhận UUID id từ caller hoặc request.
      * Output: Trả về NotificationDTO.Response theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public NotificationDTO.Response get(UUID id) {
         return notificationMapper.toResponse(find(id));
     }
 
-    @Transactional
     /**
      * Tác dụng: Tạo mới bản ghi và trả về dữ liệu sau khi tạo.
      * Input: Nhận NotificationDTO.CreateRequest request từ caller hoặc request.
      * Output: Trả về NotificationDTO.Response theo kết quả xử lý.
      */
+    @Transactional
     public NotificationDTO.Response create(NotificationDTO.CreateRequest request) {
         Set<UUID> recipientIds = resolveRecipients(request);
         if (recipientIds.isEmpty()) {
-            throw new IllegalArgumentException("At least one notification recipient is required");
+            throw new ApiException(NotificationErrorCode.NOTIFICATION_RECIPIENT_REQUIRED);
         }
         List<User> users = userRepository.findAllById(recipientIds);
         if (users.size() != recipientIds.size())
-            throw new IllegalArgumentException("One or more notification recipients do not exist");
+            throw new ApiException(NotificationErrorCode.NOTIFICATION_RECIPIENTS_NOT_FOUND);
         Notification notification = notificationRepository.save(Notification.builder()
                 .title(request.title()).body(request.body()).notificationType(request.type())
                 .referenceType(request.referenceType()).referenceId(request.referenceId())
@@ -73,24 +75,24 @@ public class NotificationService {
         return new NotificationDTO.Response(notification.getNotificationId(), users.size());
     }
 
-    @Transactional
     /**
      * Tác dụng: Cập nhật bản ghi hiện có và trả về dữ liệu sau khi cập nhật.
      * Input: Nhận UUID id, NotificationDTO.UpdateRequest request từ caller hoặc request.
      * Output: Trả về NotificationDTO.Response theo kết quả xử lý.
      */
+    @Transactional
     public NotificationDTO.Response update(UUID id, NotificationDTO.UpdateRequest request) {
         Notification notification = find(id);
         notificationMapper.updateEntity(request, notification);
         return notificationMapper.toResponse(notificationRepository.save(notification));
     }
 
-    @Transactional
     /**
      * Tác dụng: Xóa hoặc vô hiệu hóa bản ghi theo định danh đầu vào.
      * Input: Nhận UUID id từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional
     public void delete(UUID id) {
         notificationRepository.delete(find(id));
     }
@@ -126,7 +128,7 @@ public class NotificationService {
      */
     private Notification find(UUID id) {
         return notificationRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+                .orElseThrow(() -> new ApiException(NotificationErrorCode.NOTIFICATION_NOT_FOUND));
     }
 }
 

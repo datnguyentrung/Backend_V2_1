@@ -1,4 +1,4 @@
-package com.dat.ai_receptionist_web.util.error;
+package com.dat.ai_receptionist_web.error;
 
 public class AuthenticationException extends RuntimeException {
     public AuthenticationException(String message) {

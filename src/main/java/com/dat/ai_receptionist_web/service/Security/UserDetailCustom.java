@@ -21,12 +21,12 @@ public class UserDetailCustom implements UserDetailsService {
         this.userService = userService;
     }
 
-    @Override
     /**
      * Tác dụng: Nạp dữ liệu cần thiết từ nguồn lưu trữ để phục vụ xử lý nghiệp vụ.
      * Input: Nhận String phoneNumber từ caller hoặc request.
      * Output: Trả về UserDetails theo kết quả xử lý.
      */
+    @Override
     public UserDetails loadUserByUsername(@NonNull String phoneNumber) throws UsernameNotFoundException {
         String normalizedPhone;
         try {

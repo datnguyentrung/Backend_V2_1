@@ -2,6 +2,8 @@ package com.dat.ai_receptionist_web.service.Security;
 
 import com.dat.ai_receptionist_web.enums.Security.PermissionDefinition;
 import com.dat.ai_receptionist_web.enums.Security.UserStatus;
+import com.dat.ai_receptionist_web.error.ApiException;
+import com.dat.ai_receptionist_web.error.code.SecurityErrorCode;
 import com.dat.ai_receptionist_web.repository.Security.AuthSessionRepository;
 import com.dat.ai_receptionist_web.repository.Security.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,16 +25,16 @@ public class AuthorizationService {
     private final UserRepository userRepository;
     private final AuthSessionRepository authSessionRepository;
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Nạp dữ liệu cần thiết từ nguồn lưu trữ để phục vụ xử lý nghiệp vụ.
      * Input: Nhận UUID userId từ caller hoặc request.
      * Output: Trả về AuthorizationSnapshot theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public AuthorizationSnapshot loadSnapshot(UUID userId) {
         List<UserRepository.AuthorizationRow> rows = userRepository.findAuthorizationRows(userId);
         if (rows.isEmpty()) {
-            throw new IllegalArgumentException("User not found");
+            throw new ApiException(SecurityErrorCode.USER_NOT_FOUND);
         }
 
         UserRepository.AuthorizationRow head = rows.getFirst();
@@ -59,12 +61,12 @@ public class AuthorizationService {
         );
     }
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Kiểm tra tính hợp lệ của dữ liệu đầu vào trước khi xử lý tiếp.
      * Input: Nhận Jwt jwt từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional(readOnly = true)
     public void validateAccessToken(Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getSubject());
         UUID sessionId = UUID.fromString(jwt.getClaimAsString("authSessionId"));

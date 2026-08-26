@@ -12,12 +12,34 @@ public final class ClassScheduleDTO {
     private ClassScheduleDTO() {
     }
 
-    public record CreateRequest(@NotNull Long branchId, @NotNull Weekday weekday, @NotNull ScheduleLevel level, @NotNull ScheduleLocation location, @NotNull ScheduleStatus status, @NotNull LocalTime startTime, @NotNull LocalTime endTime) {
+    public record CreateRequest(
+            @NotNull Long branchId,
+            @NotNull Weekday weekday,
+            @NotNull ScheduleLevel level,
+            @NotNull ScheduleLocation location,
+            @NotNull ScheduleStatus status,
+            @NotNull LocalTime startTime,
+            @NotNull LocalTime endTime) {
     }
 
-    public record UpdateRequest(@NotNull Long branchId, @NotNull Weekday weekday, @NotNull ScheduleLevel level, @NotNull ScheduleLocation location, @NotNull ScheduleStatus status, @NotNull LocalTime startTime, @NotNull LocalTime endTime) {
+    public record UpdateRequest(
+            @NotNull Long branchId,
+            @NotNull Weekday weekday,
+            @NotNull ScheduleLevel level,
+            @NotNull ScheduleLocation location,
+            @NotNull ScheduleStatus status,
+            @NotNull LocalTime startTime,
+            @NotNull LocalTime endTime) {
     }
 
-    public record Response(UUID scheduleId, Long branchId, Weekday weekday, ScheduleLevel level, ScheduleLocation location, ScheduleStatus status, LocalTime startTime, LocalTime endTime) {
+    public record Response(
+            UUID scheduleId,
+            Long branchId,
+            Weekday weekday,
+            ScheduleLevel level,
+            ScheduleLocation location,
+            ScheduleStatus status,
+            LocalTime startTime,
+            LocalTime endTime) {
     }
 }

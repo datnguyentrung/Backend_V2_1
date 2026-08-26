@@ -1,4 +1,4 @@
-package com.dat.ai_receptionist_web.util.error;
+package com.dat.ai_receptionist_web.error;
 
 import lombok.Getter;
 import org.springframework.http.HttpStatus;

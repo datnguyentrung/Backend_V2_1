@@ -37,13 +37,13 @@ public class SystemUserSynchronizer implements ApplicationRunner {
     private final UserService userService;
     private final UserRoleService userRoleService;
 
-    @Override
-    @Transactional
     /**
      * Tác dụng: Chạy tác vụ khởi động hoặc đồng bộ dữ liệu theo ngữ cảnh của lớp.
      * Input: Nhận ApplicationArguments args từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Override
+    @Transactional
     public void run(ApplicationArguments args) {
         SyncResult result = syncAll(bootstrapUserProperties.getUsers());
 

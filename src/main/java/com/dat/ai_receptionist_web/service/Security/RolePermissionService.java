@@ -6,6 +6,8 @@ import com.dat.ai_receptionist_web.domain.Security.RolePermission;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.dto.Security.RolePermissionDTO;
 import com.dat.ai_receptionist_web.enums.Security.PermissionDefinition;
+import com.dat.ai_receptionist_web.error.ApiException;
+import com.dat.ai_receptionist_web.error.code.SecurityErrorCode;
 import com.dat.ai_receptionist_web.mapper.Security.RolePermissionMapper;
 import com.dat.ai_receptionist_web.repository.Security.PermissionRepository;
 import com.dat.ai_receptionist_web.repository.Security.RolePermissionRepository;
@@ -26,37 +28,37 @@ public class RolePermissionService {
     private final RolePermissionRepository rolePermissionRepository;
     private final RolePermissionMapper rolePermissionMapper;
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
      * Input: Nhận Pageable pageable từ caller hoặc request.
      * Output: Trả về PageResponse<RolePermissionDTO.ItemResponse> theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public PageResponse<RolePermissionDTO.ItemResponse> list(Pageable pageable) {
         return PageResponse.of(rolePermissionRepository.findAll(pageable), rolePermissionMapper::toResponse);
     }
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Lấy chi tiết một bản ghi theo khóa định danh.
      * Input: Nhận String roleCode, Integer permissionId từ caller hoặc request.
      * Output: Trả về RolePermissionDTO.ItemResponse theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public RolePermissionDTO.ItemResponse get(String roleCode, Integer permissionId) {
         return rolePermissionMapper.toResponse(find(roleCode, permissionId));
     }
 
-    @Transactional
     /**
      * Tác dụng: Tạo mới bản ghi và trả về dữ liệu sau khi tạo.
      * Input: Nhận RolePermissionDTO.CreateRequest request từ caller hoặc request.
      * Output: Trả về RolePermissionDTO.ItemResponse theo kết quả xử lý.
      */
+    @Transactional
     public RolePermissionDTO.ItemResponse create(RolePermissionDTO.CreateRequest request) {
         Role role = roleRepository.findById(request.roleCode())
-                .orElseThrow(() -> new IllegalArgumentException("Role not found"));
+                .orElseThrow(() -> new ApiException(SecurityErrorCode.ROLE_NOT_FOUND));
         Permission permission = permissionRepository.findById(request.permissionId())
-                .orElseThrow(() -> new IllegalArgumentException("Permission not found"));
+                .orElseThrow(() -> new ApiException(SecurityErrorCode.PERMISSION_NOT_FOUND));
         RolePermission entity = new RolePermission(
                 new RolePermission.Key(role.getCode(), permission.getPermissionId()), role, permission);
         RolePermission saved = rolePermissionRepository.save(entity);
@@ -64,23 +66,23 @@ public class RolePermissionService {
         return rolePermissionMapper.toResponse(saved);
     }
 
-    @Transactional
     /**
      * Tác dụng: Xóa hoặc vô hiệu hóa bản ghi theo định danh đầu vào.
      * Input: Nhận String roleCode, Integer permissionId từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional
     public void delete(String roleCode, Integer permissionId) {
         rolePermissionRepository.delete(find(roleCode, permissionId));
         roleRepository.incrementPermissionVersion(roleCode);
     }
 
-    @Transactional
     /**
      * Tác dụng: Thay thế tập dữ liệu hiện tại bằng tập dữ liệu mong muốn theo cơ chế diff.
      * Input: Nhận String roleCode, Set<String> requestedCodes từ caller hoặc request.
      * Output: Trả về RolePermissionDTO.Response theo kết quả xử lý.
      */
+    @Transactional
     public RolePermissionDTO.Response replace(String roleCode, Set<String> requestedCodes) {
         SyncResult result = replaceInternal(roleCode, requestedCodes);
         return new RolePermissionDTO.Response(
@@ -90,17 +92,19 @@ public class RolePermissionService {
         );
     }
 
-    @Transactional
     /**
      * Tác dụng: Thay thế tập dữ liệu hiện tại bằng tập dữ liệu mong muốn theo cơ chế diff.
      * Input: Nhận String roleCode, Set<String> requestedCodes từ caller hoặc request.
      * Output: Trả về SyncResult theo kết quả xử lý.
      */
+    @Transactional
     public SyncResult replaceInternal(String roleCode, Set<String> requestedCodes) {
         String normalizedRoleCode = normalizeRoleCode(roleCode);
         SortedSet<String> desired = normalizeAndValidate(requestedCodes);
         Role existingRole = roleRepository.findById(normalizedRoleCode)
-                .orElseThrow(() -> new IllegalArgumentException("Role not found: " + normalizedRoleCode));
+                .orElseThrow(() -> new ApiException(
+                        SecurityErrorCode.ROLE_NOT_FOUND,
+                        "Role not found: " + normalizedRoleCode));
         SortedSet<String> current = rolePermissionRepository.findPermissionCodes(normalizedRoleCode);
 
         Diff diff = diff(desired, current);
@@ -115,7 +119,9 @@ public class RolePermissionService {
         }
 
         Role lockedRole = roleRepository.findByIdForUpdate(normalizedRoleCode)
-                .orElseThrow(() -> new IllegalArgumentException("Role not found: " + normalizedRoleCode));
+                .orElseThrow(() -> new ApiException(
+                        SecurityErrorCode.ROLE_NOT_FOUND,
+                        "Role not found: " + normalizedRoleCode));
         SortedSet<String> currentAfterLock = rolePermissionRepository.findPermissionCodes(normalizedRoleCode);
         Diff diffAfterLock = diff(desired, currentAfterLock);
 
@@ -137,15 +143,15 @@ public class RolePermissionService {
         );
     }
 
-    @Transactional
     /**
      * Tác dụng: Thay thế tập dữ liệu hiện tại bằng tập dữ liệu mong muốn theo cơ chế diff.
      * Input: Nhận Map<String, Set<String>> requestedCodesByRole từ caller hoặc request.
      * Output: Trả về BulkSyncResult theo kết quả xử lý.
      */
+    @Transactional
     public BulkSyncResult replaceAll(Map<String, Set<String>> requestedCodesByRole) {
         if (requestedCodesByRole == null) {
-            throw new IllegalArgumentException("Role permissions must not be null");
+            throw new ApiException(SecurityErrorCode.ROLE_PERMISSIONS_REQUIRED);
         }
 
         Map<String, SortedSet<String>> desiredByRole = requestedCodesByRole.entrySet().stream()
@@ -153,7 +159,7 @@ public class RolePermissionService {
                         entry -> normalizeRoleCode(entry.getKey()),
                         entry -> normalizeAndValidate(entry.getValue()),
                         (left, right) -> {
-                            throw new IllegalArgumentException("Duplicate role code");
+                            throw new ApiException(SecurityErrorCode.DUPLICATE_ROLE_CODE);
                         },
                         TreeMap::new
                 ));
@@ -170,7 +176,9 @@ public class RolePermissionService {
 
         Map<String, Role> lockedRoles = changedDiffs.keySet().stream()
                 .map(code -> roleRepository.findByIdForUpdate(code)
-                        .orElseThrow(() -> new IllegalArgumentException("Role not found: " + code)))
+                        .orElseThrow(() -> new ApiException(
+                                SecurityErrorCode.ROLE_NOT_FOUND,
+                                "Role not found: " + code)))
                 .collect(Collectors.toMap(Role::getCode, role -> role));
 
         Map<String, SortedSet<String>> affectedDesiredByRole = desiredByRole.entrySet().stream()
@@ -207,7 +215,7 @@ public class RolePermissionService {
      */
     private RolePermission find(String roleCode, Integer permissionId) {
         return rolePermissionRepository.findById(new RolePermission.Key(roleCode, permissionId))
-                .orElseThrow(() -> new IllegalArgumentException("RolePermission not found"));
+                .orElseThrow(() -> new ApiException(SecurityErrorCode.ROLE_PERMISSION_NOT_FOUND));
     }
 
     /**
@@ -272,7 +280,7 @@ public class RolePermissionService {
         if (!diff.toAdd().isEmpty()) {
             List<Permission> permissions = permissionRepository.findAllByCodeIn(diff.toAdd());
             if (permissions.size() != diff.toAdd().size()) {
-                throw new IllegalArgumentException("One or more permissions do not exist");
+                throw new ApiException(SecurityErrorCode.PERMISSIONS_NOT_FOUND);
             }
 
             List<RolePermission> rolePermissions = permissions.stream()
@@ -293,7 +301,7 @@ public class RolePermissionService {
      */
     private String normalizeRoleCode(String roleCode) {
         if (roleCode == null || roleCode.isBlank()) {
-            throw new IllegalArgumentException("Role code must not be blank");
+            throw new ApiException(SecurityErrorCode.ROLE_CODE_REQUIRED);
         }
         return roleCode.trim().toUpperCase(Locale.ROOT);
     }
@@ -305,7 +313,7 @@ public class RolePermissionService {
      */
     private SortedSet<String> normalizeAndValidate(Set<String> requestedCodes) {
         if (requestedCodes == null) {
-            throw new IllegalArgumentException("Permission codes must not be null");
+            throw new ApiException(SecurityErrorCode.PERMISSION_CODES_REQUIRED);
         }
 
         SortedSet<String> normalized = requestedCodes.stream()
@@ -320,7 +328,7 @@ public class RolePermissionService {
                 .collect(Collectors.toSet());
 
         if (!definedCodes.containsAll(normalized)) {
-            throw new IllegalArgumentException("One or more permission codes are not defined by the backend");
+            throw new ApiException(SecurityErrorCode.PERMISSION_CODES_UNDEFINED);
         }
 
         return normalized;

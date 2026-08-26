@@ -27,13 +27,13 @@ public class PermissionSynchronizer implements ApplicationRunner {
     private final RolePermissionRepository rolePermissionRepository;
     private final RoleRepository roleRepository;
 
-    @Override
-    @Transactional
     /**
      * Tác dụng: Chạy tác vụ khởi động hoặc đồng bộ dữ liệu theo ngữ cảnh của lớp.
      * Input: Nhận ApplicationArguments args từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Override
+    @Transactional
     public void run(ApplicationArguments args) {
 
         Map<String, Permission> dbPermissions =

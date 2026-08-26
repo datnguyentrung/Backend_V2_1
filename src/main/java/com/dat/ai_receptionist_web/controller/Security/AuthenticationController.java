@@ -3,6 +3,8 @@ package com.dat.ai_receptionist_web.controller.Security;
 import com.dat.ai_receptionist_web.domain.Security.AuthSession;
 import com.dat.ai_receptionist_web.dto.Security.*;
 import com.dat.ai_receptionist_web.enums.Security.UserStatus;
+import com.dat.ai_receptionist_web.error.ApiException;
+import com.dat.ai_receptionist_web.error.code.SecurityErrorCode;
 import com.dat.ai_receptionist_web.service.Security.*;
 import com.dat.ai_receptionist_web.util.*;
 import jakarta.validation.Valid;
@@ -36,12 +38,12 @@ public class AuthenticationController {
     @Value("${auth.refresh-cookie.same-site:Lax}")
     private String refreshCookieSameSite;
 
-    @PostMapping("/login")
     /**
      * Tác dụng: Thực hiện logic login của lớp hiện tại.
      * Input: Nhận LoginReq.UserBase request từ caller hoặc request.
      * Output: Trả về ResponseEntity<LoginRes> theo kết quả xử lý.
      */
+    @PostMapping("/login")
     public ResponseEntity<LoginRes> login(@Valid @RequestBody LoginReq.UserBase request) {
         LoginBundle bundle = authenticate(request, "WEB");
         return ResponseEntity.ok()
@@ -49,24 +51,24 @@ public class AuthenticationController {
                 .body(bundle.response());
     }
 
-    @PostMapping("/mobile/login")
     /**
      * Tác dụng: Thực hiện logic mobileLogin của lớp hiện tại.
      * Input: Nhận LoginReq.MobileLoginRequest request từ caller hoặc request.
      * Output: Trả về ResponseEntity<LoginRes.MobileResponse> theo kết quả xử lý.
      */
+    @PostMapping("/mobile/login")
     public ResponseEntity<LoginRes.MobileResponse> mobileLogin(
             @Valid @RequestBody LoginReq.MobileLoginRequest request) {
         LoginBundle bundle = authenticate(request, request.getPlatform().toUpperCase(Locale.ROOT));
         return ResponseEntity.ok(toMobile(bundle.response(), bundle.refreshToken()));
     }
 
-    @PostMapping("/refresh")
     /**
      * Tác dụng: Thực hiện logic refresh của lớp hiện tại.
      * Input: Nhận String rawToken từ caller hoặc request.
      * Output: Trả về ResponseEntity<LoginRes> theo kết quả xử lý.
      */
+    @PostMapping("/refresh")
     public ResponseEntity<LoginRes> refresh(
             @CookieValue(name = REFRESH_COOKIE, defaultValue = "") String rawToken) {
         try {
@@ -80,12 +82,12 @@ public class AuthenticationController {
         }
     }
 
-    @PostMapping("/mobile/refresh")
     /**
      * Tác dụng: Thực hiện logic mobileRefresh của lớp hiện tại.
      * Input: Nhận LoginReq.RefreshTokenRequest request từ caller hoặc request.
      * Output: Trả về ResponseEntity<LoginRes.MobileResponse> theo kết quả xử lý.
      */
+    @PostMapping("/mobile/refresh")
     public ResponseEntity<LoginRes.MobileResponse> mobileRefresh(
             @Valid @RequestBody LoginReq.RefreshTokenRequest request) {
         try {
@@ -96,12 +98,12 @@ public class AuthenticationController {
         }
     }
 
-    @GetMapping("/account")
     /**
      * Tác dụng: Thực hiện logic account của lớp hiện tại.
      * Input: Không có tham số đầu vào.
      * Output: Trả về LoginRes theo kết quả xử lý.
      */
+    @GetMapping("/account")
     public LoginRes account() {
         UUID userId = currentUserId();
         AuthorizationSnapshot snapshot = authorizationService.loadSnapshot(userId);
@@ -112,22 +114,22 @@ public class AuthenticationController {
         return response(null, null, snapshot, active, contexts);
     }
 
-    @GetMapping("/contexts")
     /**
      * Tác dụng: Thực hiện logic contexts của lớp hiện tại.
      * Input: Không có tham số đầu vào.
      * Output: Trả về List<LoginRes.UserContextRes> theo kết quả xử lý.
      */
+    @GetMapping("/contexts")
     public List<LoginRes.UserContextRes> contexts() {
         return sessionService.contexts(currentUserId());
     }
 
-    @PostMapping("/switch-context")
     /**
      * Tác dụng: Chuyển ngữ cảnh hoạt động của người dùng sau khi kiểm tra quyền sở hữu.
      * Input: Nhận LoginReq.SwitchContextReq request từ caller hoặc request.
      * Output: Trả về LoginRes theo kết quả xử lý.
      */
+    @PostMapping("/switch-context")
     public LoginRes switchContext(@Valid @RequestBody LoginReq.SwitchContextReq request) {
         UUID userId = currentUserId();
         UUID sessionId = currentSessionId();
@@ -138,24 +140,24 @@ public class AuthenticationController {
                 null, snapshot, switched.activeContext(), switched.availableContexts());
     }
 
-    @GetMapping("/sessions")
     /**
      * Tác dụng: Thực hiện logic sessions của lớp hiện tại.
      * Input: Không có tham số đầu vào.
      * Output: Trả về List<SessionRes> theo kết quả xử lý.
      */
+    @GetMapping("/sessions")
     public List<SessionRes> sessions() {
         return sessionService.sessions(currentUserId()).stream()
                 .sorted(Comparator.comparing(AuthSession::getCreatedAt).reversed())
                 .map(SessionRes::from).toList();
     }
 
-    @PostMapping("/logout")
     /**
      * Tác dụng: Thực hiện logic logout của lớp hiện tại.
      * Input: Nhận String rawToken từ caller hoặc request.
      * Output: Trả về ResponseEntity<Void> theo kết quả xử lý.
      */
+    @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             @CookieValue(name = REFRESH_COOKIE, defaultValue = "") String rawToken) {
         sessionService.revokeByRawToken(rawToken);
@@ -163,34 +165,34 @@ public class AuthenticationController {
                 .header(HttpHeaders.SET_COOKIE, deleteRefreshCookie().toString()).build();
     }
 
-    @PostMapping("/mobile/logout")
     /**
      * Tác dụng: Thực hiện logic mobileLogout của lớp hiện tại.
      * Input: Nhận LoginReq.RefreshTokenRequest request từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @PostMapping("/mobile/logout")
     public void mobileLogout(@Valid @RequestBody LoginReq.RefreshTokenRequest request) {
         sessionService.revokeByRawToken(request.getRefreshToken());
     }
 
-    @PostMapping("/logout-all")
     /**
      * Tác dụng: Thực hiện logic logoutAll của lớp hiện tại.
      * Input: Không có tham số đầu vào.
      * Output: Trả về ResponseEntity<Void> theo kết quả xử lý.
      */
+    @PostMapping("/logout-all")
     public ResponseEntity<Void> logoutAll() {
         sessionService.revokeAll(currentUserId());
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, deleteRefreshCookie().toString()).build();
     }
 
-    @PostMapping("/update-fcm")
     /**
      * Tác dụng: Thực hiện logic updateFcm của lớp hiện tại.
      * Input: Nhận LoginReq.UpdateFcmReq request từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @PostMapping("/update-fcm")
     public void updateFcm(@Valid @RequestBody LoginReq.UpdateFcmReq request) {
         sessionService.updateFcm(currentSessionId(), request.getFcmToken(), request.getPlatform());
     }
@@ -232,7 +234,7 @@ public class AuthenticationController {
      */
     private LoginBundle refreshBundle(String currentRawToken) {
         if (currentRawToken == null || currentRawToken.isBlank()) {
-            throw new IllegalArgumentException("Missing refresh token");
+            throw new ApiException(SecurityErrorCode.MISSING_REFRESH_TOKEN);
         }
         String nextRawToken = RefreshTokenUtil.generateRawToken();
         AuthSession session = sessionService.rotate(currentRawToken, nextRawToken);
@@ -240,7 +242,7 @@ public class AuthenticationController {
         AuthorizationSnapshot snapshot = authorizationService.loadSnapshot(userId);
         if (snapshot.userStatus() != UserStatus.ACTIVE) {
             sessionService.revoke(session.getAuthSessionId());
-            throw new IllegalArgumentException("User is not active");
+            throw new ApiException(SecurityErrorCode.USER_NOT_ACTIVE);
         }
         List<LoginRes.UserContextRes> contexts = sessionService.contexts(userId);
         UUID activeId = session.getActiveUserPerson() == null
@@ -248,7 +250,7 @@ public class AuthenticationController {
         LoginRes.UserContextRes active = contextById(contexts, activeId);
         if (activeId != null && active == null) {
             sessionService.revoke(session.getAuthSessionId());
-            throw new IllegalArgumentException("Active context is no longer available");
+            throw new ApiException(SecurityErrorCode.ACTIVE_CONTEXT_UNAVAILABLE);
         }
         String accessToken = securityUtil.createAccessToken(session.getAuthSessionId(), snapshot, activeId);
         return new LoginBundle(response(accessToken, session.getDeviceInfo(), snapshot, active, contexts),

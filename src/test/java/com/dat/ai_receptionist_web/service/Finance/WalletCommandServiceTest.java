@@ -12,7 +12,8 @@ import com.dat.ai_receptionist_web.repository.Catalog.*;
 import com.dat.ai_receptionist_web.repository.Finance.*;
 import com.dat.ai_receptionist_web.repository.Security.UserRepository;
 import com.dat.ai_receptionist_web.repository.Training.StudentEnrollmentRepository;
-import com.dat.ai_receptionist_web.util.error.FinancialException;
+import com.dat.ai_receptionist_web.error.ApiException;
+import com.dat.ai_receptionist_web.error.code.FinanceErrorCode;
 import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.*;
 import org.springframework.data.jpa.repository.Lock;
@@ -182,8 +183,8 @@ class WalletCommandServiceTest {
         assertThatThrownBy(() -> service.purchaseCourse(
                 new WalletCommandDTO.CoursePurchaseRequest(personId, UUID.randomUUID(),
                         "purchase-001", null), UUID.randomUUID()))
-                .isInstanceOf(FinancialException.class)
-                .hasMessageContaining("External reference");
+                .isInstanceOfSatisfying(ApiException.class, exception ->
+                        assertThat(exception.getErrorCode()).isEqualTo(FinanceErrorCode.IDEMPOTENCY_CONFLICT));
     }
 
     @Test

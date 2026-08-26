@@ -25,13 +25,13 @@ public class SystemRoleSynchronizer implements ApplicationRunner {
 
     private final RoleRepository roleRepository;
 
-    @Override
-    @Transactional
     /**
      * Tác dụng: Chạy tác vụ khởi động hoặc đồng bộ dữ liệu theo ngữ cảnh của lớp.
      * Input: Nhận ApplicationArguments args từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Override
+    @Transactional
     public void run(@NonNull ApplicationArguments args) {
 
         Map<String, Role> existingRoles =

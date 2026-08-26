@@ -6,13 +6,13 @@ import com.dat.ai_receptionist_web.dto.Core.PersonDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.enums.Core.PersonStatus;
 import com.dat.ai_receptionist_web.enums.Finance.WalletStatus;
+import com.dat.ai_receptionist_web.error.ApiException;
+import com.dat.ai_receptionist_web.error.code.CoreErrorCode;
 import com.dat.ai_receptionist_web.mapper.Core.PersonMapper;
 import com.dat.ai_receptionist_web.repository.Core.PersonRepository;
 import com.dat.ai_receptionist_web.repository.Finance.WalletRepository;
 import com.dat.ai_receptionist_web.util.converter.NameConverter;
-import com.dat.ai_receptionist_web.util.error.BusinessException;
 import lombok.RequiredArgsConstructor;
-import org.mapstruct.factory.Mappers;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,18 +27,20 @@ public class PersonService {
     private final WalletRepository walletRepository;
     private final PersonMapper personMapper;
 
-    @Transactional
     /**
      * Tác dụng: Tạo mới bản ghi và trả về dữ liệu sau khi tạo.
      * Input: Nhận PersonDTO.CreateRequest request từ caller hoặc request.
      * Output: Trả về PersonDTO.Response theo kết quả xử lý.
      */
+    @Transactional
     public PersonDTO.Response create(PersonDTO.CreateRequest request) {
         if (request.nationalCode() != null && personRepository.existsByNationalCode(request.nationalCode())) {
-            throw new BusinessException("National code already exists");
+            throw new ApiException(
+                    CoreErrorCode.NATIONAL_CODE_ALREADY_EXISTS);
         }
         if (personRepository.existsByPersonCode(request.personCode())) {
-            throw new BusinessException("Person code already exists");
+            throw new ApiException(
+                    CoreErrorCode.PERSON_CODE_ALREADY_EXISTS);
         }
         Person person = personRepository.save(Person.builder()
                 .fullName(NameConverter.formatVietnameseName(request.fullName()))
@@ -59,12 +61,12 @@ public class PersonService {
         return toResponse(person);
     }
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Thực hiện logic search của lớp hiện tại.
      * Input: Nhận String query, Pageable pageable từ caller hoặc request.
      * Output: Trả về Page<PersonDTO.Response> theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public Page<PersonDTO.Response> search(String query, Pageable pageable) {
         Page<Person> people = query == null || query.isBlank()
                 ? personRepository.findAll(pageable)
@@ -73,45 +75,45 @@ public class PersonService {
         return people.map(this::toResponse);
     }
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
      * Input: Nhận Pageable pageable từ caller hoặc request.
      * Output: Trả về PageResponse<PersonDTO.Response> theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public PageResponse<PersonDTO.Response> list(Pageable pageable) {
         return PageResponse.of(personRepository.findAll(pageable), personMapper::toResponse);
     }
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Lấy chi tiết một bản ghi theo khóa định danh.
      * Input: Nhận UUID id từ caller hoặc request.
      * Output: Trả về PersonDTO.Response theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public PersonDTO.Response get(UUID id) {
         return toResponse(personRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Person not found")));
+                .orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND)));
     }
 
-    @Transactional
     /**
      * Tác dụng: Cập nhật bản ghi hiện có và trả về dữ liệu sau khi cập nhật.
      * Input: Nhận UUID id, PersonDTO.UpdateRequest request từ caller hoặc request.
      * Output: Trả về PersonDTO.Response theo kết quả xử lý.
      */
+    @Transactional
     public PersonDTO.Response update(UUID id, PersonDTO.UpdateRequest request) {
         Person person = find(id);
         personMapper.updateEntity(request, person);
         return personMapper.toResponse(personRepository.save(person));
     }
 
-    @Transactional
     /**
      * Tác dụng: Xóa hoặc vô hiệu hóa bản ghi theo định danh đầu vào.
      * Input: Nhận UUID id từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional
     public void delete(UUID id) {
         Person person = find(id);
         person.setStatus(PersonStatus.INACTIVE);
@@ -124,7 +126,7 @@ public class PersonService {
      */
     private Person find(UUID id) {
         return personRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Person not found"));
+                .orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND));
     }
 
     /**

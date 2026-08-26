@@ -11,12 +11,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class ProjectionScopeStateService {
     private final JdbcTemplate jdbcTemplate;
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     /**
      * Tác dụng: Thực hiện logic beginRebuild của lớp hiện tại.
      * Input: Nhận String scopeKey, String generation từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void beginRebuild(String scopeKey, String generation) {
         int updated = jdbcTemplate.update("""
                 INSERT INTO infrastructure.projection_scope_state (
@@ -35,12 +35,12 @@ public class ProjectionScopeStateService {
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     /**
      * Tác dụng: Thực hiện logic endRebuild của lớp hiện tại.
      * Input: Nhận String scopeKey, String generation từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void endRebuild(String scopeKey, String generation) {
         jdbcTemplate.update("""
                 UPDATE infrastructure.projection_scope_state

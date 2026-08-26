@@ -67,36 +67,36 @@ public class ProjectionOutboxService {
 
     private final JdbcTemplate jdbcTemplate;
 
-    @Transactional(propagation = Propagation.MANDATORY)
     /**
      * Tác dụng: Đánh dấu trạng thái xử lý để các tiến trình liên quan nhận biết thay đổi.
      * Input: Nhận String studentCode, int year, int quarter từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional(propagation = Propagation.MANDATORY)
     public void markConductDirty(String studentCode, int year, int quarter) {
         markDirty(ProjectionType.LEADERBOARD_CONDUCT,
                 "leaderboard:conduct:%d:Q%d:student:%s".formatted(year, quarter, studentCode),
                 "STUDENT", studentCode, year, quarter, null, "{}");
     }
 
-    @Transactional(propagation = Propagation.MANDATORY)
     /**
      * Tác dụng: Đánh dấu trạng thái xử lý để các tiến trình liên quan nhận biết thay đổi.
      * Input: Nhận String studentCode, int year, int quarter, ScheduleLevel scheduleLevel từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional(propagation = Propagation.MANDATORY)
     public void markFitnessDirty(String studentCode, int year, int quarter, ScheduleLevel scheduleLevel) {
         markDirty(ProjectionType.LEADERBOARD_FITNESS,
                 "leaderboard:fitness:%d:Q%d:%s:student:%s".formatted(year, quarter, scheduleLevel, studentCode),
                 "STUDENT", studentCode, year, quarter, scheduleLevel, "{}");
     }
 
-    @Transactional(propagation = Propagation.MANDATORY)
     /**
      * Tác dụng: Đánh dấu trạng thái xử lý để các tiến trình liên quan nhận biết thay đổi.
      * Input: Nhận String studentCode, boolean membershipChanged từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional(propagation = Propagation.MANDATORY)
     public void markMemberDirty(String studentCode, boolean membershipChanged) {
         markDirty(ProjectionType.LEADERBOARD_MEMBER,
                 "leaderboard:member:student:" + studentCode,
@@ -104,12 +104,12 @@ public class ProjectionOutboxService {
                 "{\"membershipChanged\":" + membershipChanged + "}");
     }
 
-    @Transactional(propagation = Propagation.MANDATORY)
     /**
      * Tác dụng: Đánh dấu trạng thái xử lý để các tiến trình liên quan nhận biết thay đổi.
      * Input: Không có tham số đầu vào.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional(propagation = Propagation.MANDATORY)
     public void markFitnessRecordsCacheDirty() {
         markDirty(ProjectionType.FITNESS_RECORDS_CACHE,
                 "cache:fitness-records", "CACHE", "fitnessRecords",
@@ -128,12 +128,12 @@ public class ProjectionOutboxService {
                 year, quarter, scheduleLevel == null ? null : scheduleLevel.name(), payload);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     /**
      * Tác dụng: Thực hiện logic claimReadyJobs của lớp hiện tại.
      * Input: Nhận int batchSize, String instanceId từ caller hoặc request.
      * Output: Trả về List<ProjectionJob> theo kết quả xử lý.
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public List<ProjectionJob> claimReadyJobs(int batchSize, String instanceId) {
         List<ProjectionJob> jobs = jdbcTemplate.query("""
                 SELECT id, projection_type, projection_key, aggregate_key,
@@ -187,12 +187,12 @@ public class ProjectionOutboxService {
         return claimed;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     /**
      * Tác dụng: Xác nhận một công việc đã được xử lý thành công.
      * Input: Nhận long id, long claimedRevision, String instanceId từ caller hoặc request.
      * Output: Trả về true/false thể hiện kết quả kiểm tra hoặc xử lý.
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean ack(long id, long claimedRevision, String instanceId) {
         return jdbcTemplate.update("""
                 UPDATE infrastructure.projection_outbox
@@ -203,12 +203,12 @@ public class ProjectionOutboxService {
                 """, claimedRevision, id, claimedRevision, instanceId) == 1;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     /**
      * Tác dụng: Giải phóng công việc không còn cần xử lý để hệ thống tiếp tục an toàn.
      * Input: Nhận long id, long claimedRevision, String instanceId từ caller hoặc request.
      * Output: Trả về true/false thể hiện kết quả kiểm tra hoặc xử lý.
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean releaseSuperseded(long id, long claimedRevision, String instanceId) {
         return jdbcTemplate.update("""
                 UPDATE infrastructure.projection_outbox
@@ -218,12 +218,12 @@ public class ProjectionOutboxService {
                 """, id, claimedRevision, instanceId) == 1;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     /**
      * Tác dụng: Đánh dấu công việc thất bại vĩnh viễn sau khi vượt quá ngưỡng xử lý.
      * Input: Nhận ProjectionJob job, Throwable error, String instanceId từ caller hoặc request.
      * Output: Trả về true/false thể hiện kết quả kiểm tra hoặc xử lý.
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean dead(ProjectionJob job, Throwable error, String instanceId) {
         String message = errorMessage(error);
         return jdbcTemplate.update("""
@@ -234,12 +234,12 @@ public class ProjectionOutboxService {
                 """, message, job.id(), job.revision(), instanceId) == 1;
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     /**
      * Tác dụng: Lên lịch thử lại công việc thất bại theo chính sách hiện tại.
      * Input: Nhận ProjectionJob job, Duration delay, Throwable error, String instanceId từ caller hoặc request.
      * Output: Trả về true/false thể hiện kết quả kiểm tra hoặc xử lý.
      */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean retry(ProjectionJob job, Duration delay, Throwable error, String instanceId) {
         OffsetDateTime nextAttempt = OffsetDateTime.now().plus(delay);
         String message = errorMessage(error);

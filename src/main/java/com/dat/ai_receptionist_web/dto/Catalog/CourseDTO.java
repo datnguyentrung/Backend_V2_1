@@ -9,12 +9,38 @@ public final class CourseDTO {
     private CourseDTO() {
     }
 
-    public record CreateRequest(@NotNull UUID classScheduleId, int capacity, @NotNull CourseStatus status) {
+    public record CreateRequest(
+            @NotNull(message = "Class schedule ID is required")
+            UUID classScheduleId,
+
+            @NotBlank(message = "Name is required")
+            String name,
+
+            int capacity,
+
+            @NotNull(message = "Status is required")
+            CourseStatus status
+    ) {
     }
 
-    public record UpdateRequest(@NotNull UUID classScheduleId, int capacity, @NotNull CourseStatus status) {
+    public record UpdateRequest(
+            @NotNull(message = "Class schedule ID is required")
+            UUID classScheduleId,
+
+            @NotNull(message = "Name is required")
+            String name,
+
+            int capacity,
+            @NotNull(message = "Status is required") CourseStatus status) {
     }
 
-    public record Response(UUID courseId, UUID classScheduleId, int capacity, CourseStatus status, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public record Response(
+            UUID courseId,
+            UUID classScheduleId,
+            String name,
+            int capacity,
+            CourseStatus status,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt) {
     }
 }

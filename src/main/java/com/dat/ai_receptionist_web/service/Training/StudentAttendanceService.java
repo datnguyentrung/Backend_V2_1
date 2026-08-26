@@ -3,6 +3,9 @@ package com.dat.ai_receptionist_web.service.Training;
 import com.dat.ai_receptionist_web.domain.Training.StudentAttendance;
 import com.dat.ai_receptionist_web.dto.Training.StudentAttendanceDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
+import com.dat.ai_receptionist_web.error.ApiException;
+import com.dat.ai_receptionist_web.error.code.CoreErrorCode;
+import com.dat.ai_receptionist_web.error.code.TrainingErrorCode;
 import com.dat.ai_receptionist_web.mapper.Training.StudentAttendanceMapper;
 import com.dat.ai_receptionist_web.repository.Training.StudentAttendanceRepository;
 import com.dat.ai_receptionist_web.repository.Training.ClassSessionRepository;
@@ -23,37 +26,37 @@ public class StudentAttendanceService {
     private final StudentEnrollmentRepository studentEnrollmentRepository;
     private final PersonRepository personRepository;
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
      * Input: Nhận Pageable pageable từ caller hoặc request.
      * Output: Trả về PageResponse<StudentAttendanceDTO.Response> theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public PageResponse<StudentAttendanceDTO.Response> list(Pageable pageable) {
         return PageResponse.of(repository.findAll(pageable), mapper::toResponse);
     }
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Lấy chi tiết một bản ghi theo khóa định danh.
      * Input: Nhận UUID id từ caller hoặc request.
      * Output: Trả về StudentAttendanceDTO.Response theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public StudentAttendanceDTO.Response get(UUID id) {
         return mapper.toResponse(find(id));
     }
 
-    @Transactional
     /**
      * Tác dụng: Tạo mới bản ghi và trả về dữ liệu sau khi tạo.
      * Input: Nhận StudentAttendanceDTO.CreateRequest request từ caller hoặc request.
      * Output: Trả về StudentAttendanceDTO.Response theo kết quả xử lý.
      */
+    @Transactional
     public StudentAttendanceDTO.Response create(StudentAttendanceDTO.CreateRequest request) {
         StudentAttendance entity = new StudentAttendance();
-        entity.setClassSession(classSessionRepository.findById(request.classSessionId()).orElseThrow(() -> new IllegalArgumentException("ClassSession not found")));
-        entity.setStudentEnrollment(studentEnrollmentRepository.findById(request.studentEnrollmentId()).orElseThrow(() -> new IllegalArgumentException("StudentEnrollment not found")));
-        entity.setEvaluatedByCoach(personRepository.findById(request.evaluatedByCoachId()).orElseThrow(() -> new IllegalArgumentException("Person not found")));
+        entity.setClassSession(classSessionRepository.findById(request.classSessionId()).orElseThrow(() -> new ApiException(TrainingErrorCode.CLASS_SESSION_NOT_FOUND)));
+        entity.setStudentEnrollment(studentEnrollmentRepository.findById(request.studentEnrollmentId()).orElseThrow(() -> new ApiException(TrainingErrorCode.STUDENT_ENROLLMENT_NOT_FOUND)));
+        entity.setEvaluatedByCoach(personRepository.findById(request.evaluatedByCoachId()).orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND)));
         entity.setCheckInTime(request.checkInTime());
         entity.setAttendanceStatus(request.attendanceStatus());
         entity.setEvaluationStatus(request.evaluationStatus());
@@ -61,27 +64,27 @@ public class StudentAttendanceService {
         return mapper.toResponse(repository.save(entity));
     }
 
-    @Transactional
     /**
      * Tác dụng: Cập nhật bản ghi hiện có và trả về dữ liệu sau khi cập nhật.
      * Input: Nhận UUID id, StudentAttendanceDTO.UpdateRequest request từ caller hoặc request.
      * Output: Trả về StudentAttendanceDTO.Response theo kết quả xử lý.
      */
+    @Transactional
     public StudentAttendanceDTO.Response update(UUID id, StudentAttendanceDTO.UpdateRequest request) {
         var entity = find(id);
-        entity.setClassSession(classSessionRepository.findById(request.classSessionId()).orElseThrow(() -> new IllegalArgumentException("ClassSession not found")));
-        entity.setStudentEnrollment(studentEnrollmentRepository.findById(request.studentEnrollmentId()).orElseThrow(() -> new IllegalArgumentException("StudentEnrollment not found")));
-        entity.setEvaluatedByCoach(personRepository.findById(request.evaluatedByCoachId()).orElseThrow(() -> new IllegalArgumentException("Person not found")));
+        entity.setClassSession(classSessionRepository.findById(request.classSessionId()).orElseThrow(() -> new ApiException(TrainingErrorCode.CLASS_SESSION_NOT_FOUND)));
+        entity.setStudentEnrollment(studentEnrollmentRepository.findById(request.studentEnrollmentId()).orElseThrow(() -> new ApiException(TrainingErrorCode.STUDENT_ENROLLMENT_NOT_FOUND)));
+        entity.setEvaluatedByCoach(personRepository.findById(request.evaluatedByCoachId()).orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND)));
         mapper.updateEntity(request, entity);
         return mapper.toResponse(repository.save(entity));
     }
 
-    @Transactional
     /**
      * Tác dụng: Xóa hoặc vô hiệu hóa bản ghi theo định danh đầu vào.
      * Input: Nhận UUID id từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional
     public void delete(UUID id) {
         var entity = find(id);
         repository.delete(entity);
@@ -93,7 +96,7 @@ public class StudentAttendanceService {
      * Output: Trả về StudentAttendance theo kết quả xử lý.
      */
     private StudentAttendance find(UUID id) {
-        return repository.findById(id).orElseThrow(() -> new IllegalArgumentException("StudentAttendance not found"));
+        return repository.findById(id).orElseThrow(() -> new ApiException(TrainingErrorCode.STUDENT_ATTENDANCE_NOT_FOUND));
     }
 }
 

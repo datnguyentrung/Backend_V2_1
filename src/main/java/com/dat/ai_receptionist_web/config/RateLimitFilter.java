@@ -2,10 +2,11 @@ package com.dat.ai_receptionist_web.config;
 
 import com.dat.ai_receptionist_web.service.Security.RateLimitingService;
 import com.dat.ai_receptionist_web.util.SecurityUtil;
+import com.dat.ai_receptionist_web.error.ApiErrorResponseFactory;
+import com.dat.ai_receptionist_web.error.code.SecurityErrorCode;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -18,6 +19,7 @@ import java.util.UUID;
 public class RateLimitFilter extends OncePerRequestFilter {
     private final RateLimitingService rateLimitingService;
     private final RateLimitProperties properties;
+    private final ApiErrorResponseFactory errorResponseFactory;
     private final AntPathMatcher matcher = new AntPathMatcher();
 
     @Override
@@ -34,9 +36,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
         String subject = subject(policy.getSubject(), request);
         if (!rateLimitingService.allow(policy.getName(), subject, policy.getLimit(), policy.getWindow())) {
-            response.setStatus(429);
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.getWriter().write("{\"error\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests\"}");
+            errorResponseFactory.write(response, SecurityErrorCode.RATE_LIMIT_EXCEEDED, request);
             return;
         }
         chain.doFilter(request, response);

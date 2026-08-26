@@ -9,12 +9,52 @@ public final class CoursePriceDTO {
     private CoursePriceDTO() {
     }
 
-    public record CreateRequest(@NotNull UUID courseId, int durationMonths, int sessionCount, @NotNull BigDecimal basePrice, @NotNull BigDecimal finalPrice, @NotNull CoursePriceStatus status) {
+    public record CreateRequest(
+            @NotNull(message = "Course ID is required")
+            UUID courseId,
+
+            int durationMonths,
+
+            int sessionCount,
+
+            @NotNull(message = "Base price is required")
+            BigDecimal basePrice,
+
+            @NotNull(message = "Final price is required")
+            BigDecimal finalPrice,
+
+            @NotNull(message = "Status is required")
+            CoursePriceStatus status
+    ) {
     }
 
-    public record UpdateRequest(@NotNull UUID courseId, int durationMonths, int sessionCount, @NotNull BigDecimal basePrice, @NotNull BigDecimal finalPrice, @NotNull CoursePriceStatus status) {
+    public record UpdateRequest(
+            @NotNull(message = "Course ID is required")
+            UUID courseId,
+
+            int durationMonths,
+
+            int sessionCount,
+
+            @NotNull(message = "Base price is required")
+            BigDecimal basePrice,
+
+            @NotNull(message = "Final price is required")
+            BigDecimal finalPrice,
+
+            @NotNull(message = "Status is required")
+            CoursePriceStatus status
+    ) {
     }
 
-    public record Response(UUID coursePriceId, UUID courseId, int durationMonths, int sessionCount, BigDecimal basePrice, BigDecimal finalPrice, CoursePriceStatus status) {
+    public record Response(
+            UUID coursePriceId,
+            UUID courseId,
+            int durationMonths,
+            int sessionCount,
+            BigDecimal basePrice,
+            BigDecimal finalPrice,
+            CoursePriceStatus status
+    ) {
     }
 }

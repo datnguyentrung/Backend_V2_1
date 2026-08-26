@@ -3,6 +3,8 @@ package com.dat.ai_receptionist_web.service.Security;
 import com.dat.ai_receptionist_web.domain.Security.*;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.dto.Security.UserRoleDTO;
+import com.dat.ai_receptionist_web.error.ApiException;
+import com.dat.ai_receptionist_web.error.code.SecurityErrorCode;
 import com.dat.ai_receptionist_web.mapper.Security.UserRoleMapper;
 import com.dat.ai_receptionist_web.repository.Security.*;
 import lombok.RequiredArgsConstructor;
@@ -22,76 +24,76 @@ public class UserRoleService {
     private final UserRoleRepository userRoleRepository;
     private final UserRoleMapper userRoleMapper;
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
      * Input: Nhận Pageable pageable từ caller hoặc request.
      * Output: Trả về PageResponse<UserRoleDTO.ItemResponse> theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public PageResponse<UserRoleDTO.ItemResponse> list(Pageable pageable) {
         return PageResponse.of(userRoleRepository.findAll(pageable), userRoleMapper::toResponse);
     }
 
-    @Transactional(readOnly = true)
     /**
      * Tác dụng: Lấy chi tiết một bản ghi theo khóa định danh.
      * Input: Nhận UUID userId, String roleCode từ caller hoặc request.
      * Output: Trả về UserRoleDTO.ItemResponse theo kết quả xử lý.
      */
+    @Transactional(readOnly = true)
     public UserRoleDTO.ItemResponse get(UUID userId, String roleCode) {
         return userRoleMapper.toResponse(find(userId, roleCode));
     }
 
-    @Transactional
     /**
      * Tác dụng: Tạo mới bản ghi và trả về dữ liệu sau khi tạo.
      * Input: Nhận UserRoleDTO.CreateRequest request từ caller hoặc request.
      * Output: Trả về UserRoleDTO.ItemResponse theo kết quả xử lý.
      */
+    @Transactional
     public UserRoleDTO.ItemResponse create(UserRoleDTO.CreateRequest request) {
         assignRole(new UserRoleDTO.AssignRequest(request.userId(), request.roleCode()));
         return get(request.userId(), request.roleCode().trim().toUpperCase(Locale.ROOT));
     }
 
-    @Transactional
     /**
      * Tác dụng: Xóa hoặc vô hiệu hóa bản ghi theo định danh đầu vào.
      * Input: Nhận UUID userId, String roleCode từ caller hoặc request.
      * Output: Không trả về dữ liệu; cập nhật trạng thái hoặc ném lỗi khi xử lý thất bại.
      */
+    @Transactional
     public void delete(UUID userId, String roleCode) {
         userRoleRepository.delete(find(userId, roleCode));
         userRepository.incrementAuthorizationVersion(userId);
     }
 
-    @Transactional
     /**
      * Tác dụng: Gán quan hệ hoặc quyền tương ứng khi điều kiện nghiệp vụ cho phép.
      * Input: Nhận UserRoleDTO.AssignRequest request từ caller hoặc request.
      * Output: Trả về UserRoleDTO.Response theo kết quả xử lý.
      */
+    @Transactional
     public UserRoleDTO.Response assignRole(UserRoleDTO.AssignRequest request) {
         UUID userId = request.getUserId();
         assignRoleIfMissing(userId, request.getRoleCode());
         return new UserRoleDTO.Response(userId, userRoleRepository.findRoleCodes(userId));
     }
 
-    @Transactional
     /**
      * Tác dụng: Gán quan hệ hoặc quyền tương ứng khi điều kiện nghiệp vụ cho phép.
      * Input: Nhận UUID userId, String requestedRoleCode từ caller hoặc request.
      * Output: Trả về true/false thể hiện kết quả kiểm tra hoặc xử lý.
      */
+    @Transactional
     public boolean assignRoleIfMissing(UUID userId, String requestedRoleCode) {
         return assignRolesIfMissing(Map.of(userId, Set.of(requestedRoleCode))) > 0;
     }
 
-    @Transactional
     /**
      * Tác dụng: Gán quan hệ hoặc quyền tương ứng khi điều kiện nghiệp vụ cho phép.
      * Input: Nhận Map<UUID, Set<String>> requestedRoleCodesByUser từ caller hoặc request.
      * Output: Trả về giá trị int biểu thị kết quả tính toán hoặc số lượng.
      */
+    @Transactional
     public int assignRolesIfMissing(Map<UUID, Set<String>> requestedRoleCodesByUser) {
         if (requestedRoleCodesByUser == null || requestedRoleCodesByUser.isEmpty()) {
             return 0;
@@ -159,19 +161,19 @@ public class UserRoleService {
         return userRoles.size();
     }
 
-    @Transactional
     /**
      * Tác dụng: Thay thế tập dữ liệu hiện tại bằng tập dữ liệu mong muốn theo cơ chế diff.
      * Input: Nhận UUID userId, Set<String> requestedCodes từ caller hoặc request.
      * Output: Trả về UserRoleDTO.Response theo kết quả xử lý.
      */
+    @Transactional
     public UserRoleDTO.Response replaceRoles(
             UUID userId,
             Set<String> requestedCodes
     ) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException("User not found")
+                        new ApiException(SecurityErrorCode.USER_NOT_FOUND)
                 );
 
         SortedSet<String> desired = requestedCodes.stream()
@@ -200,9 +202,8 @@ public class UserRoleService {
                 List<Role> roles = roleRepository.findAllById(toAdd);
 
                 if (roles.size() != toAdd.size()) {
-                    throw new IllegalArgumentException(
-                            "One or more roles do not exist"
-                    );
+                    throw new ApiException(
+                            SecurityErrorCode.ROLES_NOT_FOUND);
                 }
 
                 List<UserRole> userRoles = roles.stream()
@@ -234,7 +235,7 @@ public class UserRoleService {
      */
     private UserRole find(UUID userId, String roleCode) {
         return userRoleRepository.findById(new UserRole.Key(userId, roleCode))
-                .orElseThrow(() -> new IllegalArgumentException("UserRole not found"));
+                .orElseThrow(() -> new ApiException(SecurityErrorCode.USER_ROLE_NOT_FOUND));
     }
 
     /**
@@ -244,7 +245,7 @@ public class UserRoleService {
      */
     private SortedSet<String> normalizeRoleCodes(Set<String> roleCodes) {
         if (roleCodes == null) {
-            throw new IllegalArgumentException("Role codes must not be null");
+            throw new ApiException(SecurityErrorCode.ROLE_CODES_REQUIRED);
         }
         return roleCodes.stream()
                 .filter(Objects::nonNull)
@@ -277,7 +278,9 @@ public class UserRoleService {
         Set<UUID> missingUserIds = new HashSet<>(userIds);
         missingUserIds.removeAll(usersById.keySet());
         if (!missingUserIds.isEmpty()) {
-            throw new IllegalArgumentException("User not found: " + missingUserIds);
+            throw new ApiException(
+                    SecurityErrorCode.USER_NOT_FOUND,
+                    "User not found: " + missingUserIds);
         }
     }
 
@@ -290,7 +293,9 @@ public class UserRoleService {
         Set<String> missingRoleCodes = new TreeSet<>(roleCodes);
         missingRoleCodes.removeAll(rolesByCode.keySet());
         if (!missingRoleCodes.isEmpty()) {
-            throw new IllegalArgumentException("Role not found: " + missingRoleCodes);
+            throw new ApiException(
+                    SecurityErrorCode.ROLE_NOT_FOUND,
+                    "Role not found: " + missingRoleCodes);
         }
     }
 

@@ -30,6 +30,9 @@ public class Course {
     @JoinColumn(name = "schedule_id", nullable = false)
     private ClassSchedule classSchedule;
 
+    @Column(name = "name", nullable = false, length = 255)
+    private String name;
+
     @Column(name = "capacity", nullable = false)
     private int capacity;
 

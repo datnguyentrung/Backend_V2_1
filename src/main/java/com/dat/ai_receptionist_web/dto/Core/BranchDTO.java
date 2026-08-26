@@ -9,12 +9,30 @@ public final class BranchDTO {
     private BranchDTO() {
     }
 
-    public record CreateRequest(@NotNull String name, @NotNull String address, @NotNull String hotline, @NotNull LocalDate openedDate, @NotNull BranchStatus status) {
+    public record CreateRequest(
+            @NotNull String name,
+            @NotNull String address,
+            @NotNull String hotline,
+            @NotNull LocalDate openedDate,
+            @NotNull BranchStatus status) {
     }
 
-    public record UpdateRequest(@NotNull String name, @NotNull String address, @NotNull String hotline, @NotNull LocalDate openedDate, @NotNull BranchStatus status) {
+    public record UpdateRequest(
+            @NotNull String name,
+            @NotNull String address,
+            @NotNull String hotline,
+            @NotNull LocalDate openedDate,
+            @NotNull BranchStatus status) {
     }
 
-    public record Response(Long branchId, String name, String address, String hotline, LocalDate openedDate, BranchStatus status, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public record Response(
+            Long branchId,
+            String name,
+            String address,
+            String hotline,
+            LocalDate openedDate,
+            BranchStatus status,
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt) {
     }
 }

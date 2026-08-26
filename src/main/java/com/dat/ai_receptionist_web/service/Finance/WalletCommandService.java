@@ -12,9 +12,12 @@ import com.dat.ai_receptionist_web.repository.Catalog.*;
 import com.dat.ai_receptionist_web.repository.Finance.*;
 import com.dat.ai_receptionist_web.repository.Security.UserRepository;
 import com.dat.ai_receptionist_web.repository.Training.StudentEnrollmentRepository;
-import com.dat.ai_receptionist_web.util.error.FinancialException;
+import com.dat.ai_receptionist_web.error.ApiException;
+import com.dat.ai_receptionist_web.error.ErrorCode;
+import com.dat.ai_receptionist_web.error.code.CatalogErrorCode;
+import com.dat.ai_receptionist_web.error.code.FinanceErrorCode;
+import com.dat.ai_receptionist_web.error.code.SecurityErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,12 +36,12 @@ public class WalletCommandService {
     private final StudentEnrollmentRepository enrollmentRepository;
     private final UserRepository userRepository;
 
-    @Transactional
     /**
      * Tác dụng: Chuyển đổi dữ liệu sang kiểu kết quả phù hợp cho lớp đang xử lý.
      * Input: Nhận WalletCommandDTO.TopUpRequest request, UUID actorUserId từ caller hoặc request.
      * Output: Trả về WalletCommandDTO.TransactionResponse theo kết quả xử lý.
      */
+    @Transactional
     public WalletCommandDTO.TransactionResponse topUp(
             WalletCommandDTO.TopUpRequest request, UUID actorUserId) {
         BigDecimal amount = money(request.amount());
@@ -62,12 +65,12 @@ public class WalletCommandService {
         return response(transaction, null, null);
     }
 
-    @Transactional
     /**
      * Tác dụng: Thực hiện logic purchaseCourse của lớp hiện tại.
      * Input: Nhận WalletCommandDTO.CoursePurchaseRequest request, UUID actorUserId từ caller hoặc request.
      * Output: Trả về WalletCommandDTO.TransactionResponse theo kết quả xử lý.
      */
+    @Transactional
     public WalletCommandDTO.TransactionResponse purchaseCourse(
             WalletCommandDTO.CoursePurchaseRequest request, UUID actorUserId) {
         Wallet wallet = lockWalletByPerson(request.studentPersonId());
@@ -79,21 +82,20 @@ public class WalletCommandService {
         }
         requireActive(wallet);
         CoursePrice price = coursePriceRepository.findForPurchase(request.coursePriceId())
-                .orElseThrow(() -> failure("COURSE_PRICE_NOT_FOUND", HttpStatus.NOT_FOUND,
-                        "Course price not found"));
+                .orElseThrow(() -> failure(CatalogErrorCode.COURSE_PRICE_NOT_FOUND));
         Course course = courseRepository.findByIdForUpdate(price.getCourse().getCourseId())
-                .orElseThrow(() -> failure("COURSE_NOT_FOUND", HttpStatus.NOT_FOUND, "Course not found"));
+                .orElseThrow(() -> failure(CatalogErrorCode.COURSE_NOT_FOUND));
         if (price.getStatus() != CoursePriceStatus.ACTIVE || course.getStatus() != CourseStatus.ACTIVE) {
-            throw failure("COURSE_NOT_AVAILABLE", HttpStatus.CONFLICT, "Course or price is inactive");
+            throw failure(FinanceErrorCode.COURSE_NOT_AVAILABLE);
         }
         BigDecimal amount = money(price.getFinalPrice());
         if (wallet.getBalance().compareTo(amount) < 0) {
-            throw failure("INSUFFICIENT_BALANCE", HttpStatus.CONFLICT, "Wallet balance is insufficient");
+            throw failure(FinanceErrorCode.INSUFFICIENT_BALANCE);
         }
         long enrollmentCount = enrollmentRepository
                 .countByCoursePurchase_CoursePrice_Course_CourseId(course.getCourseId());
         if (enrollmentCount >= course.getCapacity()) {
-            throw failure("COURSE_CAPACITY_EXCEEDED", HttpStatus.CONFLICT, "Course is full");
+            throw failure(FinanceErrorCode.COURSE_CAPACITY_EXCEEDED);
         }
 
         User actor = user(actorUserId);
@@ -120,25 +122,23 @@ public class WalletCommandService {
         return response(transaction, purchase, enrollment);
     }
 
-    @Transactional
     /**
      * Tác dụng: Thực hiện logic refund của lớp hiện tại.
      * Input: Nhận WalletCommandDTO.RefundRequest request, UUID actorUserId từ caller hoặc request.
      * Output: Trả về WalletCommandDTO.TransactionResponse theo kết quả xử lý.
      */
+    @Transactional
     public WalletCommandDTO.TransactionResponse refund(
             WalletCommandDTO.RefundRequest request, UUID actorUserId) {
         WalletTransaction original = transactionRepository
                 .findWithWalletById(request.originalDebitTransactionId())
-                .orElseThrow(() -> failure("TRANSACTION_NOT_FOUND", HttpStatus.NOT_FOUND,
-                        "Original transaction not found"));
+                .orElseThrow(() -> failure(FinanceErrorCode.TRANSACTION_NOT_FOUND));
         if (original.getDirection() != WalletTransactionDirection.DEBIT
                 || original.getStatus() != WalletTransactionStatus.APPROVED) {
-            throw failure("INVALID_REFUND_TRANSACTION", HttpStatus.CONFLICT,
-                    "Original transaction is not an approved debit");
+            throw failure(FinanceErrorCode.INVALID_REFUND_TRANSACTION);
         }
         Wallet wallet = walletRepository.findByIdForUpdate(original.getWallet().getWalletId())
-                .orElseThrow(() -> failure("WALLET_NOT_FOUND", HttpStatus.NOT_FOUND, "Wallet not found"));
+                .orElseThrow(() -> failure(FinanceErrorCode.WALLET_NOT_FOUND));
         requireActive(wallet);
         String originalReference = original.getWalletTransactionId().toString();
         WalletTransaction existing = transactionRepository
@@ -168,18 +168,17 @@ public class WalletCommandService {
             WalletTransaction existing, Wallet wallet, WalletCommandDTO.CoursePurchaseRequest request) {
         CoursePurchase purchase = purchaseRepository
                 .findByDebitTransaction_WalletTransactionId(existing.getWalletTransactionId())
-                .orElseThrow(() -> failure("LEDGER_INVARIANT_VIOLATION",
-                        HttpStatus.CONFLICT, "Purchase record is missing"));
+                .orElseThrow(() -> failure(FinanceErrorCode.LEDGER_INVARIANT_VIOLATION,
+                        "Purchase record is missing"));
         if (!existing.getWallet().getWalletId().equals(wallet.getWalletId())
                 || !purchase.getStudentPerson().getPersonId().equals(request.studentPersonId())
                 || !purchase.getCoursePrice().getCoursePriceId().equals(request.coursePriceId())) {
-            throw failure("IDEMPOTENCY_CONFLICT", HttpStatus.CONFLICT,
-                    "External reference is already used by another operation");
+            throw failure(FinanceErrorCode.IDEMPOTENCY_CONFLICT);
         }
         StudentEnrollment enrollment = enrollmentRepository
                 .findByCoursePurchase_CoursePurchaseId(purchase.getCoursePurchaseId())
-                .orElseThrow(() -> failure("LEDGER_INVARIANT_VIOLATION",
-                        HttpStatus.CONFLICT, "Enrollment record is missing"));
+                .orElseThrow(() -> failure(FinanceErrorCode.LEDGER_INVARIANT_VIOLATION,
+                        "Enrollment record is missing"));
         return response(existing, purchase, enrollment);
     }
 
@@ -194,12 +193,12 @@ public class WalletCommandService {
         }
         CoursePurchase purchase = purchaseRepository
                 .findByDebitTransaction_WalletTransactionId(original.getWalletTransactionId())
-                .orElseThrow(() -> failure("LEDGER_INVARIANT_VIOLATION",
-                        HttpStatus.CONFLICT, "Purchase record is missing"));
+                .orElseThrow(() -> failure(FinanceErrorCode.LEDGER_INVARIANT_VIOLATION,
+                        "Purchase record is missing"));
         StudentEnrollment enrollment = enrollmentRepository
                 .findByCoursePurchase_CoursePurchaseId(purchase.getCoursePurchaseId())
-                .orElseThrow(() -> failure("LEDGER_INVARIANT_VIOLATION",
-                        HttpStatus.CONFLICT, "Enrollment record is missing"));
+                .orElseThrow(() -> failure(FinanceErrorCode.LEDGER_INVARIANT_VIOLATION,
+                        "Enrollment record is missing"));
         enrollment.setStatus(StudentEnrollmentStatus.CANCELLED);
         LocalDate today = LocalDate.now();
         if (enrollment.getEndDate().isAfter(today)) {
@@ -230,7 +229,7 @@ public class WalletCommandService {
      */
     private Wallet lockWalletByPerson(UUID personId) {
         return walletRepository.findByPersonIdForUpdate(personId)
-                .orElseThrow(() -> failure("WALLET_NOT_FOUND", HttpStatus.NOT_FOUND, "Wallet not found"));
+                .orElseThrow(() -> failure(FinanceErrorCode.WALLET_NOT_FOUND));
     }
 
     /**
@@ -240,7 +239,7 @@ public class WalletCommandService {
      */
     private void requireActive(Wallet wallet) {
         if (wallet.getStatus() != WalletStatus.ACTIVE) {
-            throw failure("WALLET_NOT_ACTIVE", HttpStatus.CONFLICT, "Wallet is not active");
+            throw failure(FinanceErrorCode.WALLET_NOT_ACTIVE);
         }
     }
 
@@ -251,7 +250,7 @@ public class WalletCommandService {
      */
     private User user(UUID id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> failure("USER_NOT_FOUND", HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> failure(SecurityErrorCode.USER_NOT_FOUND));
     }
 
     /**
@@ -261,8 +260,7 @@ public class WalletCommandService {
      */
     private BigDecimal money(BigDecimal amount) {
         if (amount == null || amount.signum() <= 0 || amount.stripTrailingZeros().scale() > 0) {
-            throw failure("INVALID_AMOUNT", HttpStatus.BAD_REQUEST,
-                    "Amount must be a positive whole monetary value");
+            throw failure(FinanceErrorCode.INVALID_AMOUNT);
         }
         return amount.setScale(0);
     }
@@ -275,8 +273,7 @@ public class WalletCommandService {
     private void assertSameOperation(WalletTransaction existing, Wallet wallet, BigDecimal amount) {
         if (!existing.getWallet().getWalletId().equals(wallet.getWalletId())
                 || existing.getAmount().compareTo(amount) != 0) {
-            throw failure("IDEMPOTENCY_CONFLICT", HttpStatus.CONFLICT,
-                    "External reference is already used by another operation");
+            throw failure(FinanceErrorCode.IDEMPOTENCY_CONFLICT);
         }
     }
 
@@ -300,8 +297,12 @@ public class WalletCommandService {
      * Input: Nhận String code, HttpStatus status, String message từ caller hoặc request.
      * Output: Trả về FinancialException theo kết quả xử lý.
      */
-    private FinancialException failure(String code, HttpStatus status, String message) {
-        return new FinancialException(code, status, message);
+    private ApiException failure(ErrorCode errorCode) {
+        return new ApiException(errorCode);
+    }
+
+    private ApiException failure(ErrorCode errorCode, String safeDetail) {
+        return new ApiException(errorCode, safeDetail);
     }
 }
 

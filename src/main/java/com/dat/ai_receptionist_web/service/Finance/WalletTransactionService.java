@@ -61,7 +61,7 @@ public class WalletTransactionService {
         entity.setBalanceBefore(request.balanceBefore());
         entity.setBalanceAfter(request.balanceAfter());
         entity.setExternalReference(request.externalReference());
-        entity.setApprovedAt(request.approvedAt());
+        entity.setReviewedAt(request.reviewedAt());
         entity.setNote(request.note());
         entity.setStatus(WalletTransactionStatus.PENDING);
         return mapper.toResponse(repository.save(entity));
@@ -78,8 +78,8 @@ public class WalletTransactionService {
         entity.setWallet(walletRepository.findById(request.walletId()).orElseThrow(() -> new ApiException(FinanceErrorCode.WALLET_NOT_FOUND)));
         entity.setCreatedByUser(userRepository.findById(request.createdByUserId()).orElseThrow(() -> new ApiException(SecurityErrorCode.USER_NOT_FOUND)));
 
-        if (request.approvedByUserId() != null && (request.status() != null && request.status() != WalletTransactionStatus.PENDING)) {
-            entity.setApprovedByUser(userRepository.findById(request.approvedByUserId()).orElseThrow(() -> new ApiException(SecurityErrorCode.USER_NOT_FOUND)));
+        if (request.reviewedByUserId() != null && (request.status() != null && request.status() != WalletTransactionStatus.PENDING)) {
+            entity.setReviewedByUser(userRepository.findById(request.reviewedByUserId()).orElseThrow(() -> new ApiException(SecurityErrorCode.USER_NOT_FOUND)));
         }
         mapper.updateEntity(request, entity);
         return mapper.toResponse(repository.save(entity));

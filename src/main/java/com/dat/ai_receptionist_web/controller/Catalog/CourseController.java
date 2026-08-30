@@ -54,6 +54,20 @@ public class CourseController {
     @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).COURSE_UPDATE.getCode())")
     public CourseDTO.Response update(@PathVariable UUID id, @Valid @RequestBody CourseDTO.UpdateRequest request) { return service.update(id, request); }
 
+    @PutMapping("/{id}/schedule")
+    @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).COURSE_UPDATE.getCode())")
+    public CourseDTO.CourseScheduleChangeResponse changeSchedule(
+            @PathVariable UUID id, @Valid @RequestBody CourseDTO.ScheduleChangeRequest request) {
+        return service.changeSchedule(id, request);
+    }
+
+    @DeleteMapping("/{id}/schedule/pending")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority(T(com.dat.ai_receptionist_web.enums.Security.PermissionDefinition).COURSE_UPDATE.getCode())")
+    public void cancelPendingScheduleChange(@PathVariable UUID id) {
+        service.cancelPendingScheduleChange(id);
+    }
+
     /**
      * Tác dụng: Xóa hoặc vô hiệu hóa bản ghi theo định danh đầu vào.
      * Input: Nhận UUID id từ caller hoặc request.

@@ -10,6 +10,7 @@ import org.mapstruct.MappingTarget;
 @Mapper(componentModel = "spring")
 public interface CourseMapper {
     @Mapping(target = "classScheduleId", source = "classSchedule.scheduleId")
+    @Mapping(target = "nextClassScheduleId", source = "nextClassSchedule.scheduleId")
     CourseDTO.Response toResponse(Course entity);
 
     @BeanMapping(ignoreByDefault = true)

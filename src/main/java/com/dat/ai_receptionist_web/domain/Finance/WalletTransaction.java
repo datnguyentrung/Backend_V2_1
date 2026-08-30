@@ -58,11 +58,11 @@ public class WalletTransaction {
     private User createdByUser;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approved_by_user_id")
-    private User approvedByUser;
+    @JoinColumn(name = "reviewed_by_user_id")
+    private User reviewedByUser;
 
-    @Column(name = "approved_at")
-    private LocalDateTime approvedAt;
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
 
     @Column(name = "note", length = 500)
     private String note;

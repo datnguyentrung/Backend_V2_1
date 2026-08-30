@@ -13,7 +13,8 @@ import com.dat.ai_receptionist_web.repository.Training.StudentEnrollmentReposito
 import com.dat.ai_receptionist_web.repository.Core.PersonRepository;
 import com.dat.ai_receptionist_web.repository.Finance.CoursePurchaseRepository;
 import com.dat.ai_receptionist_web.repository.Catalog.ClassScheduleRepository;
-import com.dat.ai_receptionist_web.enums.Operation.StudentEnrollmentStatus;
+import com.dat.ai_receptionist_web.service.Core.PersonCodePolicy;
+import com.dat.ai_receptionist_web.enums.Training.StudentEnrollmentStatus;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +29,7 @@ public class StudentEnrollmentService {
     private final PersonRepository personRepository;
     private final CoursePurchaseRepository coursePurchaseRepository;
     private final ClassScheduleRepository classScheduleRepository;
+    private final PersonCodePolicy personCodePolicy;
 
     /**
      * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
@@ -57,7 +59,9 @@ public class StudentEnrollmentService {
     @Transactional
     public StudentEnrollmentDTO.Response create(StudentEnrollmentDTO.CreateRequest request) {
         StudentEnrollment entity = new StudentEnrollment();
-        entity.setStudentPerson(personRepository.findById(request.studentPersonId()).orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND)));
+        var studentPerson = personRepository.findById(request.studentPersonId()).orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND));
+        personCodePolicy.requireStudent(studentPerson);
+        entity.setStudentPerson(studentPerson);
         entity.setCoursePurchase(coursePurchaseRepository.findById(request.coursePurchaseId()).orElseThrow(() -> new ApiException(FinanceErrorCode.COURSE_PURCHASE_NOT_FOUND)));
         entity.setClassSchedule(classScheduleRepository.findById(request.classScheduleId()).orElseThrow(() -> new ApiException(CatalogErrorCode.CLASS_SCHEDULE_NOT_FOUND)));
         entity.setStartDate(request.startDate());
@@ -74,7 +78,9 @@ public class StudentEnrollmentService {
     @Transactional
     public StudentEnrollmentDTO.Response update(UUID id, StudentEnrollmentDTO.UpdateRequest request) {
         var entity = find(id);
-        entity.setStudentPerson(personRepository.findById(request.studentPersonId()).orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND)));
+        var studentPerson = personRepository.findById(request.studentPersonId()).orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND));
+        personCodePolicy.requireStudent(studentPerson);
+        entity.setStudentPerson(studentPerson);
         entity.setCoursePurchase(coursePurchaseRepository.findById(request.coursePurchaseId()).orElseThrow(() -> new ApiException(FinanceErrorCode.COURSE_PURCHASE_NOT_FOUND)));
         entity.setClassSchedule(classScheduleRepository.findById(request.classScheduleId()).orElseThrow(() -> new ApiException(CatalogErrorCode.CLASS_SCHEDULE_NOT_FOUND)));
         mapper.updateEntity(request, entity);

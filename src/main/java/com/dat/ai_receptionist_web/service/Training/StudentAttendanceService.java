@@ -4,13 +4,13 @@ import com.dat.ai_receptionist_web.domain.Training.StudentAttendance;
 import com.dat.ai_receptionist_web.dto.Training.StudentAttendanceDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.error.ApiException;
-import com.dat.ai_receptionist_web.error.code.CoreErrorCode;
 import com.dat.ai_receptionist_web.error.code.TrainingErrorCode;
 import com.dat.ai_receptionist_web.mapper.Training.StudentAttendanceMapper;
 import com.dat.ai_receptionist_web.repository.Training.StudentAttendanceRepository;
 import com.dat.ai_receptionist_web.repository.Training.ClassSessionRepository;
 import com.dat.ai_receptionist_web.repository.Training.StudentEnrollmentRepository;
-import com.dat.ai_receptionist_web.repository.Core.PersonRepository;
+import com.dat.ai_receptionist_web.repository.Training.CoachAssignmentRepository;
+import com.dat.ai_receptionist_web.service.Core.PersonCodePolicy;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -24,7 +24,8 @@ public class StudentAttendanceService {
     private final StudentAttendanceMapper mapper;
     private final ClassSessionRepository classSessionRepository;
     private final StudentEnrollmentRepository studentEnrollmentRepository;
-    private final PersonRepository personRepository;
+    private final CoachAssignmentRepository coachAssignmentRepository;
+    private final PersonCodePolicy personCodePolicy;
 
     /**
      * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
@@ -55,8 +56,12 @@ public class StudentAttendanceService {
     public StudentAttendanceDTO.Response create(StudentAttendanceDTO.CreateRequest request) {
         StudentAttendance entity = new StudentAttendance();
         entity.setClassSession(classSessionRepository.findById(request.classSessionId()).orElseThrow(() -> new ApiException(TrainingErrorCode.CLASS_SESSION_NOT_FOUND)));
-        entity.setStudentEnrollment(studentEnrollmentRepository.findById(request.studentEnrollmentId()).orElseThrow(() -> new ApiException(TrainingErrorCode.STUDENT_ENROLLMENT_NOT_FOUND)));
-        entity.setEvaluatedByCoach(personRepository.findById(request.evaluatedByCoachId()).orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND)));
+        var enrollment = studentEnrollmentRepository.findById(request.studentEnrollmentId()).orElseThrow(() -> new ApiException(TrainingErrorCode.STUDENT_ENROLLMENT_NOT_FOUND));
+        var coachAssignment = coachAssignmentRepository.findById(request.coachAssignmentId()).orElseThrow(() -> new ApiException(TrainingErrorCode.COACH_ASSIGNMENT_NOT_FOUND));
+        personCodePolicy.requireStudent(enrollment.getStudentPerson());
+        personCodePolicy.requireSystemEmployee(coachAssignment.getCoach());
+        entity.setStudentEnrollment(enrollment);
+        entity.setCoachAssignment(coachAssignment);
         entity.setCheckInTime(request.checkInTime());
         entity.setAttendanceStatus(request.attendanceStatus());
         entity.setEvaluationStatus(request.evaluationStatus());
@@ -73,8 +78,12 @@ public class StudentAttendanceService {
     public StudentAttendanceDTO.Response update(UUID id, StudentAttendanceDTO.UpdateRequest request) {
         var entity = find(id);
         entity.setClassSession(classSessionRepository.findById(request.classSessionId()).orElseThrow(() -> new ApiException(TrainingErrorCode.CLASS_SESSION_NOT_FOUND)));
-        entity.setStudentEnrollment(studentEnrollmentRepository.findById(request.studentEnrollmentId()).orElseThrow(() -> new ApiException(TrainingErrorCode.STUDENT_ENROLLMENT_NOT_FOUND)));
-        entity.setEvaluatedByCoach(personRepository.findById(request.evaluatedByCoachId()).orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND)));
+        var enrollment = studentEnrollmentRepository.findById(request.studentEnrollmentId()).orElseThrow(() -> new ApiException(TrainingErrorCode.STUDENT_ENROLLMENT_NOT_FOUND));
+        var coachAssignment = coachAssignmentRepository.findById(request.coachAssignmentId()).orElseThrow(() -> new ApiException(TrainingErrorCode.COACH_ASSIGNMENT_NOT_FOUND));
+        personCodePolicy.requireStudent(enrollment.getStudentPerson());
+        personCodePolicy.requireSystemEmployee(coachAssignment.getCoach());
+        entity.setStudentEnrollment(enrollment);
+        entity.setCoachAssignment(coachAssignment);
         mapper.updateEntity(request, entity);
         return mapper.toResponse(repository.save(entity));
     }

@@ -1,7 +1,7 @@
 package com.dat.ai_receptionist_web.domain.Notification;
 
 import com.dat.ai_receptionist_web.domain.Security.User;
-import com.dat.ai_receptionist_web.enums.Operation.NotificationRecipientStatus;
+import com.dat.ai_receptionist_web.enums.Training.NotificationRecipientStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;

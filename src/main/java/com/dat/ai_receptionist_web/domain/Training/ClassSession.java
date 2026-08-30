@@ -1,7 +1,7 @@
 package com.dat.ai_receptionist_web.domain.Training;
 
 import com.dat.ai_receptionist_web.domain.Catalog.Course;
-import com.dat.ai_receptionist_web.enums.Operation.SessionStatus;
+import com.dat.ai_receptionist_web.enums.Training.SessionStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;

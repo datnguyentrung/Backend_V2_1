@@ -18,7 +18,7 @@ public final class PersonDTO {
             String email,
             String nationalCode,
             String faceImagePath,
-            @NotNull Belt belt,
+            @NotNull Belt currentBelt,
             @NotNull PersonStatus status,
             @NotNull LocalDate startDate
     ) {
@@ -32,7 +32,7 @@ public final class PersonDTO {
             String nationalCode,
             String faceImagePath,
             String personCode,
-            @NotNull Belt belt,
+            @NotNull Belt currentBelt,
             @NotNull PersonStatus status,
             @NotNull LocalDate startDate) {
     }
@@ -45,7 +45,7 @@ public final class PersonDTO {
             String email,
             String nationalCode,
             String personCode,
-            Belt belt,
+            Belt currentBelt,
             PersonStatus status,
             LocalDate startDate,
             String faceImagePath,

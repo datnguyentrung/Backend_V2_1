@@ -7,11 +7,12 @@ import com.dat.ai_receptionist_web.domain.Training.StudentEnrollment;
 import com.dat.ai_receptionist_web.dto.Finance.WalletCommandDTO;
 import com.dat.ai_receptionist_web.enums.Catalog.*;
 import com.dat.ai_receptionist_web.enums.Finance.*;
-import com.dat.ai_receptionist_web.enums.Operation.StudentEnrollmentStatus;
+import com.dat.ai_receptionist_web.enums.Training.StudentEnrollmentStatus;
 import com.dat.ai_receptionist_web.repository.Catalog.*;
 import com.dat.ai_receptionist_web.repository.Finance.*;
 import com.dat.ai_receptionist_web.repository.Security.UserRepository;
 import com.dat.ai_receptionist_web.repository.Training.StudentEnrollmentRepository;
+import com.dat.ai_receptionist_web.service.Core.PersonCodePolicy;
 import com.dat.ai_receptionist_web.error.ApiException;
 import com.dat.ai_receptionist_web.error.ErrorCode;
 import com.dat.ai_receptionist_web.error.code.CatalogErrorCode;
@@ -35,6 +36,7 @@ public class WalletCommandService {
     private final CourseRepository courseRepository;
     private final StudentEnrollmentRepository enrollmentRepository;
     private final UserRepository userRepository;
+    private final PersonCodePolicy personCodePolicy;
 
     /**
      * Tác dụng: Chuyển đổi dữ liệu sang kiểu kết quả phù hợp cho lớp đang xử lý.
@@ -80,6 +82,7 @@ public class WalletCommandService {
         if (existing != null) {
             return existingCoursePurchase(existing, wallet, request);
         }
+        personCodePolicy.requireStudent(wallet.getPerson());
         requireActive(wallet);
         CoursePrice price = coursePriceRepository.findForPurchase(request.coursePriceId())
                 .orElseThrow(() -> failure(CatalogErrorCode.COURSE_PRICE_NOT_FOUND));
@@ -218,8 +221,8 @@ public class WalletCommandService {
         LocalDateTime now = LocalDateTime.now();
         return WalletTransaction.builder().wallet(wallet).type(type).direction(direction)
                 .amount(amount).balanceBefore(before).balanceAfter(after)
-                .externalReference(reference).createdByUser(actor).approvedByUser(actor)
-                .approvedAt(now).note(note).status(WalletTransactionStatus.APPROVED).build();
+                .externalReference(reference).createdByUser(actor).reviewedByUser(actor)
+                .reviewedAt(now).note(note).status(WalletTransactionStatus.APPROVED).build();
     }
 
     /**
@@ -289,7 +292,7 @@ public class WalletCommandService {
                 tx.getWallet().getWalletId(), tx.getType(), tx.getDirection(), tx.getStatus(),
                 tx.getAmount(), tx.getBalanceBefore(), tx.getBalanceAfter(), tx.getExternalReference(),
                 purchase == null ? null : purchase.getCoursePurchaseId(),
-                enrollment == null ? null : enrollment.getStudentEnrollmentId(), tx.getApprovedAt());
+                enrollment == null ? null : enrollment.getStudentEnrollmentId(), tx.getReviewedAt());
     }
 
     /**

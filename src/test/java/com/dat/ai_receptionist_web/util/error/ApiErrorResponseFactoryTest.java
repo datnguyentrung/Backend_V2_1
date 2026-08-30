@@ -54,7 +54,7 @@ class ApiErrorResponseFactoryTest {
         assertThat(body.getType().toString()).isEqualTo("/errors/course-not-found");
         assertThat(body.getTitle()).isEqualTo("Course not found");
         assertThat(body.getStatus()).isEqualTo(404);
-        assertThat(body.getDetail()).isEqualTo("Course not found");
+        assertThat(body.getDetail()).isEqualTo(CatalogErrorCode.COURSE_NOT_FOUND.defaultDetail());
         assertThat(body.getInstance().toString()).isEqualTo("/api/v1/course-prices");
         assertThat(body.getProperties()).containsEntry("code", "COURSE_NOT_FOUND")
                 .containsEntry("correlationId", "cid-1");

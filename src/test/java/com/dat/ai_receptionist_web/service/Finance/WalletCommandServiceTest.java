@@ -12,6 +12,7 @@ import com.dat.ai_receptionist_web.repository.Catalog.*;
 import com.dat.ai_receptionist_web.repository.Finance.*;
 import com.dat.ai_receptionist_web.repository.Security.UserRepository;
 import com.dat.ai_receptionist_web.repository.Training.StudentEnrollmentRepository;
+import com.dat.ai_receptionist_web.service.Core.PersonCodePolicy;
 import com.dat.ai_receptionist_web.error.ApiException;
 import com.dat.ai_receptionist_web.error.code.FinanceErrorCode;
 import jakarta.persistence.LockModeType;
@@ -46,7 +47,7 @@ class WalletCommandServiceTest {
         enrollments = mock(StudentEnrollmentRepository.class);
         users = mock(UserRepository.class);
         service = new WalletCommandService(wallets, transactions, purchases, prices, courses,
-                enrollments, users);
+                enrollments, users, new PersonCodePolicy());
     }
 
     @Test
@@ -54,7 +55,7 @@ class WalletCommandServiceTest {
         UUID personId = UUID.randomUUID();
         UUID actorId = UUID.randomUUID();
         UUID priceId = UUID.randomUUID();
-        Person person = Person.builder().personId(personId).build();
+        Person person = Person.builder().personId(personId).personCode("VQ_anv_010100").build();
         Wallet wallet = Wallet.builder().walletId(UUID.randomUUID()).person(person)
                 .balance(new BigDecimal("1000000")).status(WalletStatus.ACTIVE).build();
         ClassSchedule schedule = ClassSchedule.builder().scheduleId(UUID.randomUUID()).build();
@@ -117,7 +118,7 @@ class WalletCommandServiceTest {
                 .studentPerson(person).debitTransaction(original).build();
         StudentEnrollment enrollment = StudentEnrollment.builder().studentPerson(person)
                 .coursePurchase(purchase).endDate(java.time.LocalDate.now().plusMonths(2))
-                .status(com.dat.ai_receptionist_web.enums.Operation.StudentEnrollmentStatus.ACTIVE).build();
+                .status(com.dat.ai_receptionist_web.enums.Training.StudentEnrollmentStatus.ACTIVE).build();
         when(transactions.findWithWalletById(original.getWalletTransactionId())).thenReturn(Optional.of(original));
         when(wallets.findByIdForUpdate(wallet.getWalletId())).thenReturn(Optional.of(wallet));
         when(transactions.findByTypeAndExternalReference(WalletTransactionType.REFUND,
@@ -144,7 +145,7 @@ class WalletCommandServiceTest {
         assertThat(original.getType()).isEqualTo(WalletTransactionType.COURSE_PURCHASE);
         assertThat(original.getExternalReference()).isEqualTo("purchase-001");
         assertThat(enrollment.getStatus())
-                .isEqualTo(com.dat.ai_receptionist_web.enums.Operation.StudentEnrollmentStatus.CANCELLED);
+                .isEqualTo(com.dat.ai_receptionist_web.enums.Training.StudentEnrollmentStatus.CANCELLED);
         assertThat(enrollment.getEndDate()).isEqualTo(java.time.LocalDate.now());
     }
 

@@ -198,7 +198,7 @@ public class SystemUserSynchronizer implements ApplicationRunner {
                 .birthDate(LocalDate.of(1970, 1, 1))
                 .email(definition.email())
                 .personCode(definition.personCode())
-                .belt(Belt.C10)
+                .currentBelt(Belt.C10)
                 .status(PersonStatus.ACTIVE)
                 .startDate(LocalDate.now())
                 .build());

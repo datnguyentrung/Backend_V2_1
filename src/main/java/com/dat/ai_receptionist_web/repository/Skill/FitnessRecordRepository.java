@@ -38,7 +38,7 @@ public interface FitnessRecordRepository extends JpaRepository<FitnessRecord, Lo
                            student.personId AS studentPersonId,
                            student.fullName AS studentFullName,
                            student.personCode AS personCode,
-                           student.belt AS studentBelt
+                           student.currentBelt AS studentBelt
                     FROM FitnessRecord fr
                     JOIN fr.student student
                     WHERE (:search IS NULL OR :search = '' OR LOWER(student.fullName) LIKE LOWER(CONCAT('%', :search, '%')))

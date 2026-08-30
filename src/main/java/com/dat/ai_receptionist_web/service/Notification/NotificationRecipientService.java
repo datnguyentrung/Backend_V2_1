@@ -10,7 +10,7 @@ import com.dat.ai_receptionist_web.mapper.Notification.NotificationRecipientMapp
 import com.dat.ai_receptionist_web.repository.Notification.NotificationRecipientRepository;
 import com.dat.ai_receptionist_web.repository.Notification.NotificationRepository;
 import com.dat.ai_receptionist_web.repository.Security.UserRepository;
-import com.dat.ai_receptionist_web.enums.Operation.NotificationRecipientStatus;
+import com.dat.ai_receptionist_web.enums.Training.NotificationRecipientStatus;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;

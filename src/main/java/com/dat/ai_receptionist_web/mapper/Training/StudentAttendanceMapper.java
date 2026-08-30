@@ -11,13 +11,13 @@ import org.mapstruct.MappingTarget;
 public interface StudentAttendanceMapper {
     @Mapping(target = "classSessionId", source = "classSession.classSessionId")
     @Mapping(target = "studentEnrollmentId", source = "studentEnrollment.studentEnrollmentId")
-    @Mapping(target = "evaluatedByCoachId", source = "evaluatedByCoach.personId")
+    @Mapping(target = "coachAssignmentId", source = "coachAssignment.coachAssignmentId")
     StudentAttendanceDTO.Response toResponse(StudentAttendance entity);
 
     @BeanMapping(ignoreByDefault = true)
     @Mapping(target = "classSession", ignore = true)
     @Mapping(target = "studentEnrollment", ignore = true)
-    @Mapping(target = "evaluatedByCoach", ignore = true)
+    @Mapping(target = "coachAssignment", ignore = true)
     @Mapping(target = "checkInTime", source = "checkInTime")
     @Mapping(target = "attendanceStatus", source = "attendanceStatus")
     @Mapping(target = "evaluationStatus", source = "evaluationStatus")

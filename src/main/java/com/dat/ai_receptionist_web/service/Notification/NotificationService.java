@@ -3,7 +3,7 @@ import com.dat.ai_receptionist_web.domain.Notification.*;
 import com.dat.ai_receptionist_web.domain.Security.User;
 import com.dat.ai_receptionist_web.dto.Notification.NotificationDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.enums.Operation.NotificationRecipientStatus;
+import com.dat.ai_receptionist_web.enums.Training.NotificationRecipientStatus;
 import com.dat.ai_receptionist_web.error.ApiException;
 import com.dat.ai_receptionist_web.error.code.NotificationErrorCode;
 import com.dat.ai_receptionist_web.mapper.Notification.NotificationMapper;
@@ -14,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.*;
 import java.util.*;
 @Service
 @RequiredArgsConstructor
@@ -25,6 +24,7 @@ public class NotificationService {
     private final UserPersonRepository userPersonRepository;
     private final NotificationDeliveryService deliveryService;
     private final NotificationMapper notificationMapper;
+    private final TransactionAfterCommitExecutor afterCommitExecutor;
 
     /**
      * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
@@ -67,11 +67,8 @@ public class NotificationService {
         users.forEach(user -> recipientRepository.save(NotificationRecipient.builder()
                 .notification(notification).recipientUser(user).read(false)
                 .notificationRecipientStatus(NotificationRecipientStatus.PENDING).build()));
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override public void afterCommit() {
-                deliveryService.deliver(notification.getNotificationId());
-            }
-        });
+        afterCommitExecutor.afterCommit(() ->
+                deliveryService.deliver(notification.getNotificationId()));
         return new NotificationDTO.Response(notification.getNotificationId(), users.size());
     }
 

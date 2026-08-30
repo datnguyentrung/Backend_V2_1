@@ -4,10 +4,12 @@ import com.dat.ai_receptionist_web.domain.Catalog.ClassSchedule;
 import com.dat.ai_receptionist_web.dto.Catalog.ClassScheduleDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
 import com.dat.ai_receptionist_web.enums.Core.ScheduleStatus;
+import com.dat.ai_receptionist_web.enums.Catalog.CourseStatus;
 import com.dat.ai_receptionist_web.error.ApiException;
 import com.dat.ai_receptionist_web.error.code.CatalogErrorCode;
 import com.dat.ai_receptionist_web.error.code.CoreErrorCode;
 import com.dat.ai_receptionist_web.mapper.Catalog.ClassScheduleMapper;
+import com.dat.ai_receptionist_web.repository.Catalog.CourseRepository;
 import com.dat.ai_receptionist_web.repository.Catalog.ClassScheduleRepository;
 import com.dat.ai_receptionist_web.repository.Core.BranchRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class ClassScheduleService {
     private final ClassScheduleRepository classScheduleRepository;
     private final ClassScheduleMapper classScheduleMapper;
     private final BranchRepository branchRepository;
+    private final CourseRepository courseRepository;
 
     /**
      * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
@@ -71,6 +74,7 @@ public class ClassScheduleService {
     @Transactional
     public ClassScheduleDTO.Response update(UUID id, ClassScheduleDTO.UpdateRequest request) {
         ClassSchedule classSchedule = find(id);
+        requireNotReferenced(id);
         classSchedule.setBranch(branchRepository.findById(request.branchId())
                 .orElseThrow(() -> new ApiException(CoreErrorCode.BRANCH_NOT_FOUND)));
         classScheduleMapper.updateEntity(request, classSchedule);
@@ -85,6 +89,7 @@ public class ClassScheduleService {
     @Transactional
     public void delete(UUID id) {
         ClassSchedule classSchedule = find(id);
+        requireNotReferenced(id);
         classSchedule.setStatus(ScheduleStatus.INACTIVE);
     }
 
@@ -96,6 +101,16 @@ public class ClassScheduleService {
     private ClassSchedule find(UUID id) {
         return classScheduleRepository.findById(id)
                 .orElseThrow(() -> new ApiException(CatalogErrorCode.CLASS_SCHEDULE_NOT_FOUND));
+    }
+
+    private void requireNotReferenced(UUID scheduleId) {
+        long referenced = courseRepository.countByClassSchedule_ScheduleIdAndStatusNot(
+                        scheduleId, CourseStatus.CANCELLED)
+                + courseRepository.countByNextClassSchedule_ScheduleId(scheduleId);
+        if (referenced > 0) {
+            throw new ApiException(CatalogErrorCode.COURSE_SCHEDULE_CHANGE_CONFLICT,
+                    "Class schedule is used by a course; change it through the course schedule API");
+        }
     }
 }
 

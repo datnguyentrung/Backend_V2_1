@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.controller.Training;
 
 import com.dat.ai_receptionist_web.dto.Training.ClassSessionDTO;
 import com.dat.ai_receptionist_web.dto.PageResponse;
-import com.dat.ai_receptionist_web.service.Training.ClassSessionService;
+import com.dat.ai_receptionist_web.service.Training.session.ClassSessionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;

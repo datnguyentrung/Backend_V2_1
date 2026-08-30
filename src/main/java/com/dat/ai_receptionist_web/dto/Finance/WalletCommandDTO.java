@@ -42,6 +42,6 @@ public final class WalletCommandDTO {
             String externalReference,
             UUID coursePurchaseId,
             UUID studentEnrollmentId,
-            LocalDateTime approvedAt) {
+            LocalDateTime reviewedAt) {
     }
 }

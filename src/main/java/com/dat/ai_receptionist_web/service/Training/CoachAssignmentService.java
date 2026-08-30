@@ -11,7 +11,8 @@ import com.dat.ai_receptionist_web.mapper.Training.CoachAssignmentMapper;
 import com.dat.ai_receptionist_web.repository.Training.CoachAssignmentRepository;
 import com.dat.ai_receptionist_web.repository.Core.PersonRepository;
 import com.dat.ai_receptionist_web.repository.Catalog.CourseRepository;
-import com.dat.ai_receptionist_web.enums.Operation.CoachAssignmentStatus;
+import com.dat.ai_receptionist_web.service.Core.PersonCodePolicy;
+import com.dat.ai_receptionist_web.enums.Training.CoachAssignmentStatus;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -25,6 +26,7 @@ public class CoachAssignmentService {
     private final CoachAssignmentMapper mapper;
     private final PersonRepository personRepository;
     private final CourseRepository courseRepository;
+    private final PersonCodePolicy personCodePolicy;
 
     /**
      * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
@@ -54,7 +56,9 @@ public class CoachAssignmentService {
     @Transactional
     public CoachAssignmentDTO.Response create(CoachAssignmentDTO.CreateRequest request) {
         CoachAssignment entity = new CoachAssignment();
-        entity.setCoach(personRepository.findById(request.coachId()).orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND)));
+        var coach = personRepository.findById(request.coachId()).orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND));
+        personCodePolicy.requireSystemEmployee(coach);
+        entity.setCoach(coach);
         entity.setCourse(courseRepository.findById(request.courseId()).orElseThrow(() -> new ApiException(CatalogErrorCode.COURSE_NOT_FOUND)));
         entity.setAssignedDate(request.assignedDate());
         entity.setEndDate(request.endDate());
@@ -71,7 +75,9 @@ public class CoachAssignmentService {
     @Transactional
     public CoachAssignmentDTO.Response update(UUID id, CoachAssignmentDTO.UpdateRequest request) {
         var entity = find(id);
-        entity.setCoach(personRepository.findById(request.coachId()).orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND)));
+        var coach = personRepository.findById(request.coachId()).orElseThrow(() -> new ApiException(CoreErrorCode.PERSON_NOT_FOUND));
+        personCodePolicy.requireSystemEmployee(coach);
+        entity.setCoach(coach);
         entity.setCourse(courseRepository.findById(request.courseId()).orElseThrow(() -> new ApiException(CatalogErrorCode.COURSE_NOT_FOUND)));
         mapper.updateEntity(request, entity);
         return mapper.toResponse(repository.save(entity));

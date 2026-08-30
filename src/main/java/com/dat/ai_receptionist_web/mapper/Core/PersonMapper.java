@@ -20,7 +20,7 @@ public interface PersonMapper {
     @Mapping(target = "nationalCode", source = "nationalCode")
     @Mapping(target = "faceImagePath", source = "faceImagePath")
     @Mapping(target = "personCode", source = "personCode")
-    @Mapping(target = "belt", source = "belt")
+    @Mapping(target = "currentBelt", source = "currentBelt")
     @Mapping(target = "status", source = "status")
     @Mapping(target = "startDate", source = "startDate")
     void updateEntity(PersonDTO.UpdateRequest request, @MappingTarget Person entity);

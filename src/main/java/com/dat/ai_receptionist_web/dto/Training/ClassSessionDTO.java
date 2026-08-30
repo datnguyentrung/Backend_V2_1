@@ -1,7 +1,7 @@
 package com.dat.ai_receptionist_web.dto.Training;
 
 import jakarta.validation.constraints.*;
-import com.dat.ai_receptionist_web.enums.Operation.SessionStatus;
+import com.dat.ai_receptionist_web.enums.Training.SessionStatus;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.UUID;

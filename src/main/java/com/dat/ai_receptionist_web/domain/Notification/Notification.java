@@ -1,6 +1,6 @@
 package com.dat.ai_receptionist_web.domain.Notification;
 
-import com.dat.ai_receptionist_web.enums.Operation.NotificationType;
+import com.dat.ai_receptionist_web.enums.Training.NotificationType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;

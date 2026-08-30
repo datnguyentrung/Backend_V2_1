@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.dto.Notification;
 
 import jakarta.validation.constraints.*;
 import java.time.LocalDateTime;
-import com.dat.ai_receptionist_web.enums.Operation.NotificationType;
+import com.dat.ai_receptionist_web.enums.Training.NotificationType;
 import java.util.Set;
 import java.util.UUID;
 

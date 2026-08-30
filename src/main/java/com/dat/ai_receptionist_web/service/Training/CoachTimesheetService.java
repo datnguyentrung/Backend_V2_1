@@ -9,6 +9,7 @@ import com.dat.ai_receptionist_web.mapper.Training.CoachTimesheetMapper;
 import com.dat.ai_receptionist_web.repository.Training.CoachTimesheetRepository;
 import com.dat.ai_receptionist_web.repository.Training.CoachAssignmentRepository;
 import com.dat.ai_receptionist_web.repository.Training.ClassSessionRepository;
+import com.dat.ai_receptionist_web.service.Core.PersonCodePolicy;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
@@ -22,6 +23,7 @@ public class CoachTimesheetService {
     private final CoachTimesheetMapper mapper;
     private final CoachAssignmentRepository coachAssignmentRepository;
     private final ClassSessionRepository classSessionRepository;
+    private final PersonCodePolicy personCodePolicy;
 
     /**
      * Tác dụng: Lấy danh sách bản ghi theo điều kiện phân trang.
@@ -51,7 +53,9 @@ public class CoachTimesheetService {
     @Transactional
     public CoachTimesheetDTO.Response create(CoachTimesheetDTO.CreateRequest request) {
         CoachTimesheet entity = new CoachTimesheet();
-        entity.setCoachAssignment(coachAssignmentRepository.findById(request.coachAssignmentId()).orElseThrow(() -> new ApiException(TrainingErrorCode.COACH_ASSIGNMENT_NOT_FOUND)));
+        var coachAssignment = coachAssignmentRepository.findById(request.coachAssignmentId()).orElseThrow(() -> new ApiException(TrainingErrorCode.COACH_ASSIGNMENT_NOT_FOUND));
+        personCodePolicy.requireSystemEmployee(coachAssignment.getCoach());
+        entity.setCoachAssignment(coachAssignment);
         entity.setClassSession(classSessionRepository.findById(request.classSessionId()).orElseThrow(() -> new ApiException(TrainingErrorCode.CLASS_SESSION_NOT_FOUND)));
         entity.setCheckInTime(request.checkInTime());
         entity.setCheckOutTime(request.checkOutTime());
@@ -67,7 +71,9 @@ public class CoachTimesheetService {
     @Transactional
     public CoachTimesheetDTO.Response update(UUID id, CoachTimesheetDTO.UpdateRequest request) {
         var entity = find(id);
-        entity.setCoachAssignment(coachAssignmentRepository.findById(request.coachAssignmentId()).orElseThrow(() -> new ApiException(TrainingErrorCode.COACH_ASSIGNMENT_NOT_FOUND)));
+        var coachAssignment = coachAssignmentRepository.findById(request.coachAssignmentId()).orElseThrow(() -> new ApiException(TrainingErrorCode.COACH_ASSIGNMENT_NOT_FOUND));
+        personCodePolicy.requireSystemEmployee(coachAssignment.getCoach());
+        entity.setCoachAssignment(coachAssignment);
         entity.setClassSession(classSessionRepository.findById(request.classSessionId()).orElseThrow(() -> new ApiException(TrainingErrorCode.CLASS_SESSION_NOT_FOUND)));
         mapper.updateEntity(request, entity);
         return mapper.toResponse(repository.save(entity));

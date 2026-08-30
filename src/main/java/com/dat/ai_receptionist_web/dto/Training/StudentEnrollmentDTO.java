@@ -2,7 +2,7 @@ package com.dat.ai_receptionist_web.dto.Training;
 
 import jakarta.validation.constraints.*;
 import java.time.LocalDateTime;
-import com.dat.ai_receptionist_web.enums.Operation.StudentEnrollmentStatus;
+import com.dat.ai_receptionist_web.enums.Training.StudentEnrollmentStatus;
 import java.time.LocalDate;
 import java.util.UUID;
 

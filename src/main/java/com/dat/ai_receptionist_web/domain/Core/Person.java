@@ -45,6 +45,10 @@ public class Person {
     @Column(name = "birth_date")
     private LocalDate birthDate;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "current_belt", length = 20)
+    private Belt currentBelt;
+
     @Column(name = "email", length = 100)
     @Email
     private String email;
@@ -68,12 +72,8 @@ public class Person {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    @Column(name = "person_code", length = 50)
+    @Column(name = "person_code", nullable = false, length = 50)
     private String personCode;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "belt", nullable = false, length = 20)
-    private Belt belt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)

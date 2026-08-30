@@ -1,8 +1,7 @@
 package com.dat.ai_receptionist_web.domain.Training;
 
-import com.dat.ai_receptionist_web.domain.Core.Person;
-import com.dat.ai_receptionist_web.enums.Operation.AttendanceStatus;
-import com.dat.ai_receptionist_web.enums.Operation.EvaluationStatus;
+import com.dat.ai_receptionist_web.enums.Training.AttendanceStatus;
+import com.dat.ai_receptionist_web.enums.Training.EvaluationStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
@@ -49,8 +48,8 @@ public class StudentAttendance {
     private EvaluationStatus evaluationStatus;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "evaluated_by_coach_id")
-    private Person evaluatedByCoach;
+    @JoinColumn(name = "coach_assignment_id")
+    private CoachAssignment coachAssignment;
 
     @Column(name = "note", length = 500)
     private String note;

@@ -27,6 +27,7 @@ public class PersonService {
     private final PersonRepository personRepository;
     private final WalletRepository walletRepository;
     private final PersonMapper personMapper;
+    private final PersonCodePolicy personCodePolicy;
 
     /**
      * Tác dụng: Tạo mới bản ghi và trả về dữ liệu sau khi tạo.
@@ -50,7 +51,7 @@ public class PersonService {
                 .email(request.email())
                 .nationalCode(request.nationalCode())
                 .personCode(AccountUtil.getUserCode(request.fullName(), request.birthDate(), "VQ"))
-                .belt(request.belt())
+                .currentBelt(request.currentBelt())
                 .status(request.status())
                 .startDate(request.startDate())
                 .build());
@@ -105,6 +106,9 @@ public class PersonService {
     @Transactional
     public PersonDTO.Response update(UUID id, PersonDTO.UpdateRequest request) {
         Person person = find(id);
+        if (request.personCode() != null && !request.personCode().isBlank()) {
+            personCodePolicy.validateFormat(request.personCode());
+        }
         personMapper.updateEntity(request, person);
         return personMapper.toResponse(personRepository.save(person));
     }
@@ -138,7 +142,7 @@ public class PersonService {
     private PersonDTO.Response toResponse(Person value) {
         return new PersonDTO.Response(value.getPersonId(), value.getFullName(), value.getGender(),
                 value.getBirthDate(), value.getEmail(), value.getNationalCode(), value.getPersonCode(),
-                value.getBelt(), value.getStatus(), value.getStartDate(), value.getFaceImagePath(),
+                value.getCurrentBelt(), value.getStatus(), value.getStartDate(), value.getFaceImagePath(),
                 value.getCreatedAt(), value.getUpdatedAt());
     }
 }

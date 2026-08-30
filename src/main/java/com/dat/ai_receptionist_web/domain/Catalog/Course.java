@@ -8,6 +8,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -30,6 +31,13 @@ public class Course {
     @JoinColumn(name = "schedule_id", nullable = false)
     private ClassSchedule classSchedule;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "next_schedule_id")
+    private ClassSchedule nextClassSchedule;
+
+    @Column(name = "next_schedule_effective_from")
+    private LocalDate nextScheduleEffectiveFrom;
+
     @Column(name = "name", nullable = false, length = 255)
     private String name;
 
@@ -39,6 +47,9 @@ public class Course {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private CourseStatus status;
+
+    @Column(name = "class_session_generated_until")
+    private LocalDate classSessionGeneratedUntil;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

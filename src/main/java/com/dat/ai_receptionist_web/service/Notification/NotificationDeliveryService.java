@@ -1,6 +1,6 @@
 package com.dat.ai_receptionist_web.service.Notification;
 import com.dat.ai_receptionist_web.domain.Notification.NotificationRecipient;
-import com.dat.ai_receptionist_web.enums.Operation.NotificationRecipientStatus;
+import com.dat.ai_receptionist_web.enums.Training.NotificationRecipientStatus;
 import com.dat.ai_receptionist_web.repository.Notification.NotificationRecipientRepository;
 import com.dat.ai_receptionist_web.service.Security.AuthSessionService;
 import lombok.RequiredArgsConstructor;

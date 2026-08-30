@@ -3,7 +3,7 @@ package com.dat.ai_receptionist_web.schema;
 import com.dat.ai_receptionist_web.enums.Catalog.*;
 import com.dat.ai_receptionist_web.enums.Core.*;
 import com.dat.ai_receptionist_web.enums.Finance.*;
-import com.dat.ai_receptionist_web.enums.Operation.*;
+import com.dat.ai_receptionist_web.enums.Training.*;
 import com.dat.ai_receptionist_web.enums.Security.*;
 import org.junit.jupiter.api.Test;
 

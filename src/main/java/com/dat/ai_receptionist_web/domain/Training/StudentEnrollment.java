@@ -3,7 +3,7 @@ package com.dat.ai_receptionist_web.domain.Training;
 import com.dat.ai_receptionist_web.domain.Catalog.ClassSchedule;
 import com.dat.ai_receptionist_web.domain.Core.Person;
 import com.dat.ai_receptionist_web.domain.Finance.CoursePurchase;
-import com.dat.ai_receptionist_web.enums.Operation.StudentEnrollmentStatus;
+import com.dat.ai_receptionist_web.enums.Training.StudentEnrollmentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
